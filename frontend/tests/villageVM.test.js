@@ -28,8 +28,11 @@ const sampleVillages = [
 
 function createApiStub() {
   let moved = false;
+  const calls = [];
   return {
+    calls,
     async get(path) {
+      calls.push({ method: "get", path });
       if (path.startsWith("/plants")) {
         return { data: moved ? [samplePlants[0]] : samplePlants };
       }
@@ -39,6 +42,7 @@ function createApiStub() {
       throw new Error(`Unexpected GET ${path}`);
     },
     async post(path, payload) {
+      calls.push({ method: "post", path, payload });
       if (path.endsWith(":move")) {
         moved = true;
         return { data: { success: true, payload } };
@@ -87,6 +91,8 @@ test("movePlant removes plant after success", async () => {
   await vm.movePlant(2, 2);
   assert.equal(state.plants.length, 1);
   assert.equal(state.plants[0].id, 1);
+  const moveCall = api.calls.find((call) => call.method === "post" && call.path === "/plants/2:move");
+  assert.ok(moveCall);
 });
 
 test("logWater triggers API call and clears pending", async () => {
@@ -96,4 +102,23 @@ test("logWater triggers API call and clears pending", async () => {
   await vm.logWater(1);
   const snapshot = vm.snapshot();
   assert.equal(snapshot.pending.watering.length, 0);
+  const logCall = api.calls.find((call) => call.method === "post" && call.path === "/plants/1/logs");
+  assert.ok(logCall);
+});
+
+test("addPhoto posts multipart payload and resets pending", async () => {
+  const api = createApiStub();
+  const vm = new VillageVM({ apiClient: api, villageId: 1 });
+  await vm.load();
+  const file =
+    typeof File === "function"
+      ? new File(["test"], "leaf.png", { type: "image/png" })
+      : new Blob(["test"], { type: "image/png" });
+  await vm.addPhoto(1, file);
+  const snapshot = vm.snapshot();
+  assert.equal(snapshot.pending.photos.length, 0);
+  const photoCall = api.calls.find((call) => call.method === "post" && call.path === "/plants/1/photos");
+  assert.ok(photoCall);
+  assert.ok(photoCall.payload instanceof FormData);
+  assert.equal(photoCall.payload.has("file"), true);
 });
