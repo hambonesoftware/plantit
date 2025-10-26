@@ -1,0 +1,25 @@
+{
+  "status": "success",
+  "changes": [
+    { "path": "backend/api/tasks.py", "action": "created" },
+    { "path": "backend/models/task.py", "action": "modified" },
+    { "path": "backend/repositories/tasks.py", "action": "created" },
+    { "path": "backend/services/cadence.py", "action": "created" },
+    { "path": "backend/services/tasks.py", "action": "created" },
+    { "path": "backend/tests/test_tasks.py", "action": "created" },
+    { "path": "frontend/js/viewmodels/TasksVM.js", "action": "created" },
+    { "path": "frontend/js/views/tasks-view.js", "action": "created" },
+    { "path": "frontend/js/viewmodels/HomeVM.js", "action": "modified" },
+    { "path": "frontend/js/viewmodels/VillageVM.js", "action": "modified" },
+    { "path": "frontend/js/views/village-view.js", "action": "modified" },
+    { "path": "frontend/tests/tasksVM.test.js", "action": "created" },
+    { "path": "frontend/styles/base.css", "action": "modified" }
+  ],
+  "api_endpoints": [
+    "GET /api/v1/tasks",
+    "PATCH /api/v1/tasks/{id}",
+    "POST /api/v1/tasks/batch"
+  ],
+  "ui_routes": ["#/tasks"],
+  "notes": "Delivered dedicated tasks workspace with batch actions and deterministic cadence scheduling with backend services and tests."
+}

@@ -1,4 +1,4 @@
-import { emit } from "../state.js";
+import { emit, subscribe } from "../state.js";
 
 function clone(value) {
   if (typeof structuredClone === "function") {
@@ -63,6 +63,15 @@ export class VillageVM {
       photos: new Set(),
       move: new Set(),
     };
+    this.queueReloadHandle = null;
+    this.queueRelease = subscribe("requestQueue:success", (entry) => {
+      if (!entry || typeof entry.path !== "string") {
+        return;
+      }
+      if (entry.path.includes("/plants") || entry.path.includes("/photos") || entry.path.includes("/logs")) {
+        this.scheduleReload();
+      }
+    });
   }
 
   subscribe(listener) {
@@ -96,6 +105,27 @@ export class VillageVM {
   notify() {
     const snapshot = this.snapshot();
     this.listeners.forEach((listener) => listener(clone(snapshot)));
+  }
+
+  scheduleReload() {
+    if (this.queueReloadHandle) {
+      return;
+    }
+    this.queueReloadHandle = setTimeout(() => {
+      this.queueReloadHandle = null;
+      this.load({ silent: true }).catch((error) => console.error("Failed to refresh village after sync", error));
+    }, 300);
+  }
+
+  destroy() {
+    if (this.queueRelease) {
+      this.queueRelease();
+      this.queueRelease = null;
+    }
+    if (this.queueReloadHandle) {
+      clearTimeout(this.queueReloadHandle);
+      this.queueReloadHandle = null;
+    }
   }
 
   async load({ silent = false } = {}) {
@@ -184,15 +214,25 @@ export class VillageVM {
       return;
     }
     this.pending.watering.add(plantId);
+    const previousLastWatered = plant.last_watered_at;
     plant.last_watered_at = new Date().toISOString();
     this.notify();
     try {
-      await this.apiClient.post(`/plants/${plantId}/logs`, {
-        action: "watered",
-      });
-      emit("toast", { type: "success", message: `Logged watering for ${plant.name}` });
-      await this.load({ silent: true });
+      const response = await this.apiClient.post(
+        `/plants/${plantId}/logs`,
+        {
+          action: "watered",
+        },
+        { metadata: { action: "village:water", plantId: Number(plantId) } },
+      );
+      if (response?.queued) {
+        emit("toast", { type: "info", message: `Watering for ${plant.name} queued.` });
+      } else {
+        emit("toast", { type: "success", message: `Logged watering for ${plant.name}` });
+        await this.load({ silent: true });
+      }
     } catch (error) {
+      plant.last_watered_at = previousLastWatered;
       emit("toast", { type: "error", message: "Unable to log watering." });
       throw error;
     } finally {
@@ -211,9 +251,15 @@ export class VillageVM {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      await this.apiClient.post(`/plants/${plantId}/photos`, formData);
-      emit("toast", { type: "success", message: "Photo uploaded." });
-      await this.load({ silent: true });
+      const response = await this.apiClient.post(`/plants/${plantId}/photos`, formData, {
+        metadata: { action: "village:photo:add", plantId: Number(plantId) },
+      });
+      if (response?.queued) {
+        emit("toast", { type: "info", message: "Photo upload queued." });
+      } else {
+        emit("toast", { type: "success", message: "Photo uploaded." });
+        await this.load({ silent: true });
+      }
     } catch (error) {
       emit("toast", { type: "error", message: "Unable to upload photo." });
       throw error;
@@ -234,11 +280,19 @@ export class VillageVM {
     this.applyFilters();
     this.notify();
     try {
-      await this.apiClient.post(`/plants/${plantId}:move`, {
-        destination_village_id: Number(destinationVillageId),
-      });
-      emit("toast", { type: "success", message: `Moved ${plant.name}` });
-      await this.load({ silent: true });
+      const response = await this.apiClient.post(
+        `/plants/${plantId}:move`,
+        {
+          destination_village_id: Number(destinationVillageId),
+        },
+        { metadata: { action: "village:move", plantId: Number(plantId), destination: Number(destinationVillageId) } },
+      );
+      if (response?.queued) {
+        emit("toast", { type: "info", message: `${plant.name} move queued.` });
+      } else {
+        emit("toast", { type: "success", message: `Moved ${plant.name}` });
+        await this.load({ silent: true });
+      }
     } catch (error) {
       this.state.plants = originalPlants;
       this.applyFilters();

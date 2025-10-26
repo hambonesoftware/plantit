@@ -1,0 +1,21 @@
+{
+  "status": "success",
+  "changes": [
+    { "path": "frontend/js/services/requestQueue.js", "action": "modified" },
+    { "path": "frontend/js/services/apiClient.js", "action": "modified" },
+    { "path": "frontend/js/main.js", "action": "modified" },
+    { "path": "frontend/js/pwa/sw.js", "action": "created" },
+    { "path": "frontend/js/viewmodels/PlantVM.js", "action": "modified" },
+    { "path": "frontend/js/viewmodels/TasksVM.js", "action": "modified" },
+    { "path": "frontend/js/viewmodels/HomeVM.js", "action": "modified" },
+    { "path": "frontend/js/viewmodels/VillageVM.js", "action": "modified" },
+    { "path": "frontend/js/views/plant-view.js", "action": "modified" },
+    { "path": "frontend/js/views/tasks-view.js", "action": "modified" },
+    { "path": "frontend/js/views/village-view.js", "action": "modified" },
+    { "path": "frontend/tests/requestQueue.test.js", "action": "created" },
+    { "path": "README.md", "action": "modified" }
+  ],
+  "api_endpoints": [],
+  "ui_routes": ["#/", "#/tasks", "#/p/:id"],
+  "notes": "Added IndexedDB-backed request queue, service worker caching, offline-aware view models, and queue unit tests." 
+}

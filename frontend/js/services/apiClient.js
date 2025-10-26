@@ -15,11 +15,31 @@ function isJsonResponse(response) {
   return contentType.includes("application/json");
 }
 
+function normalizeHeaders(headers) {
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  return { ...headers };
+}
+
+function isMutation(method) {
+  const normalized = method.toUpperCase();
+  return ["POST", "PUT", "PATCH", "DELETE"].includes(normalized);
+}
+
+function resolveOptimisticData(optimistic) {
+  if (typeof optimistic === "function") {
+    return optimistic();
+  }
+  return optimistic ?? null;
+}
+
 export class APIClient {
-  constructor({ baseUrl = "/api/v1", fetchImpl = fetch, cache = new Map() } = {}) {
+  constructor({ baseUrl = "/api/v1", fetchImpl = fetch, cache = new Map(), requestQueue = null } = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.fetchImpl = fetchImpl;
     this.cache = cache;
+    this.requestQueue = requestQueue;
   }
 
   buildUrl(path) {
@@ -27,7 +47,51 @@ export class APIClient {
     return `${this.baseUrl}${cleanPath}`;
   }
 
-  async request(path, { method = "GET", data, headers = {}, signal, useETag = true } = {}) {
+  supportsQueue(method, queueEnabled) {
+    if (!queueEnabled) {
+      return false;
+    }
+    if (!this.requestQueue) {
+      return false;
+    }
+    return isMutation(method);
+  }
+
+  isOffline() {
+    if (typeof navigator === "undefined") {
+      return false;
+    }
+    return navigator.onLine === false;
+  }
+
+  async queueRequest({ url, method, headers, body, optimisticData, metadata }) {
+    if (!this.requestQueue) {
+      throw new ApiError({
+        status: 0,
+        message: "Request queue unavailable",
+        details: { method, url },
+      });
+    }
+    await this.requestQueue.enqueue({
+      method,
+      path: url,
+      headers: normalizeHeaders(headers),
+      body,
+      metadata,
+    });
+    return {
+      data: resolveOptimisticData(optimisticData),
+      status: 202,
+      headers: {},
+      fromCache: false,
+      queued: true,
+    };
+  }
+
+  async request(
+    path,
+    { method = "GET", data, headers = {}, signal, useETag = true, optimisticData, queue = true, metadata } = {},
+  ) {
     const url = this.buildUrl(path);
     const normalizedMethod = method.toUpperCase();
     const requestHeaders = new Headers({
@@ -51,6 +115,18 @@ export class APIClient {
       requestHeaders.set("If-None-Match", etagEntry.etag);
     }
 
+    const queueEnabled = this.supportsQueue(normalizedMethod, queue);
+    if (queueEnabled && this.isOffline()) {
+      return this.queueRequest({
+        url,
+        method: normalizedMethod,
+        headers: requestHeaders,
+        body,
+        optimisticData,
+        metadata,
+      });
+    }
+
     let response;
     try {
       response = await this.fetchImpl(url, {
@@ -60,6 +136,16 @@ export class APIClient {
         signal,
       });
     } catch (cause) {
+      if (queueEnabled) {
+        return this.queueRequest({
+          url,
+          method: normalizedMethod,
+          headers: requestHeaders,
+          body,
+          optimisticData,
+          metadata,
+        });
+      }
       throw new ApiError({
         status: 0,
         message: "Network request failed",
@@ -92,6 +178,16 @@ export class APIClient {
     }
 
     if (!response.ok) {
+      if (queueEnabled && response.status >= 500) {
+        return this.queueRequest({
+          url,
+          method: normalizedMethod,
+          headers: requestHeaders,
+          body,
+          optimisticData,
+          metadata,
+        });
+      }
       const normalized = normalizeError(response.status, payload);
       emit("toast", {
         type: "error",
@@ -120,6 +216,7 @@ export class APIClient {
       status: response.status,
       headers: Object.fromEntries(response.headers.entries()),
       fromCache: false,
+      queued: false,
     };
   }
 
@@ -133,6 +230,10 @@ export class APIClient {
 
   patch(path, data, options = {}) {
     return this.request(path, { ...options, data, method: "PATCH" });
+  }
+
+  put(path, data, options = {}) {
+    return this.request(path, { ...options, data, method: "PUT" });
   }
 
   delete(path, options = {}) {

@@ -41,6 +41,9 @@ class Plant(SQLModel, table=True):
     tags: list[str] = Field(
         default_factory=list, sa_column=Column(JSON, nullable=False)
     )
+    care_profile: dict = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=False)
+    )
     notes: str | None = Field(default=None, max_length=1000)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)

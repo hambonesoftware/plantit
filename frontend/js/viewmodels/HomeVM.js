@@ -109,13 +109,21 @@ export class HomeVM {
     this.recalculateMetrics();
     this.notify();
     try {
-      const { data } = await this.apiClient.post("/plants", {
-        name: displayName,
-        village_id: villageId,
-      });
-      emit("toast", { type: "success", message: `Added ${data?.name ?? displayName}` });
-      await this.loadDashboard();
-      return data;
+      const response = await this.apiClient.post(
+        "/plants",
+        {
+          name: displayName,
+          village_id: villageId,
+        },
+        { metadata: { action: "plant:create", villageId } },
+      );
+      if (response.queued) {
+        emit("toast", { type: "info", message: `Added ${displayName} (sync pending).` });
+      } else {
+        emit("toast", { type: "success", message: `Added ${response.data?.name ?? displayName}` });
+        await this.loadDashboard();
+      }
+      return response.data;
     } catch (error) {
       village.plant_count = Math.max(0, village.plant_count - 1);
       this.recalculateMetrics();
@@ -147,9 +155,15 @@ export class HomeVM {
     this.recalculateMetrics();
     this.notify();
     try {
-      await this.apiClient.patch(`/tasks/${taskId}`, { state: "completed" });
-      emit("toast", { type: "success", message: `Completed ${task.title}` });
-      await this.loadDashboard();
+      const response = await this.apiClient.patch(`/tasks/${taskId}`, { state: "completed" }, {
+        metadata: { action: "task:complete", taskId, location: "home" },
+      });
+      if (response?.queued) {
+        emit("toast", { type: "info", message: `${task.title} completion queued.` });
+      } else {
+        emit("toast", { type: "success", message: `Completed ${task.title}` });
+        await this.loadDashboard();
+      }
     } catch (error) {
       this.state.today = previousToday;
       if (villageBeforeUpdate) {

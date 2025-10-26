@@ -86,6 +86,9 @@ export function createVillageView({ vm, shell, resetSidebar }) {
       unsubscribe?.();
       cleanup.forEach((fn) => fn());
       resetSidebar?.();
+      if (typeof vm.destroy === "function") {
+        vm.destroy();
+      }
     },
   };
 }

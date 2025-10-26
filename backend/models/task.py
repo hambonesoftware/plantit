@@ -21,6 +21,17 @@ class TaskState(str, Enum):
     skipped = "skipped"
 
 
+class TaskCategory(str, Enum):
+    """Type of maintenance task."""
+
+    custom = "custom"
+    watering = "watering"
+    feeding = "feeding"
+    pruning = "pruning"
+    misting = "misting"
+    inspection = "inspection"
+
+
 class Task(SQLModel, table=True):
     """An actionable item associated with a plant."""
 
@@ -32,6 +43,7 @@ class Task(SQLModel, table=True):
     description: str | None = Field(default=None, max_length=1000)
     due_date: date | None = Field(default=None, index=True)
     state: TaskState = Field(default=TaskState.pending, index=True)
+    category: TaskCategory = Field(default=TaskCategory.custom, index=True)
     completed_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
