@@ -854,6 +854,15 @@ textarea:focus-visible {
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+.village-card[role="link"] {
+  cursor: pointer;
+}
+
+.village-card[role="link"]:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
 .village-card:hover,
 .village-card:focus-within {
   transform: translateY(-4px);

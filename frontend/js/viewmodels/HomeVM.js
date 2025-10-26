@@ -1,3 +1,4 @@
+import { ApiError } from "../services/apiClient.js";
 import { emit } from "../state.js";
 
 function clone(value) {
@@ -183,7 +184,10 @@ export class HomeVM {
 
       return response.data;
     } catch (error) {
-      emit("toast", { type: "error", message: "Unable to create village." });
+      const message = error instanceof ApiError && typeof error.message === "string" && error.message.length > 0
+        ? error.message
+        : "Unable to create village.";
+      emit("toast", { type: "error", message });
       throw error;
     } finally {
       this.pendingVillageCreation = false;
