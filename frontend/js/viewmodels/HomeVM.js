@@ -158,6 +158,8 @@ export class HomeVM {
     });
 
     this.pendingVillageCreation = true;
+    this.state.villages = [...this.state.villages, optimisticVillage];
+    this.recalculateMetrics();
     this.notify();
 
     try {
@@ -178,17 +180,37 @@ export class HomeVM {
           type: "info",
           message: `Creating ${trimmedName} when connectivity is restored.`,
         });
-        this.state.villages = [...this.state.villages, optimisticVillage];
-        this.recalculateMetrics();
-        this.notify();
       } else {
         const createdName = response.data?.name ?? trimmedName;
+        const createdDescription =
+          typeof response.data?.description === "string"
+            ? response.data.description
+            : normalizedDescription;
+        const index = this.state.villages.findIndex((village) => village.id === optimisticVillage.id);
+        if (index !== -1) {
+          this.state.villages[index] = {
+            ...this.state.villages[index],
+            id: response.data?.id ?? this.state.villages[index].id,
+            name: createdName,
+            description: createdDescription,
+            optimistic: false,
+          };
+          this.recalculateMetrics();
+          this.notify();
+        }
         emit("toast", { type: "success", message: `Created ${createdName}` });
-        await this.loadDashboard();
+        try {
+          await this.loadDashboard();
+        } catch (refreshError) {
+          console.error("Village created but failed to refresh dashboard", refreshError);
+        }
       }
 
       return response.data ?? optimisticVillage;
     } catch (error) {
+      this.state.villages = this.state.villages.filter((village) => village.id !== optimisticVillage.id);
+      this.recalculateMetrics();
+      this.notify();
       const message = error instanceof ApiError && typeof error.message === "string" && error.message.length > 0
         ? error.message
         : "Unable to create village.";

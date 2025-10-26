@@ -155,6 +155,37 @@ test("createVillage does not reload when request is queued", async () => {
   assert.equal(snapshot.metrics.totalVillages, 3);
 });
 
+test("createVillage keeps new village when refresh fails", async () => {
+  let initialLoads = 0;
+  const vm = new HomeVM({
+    apiClient: {
+      async get() {
+        initialLoads += 1;
+        return { data: cloneDashboard() };
+      },
+      async post() {
+        return { data: { id: 3, name: "Seedling", description: "Window" }, queued: false };
+      },
+    },
+  });
+
+  await vm.loadDashboard();
+
+  vm.apiClient.get = async () => {
+    throw new Error("Refresh failed");
+  };
+
+  await vm.createVillage({ name: "Seedling", description: "Window" });
+
+  const snapshot = vm.snapshot();
+  const created = snapshot.villages.find((village) => village.id === 3);
+  assert.ok(created, "Created village should remain in state");
+  assert.equal(created.optimistic, false);
+  assert.equal(snapshot.metrics.totalVillages, 3);
+  assert.ok(snapshot.error);
+  assert.equal(initialLoads, 1);
+});
+
 test("completeTask removes task and updates metrics", async () => {
   let call = 0;
   const vm = new HomeVM({
