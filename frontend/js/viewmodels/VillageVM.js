@@ -179,6 +179,7 @@ export class VillageVM {
       return matchesTag && matchesDue;
     });
     this.state.filteredPlants = filtered;
+    this.state.metrics.total = this.state.plants.length;
     this.state.metrics.shown = filtered.length;
   }
 
