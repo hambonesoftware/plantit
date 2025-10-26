@@ -19,7 +19,6 @@ class Village(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(index=True, max_length=120)
     description: str | None = Field(default=None, max_length=500)
-    timezone: str = Field(default="UTC", max_length=64)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 

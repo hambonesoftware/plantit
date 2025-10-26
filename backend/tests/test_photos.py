@@ -15,7 +15,7 @@ from backend.models import Photo, Plant, Village
 
 @pytest.fixture()
 def village(session: Session) -> Village:
-    village = Village(name="Test Village", description="", timezone="UTC")
+    village = Village(name="Test Village", description="")
     session.add(village)
     session.commit()
     session.refresh(village)

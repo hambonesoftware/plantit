@@ -138,7 +138,7 @@ export class HomeVM {
     }
   }
 
-  async createVillage({ name, description, timezone } = {}) {
+  async createVillage({ name, description } = {}) {
     const trimmedName = typeof name === "string" ? name.trim() : "";
     if (!trimmedName) {
       const message = "Village name is required.";
@@ -150,10 +150,6 @@ export class HomeVM {
       typeof description === "string" && description.trim().length > 0
         ? description.trim()
         : null;
-    const normalizedTimezone =
-      typeof timezone === "string" && timezone.trim().length > 0
-        ? timezone.trim()
-        : "UTC";
 
     this.pendingVillageCreation = true;
     this.notify();
@@ -164,7 +160,6 @@ export class HomeVM {
         {
           name: trimmedName,
           description: normalizedDescription,
-          timezone: normalizedTimezone,
         },
         {
           metadata: { action: "village:create" },

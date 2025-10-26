@@ -16,7 +16,6 @@ def create_village(session: Session, payload: VillageCreate) -> VillageRead:
         session,
         name=payload.name,
         description=payload.description,
-        timezone=payload.timezone,
     )
     return VillageRead.model_validate(village.model_dump(exclude={"plants"}))
 

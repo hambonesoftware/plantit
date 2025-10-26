@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -13,7 +12,6 @@ class VillageBase(BaseModel):
 
     name: str = Field(min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=500)
-    timezone: str = Field(default="UTC", max_length=64)
 
     @field_validator("description")
     @classmethod
@@ -24,51 +22,6 @@ class VillageBase(BaseModel):
             return None
         stripped = value.strip()
         return stripped or None
-
-    @field_validator("timezone")
-    @classmethod
-    def validate_timezone(cls, value: str) -> str:
-        """Ensure the timezone is a valid IANA identifier."""
-
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("Timezone is required.")
-
-        normalized = normalized.replace(" ", "_")
-
-        def candidate_title_case(candidate: str) -> str:
-            if "/" not in candidate:
-                return candidate
-            parts: list[str] = []
-            for part in candidate.split("/"):
-                if part.isupper():
-                    parts.append(part)
-                    continue
-                with_spaces = part.replace("_", " ")
-                titled = " ".join(word.capitalize() for word in with_spaces.split())
-                parts.append(titled.replace(" ", "_"))
-            return "/".join(parts)
-
-        candidates = []
-
-        def add_candidate(candidate: str) -> None:
-            if candidate not in candidates:
-                candidates.append(candidate)
-
-        add_candidate(normalized)
-        add_candidate(normalized.upper())
-        add_candidate(candidate_title_case(normalized))
-
-        for candidate in candidates:
-            try:
-                zone = ZoneInfo(candidate)
-            except ZoneInfoNotFoundError:  # pragma: no cover - specific exception type
-                continue
-            except Exception as exc:  # pragma: no cover - fallback for platforms without tz data
-                raise ValueError("Invalid timezone.") from exc
-            return getattr(zone, "key", candidate)
-
-        raise ValueError("Invalid timezone. Examples: America/New_York, Europe/Paris.")
 
 
 class VillageCreate(VillageBase):
@@ -82,7 +35,6 @@ class VillageUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=500)
-    timezone: str | None = Field(default=None, max_length=64)
 
     @field_validator("description")
     @classmethod
@@ -91,23 +43,6 @@ class VillageUpdate(BaseModel):
             return None
         stripped = value.strip()
         return stripped or None
-
-    @field_validator("timezone")
-    @classmethod
-    def validate_timezone(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("Timezone is required.")
-        try:
-            ZoneInfo(normalized)
-        except ZoneInfoNotFoundError as exc:  # pragma: no cover
-            raise ValueError("Invalid timezone.") from exc
-        except Exception as exc:  # pragma: no cover
-            raise ValueError("Invalid timezone.") from exc
-        return normalized
-
 
 class VillageRead(VillageBase):
     """Serialized representation of a village."""

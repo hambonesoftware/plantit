@@ -32,7 +32,6 @@ class VillageRecord(BaseModel):
     id: int
     name: str
     description: str | None = None
-    timezone: str
     created_at: datetime
     updated_at: datetime
 

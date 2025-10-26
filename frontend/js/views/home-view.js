@@ -1,16 +1,6 @@
 import { createSummarySkeleton, createVillageCardSkeletons } from "../ui/skeleton.js";
 import { createTodayPanel } from "./today-panel.js";
 
-function getDefaultTimezone() {
-  try {
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return zone || "UTC";
-  } catch (error) {
-    console.warn("Unable to resolve local timezone", error);
-  }
-  return "UTC";
-}
-
 function formatLastWatered(days) {
   if (days === null || days === undefined) {
     return "No watering data yet";
@@ -179,10 +169,6 @@ export function createHomeView({ vm, shell, resetSidebar }) {
               <label for="home-view-create-description">Description <span class="home-view__optional">(optional)</span></label>
               <textarea id="home-view-create-description" name="description" maxlength="500" rows="3"></textarea>
             </div>
-            <div class="field">
-              <label for="home-view-create-timezone">Timezone</label>
-              <input id="home-view-create-timezone" name="timezone" type="text" maxlength="64" placeholder="e.g., Europe/Paris" />
-            </div>
           </fieldset>
           <div class="home-view__create-actions">
             <button type="submit" class="home-view__create-submit">Create village</button>
@@ -200,13 +186,7 @@ export function createHomeView({ vm, shell, resetSidebar }) {
       const createForm = container.querySelector(".home-view__create");
       const nameInput = createForm?.querySelector("[name='name']");
       const descriptionInput = createForm?.querySelector("[name='description']");
-      const timezoneInput = createForm?.querySelector("[name='timezone']");
       const cancelButton = createForm?.querySelector("[data-action='cancel']");
-
-      const defaultTimezone = getDefaultTimezone();
-      if (timezoneInput instanceof HTMLInputElement) {
-        timezoneInput.value = defaultTimezone;
-      }
 
       let latestState = vm.snapshot();
 
@@ -215,9 +195,6 @@ export function createHomeView({ vm, shell, resetSidebar }) {
           return;
         }
         createForm.reset();
-        if (timezoneInput instanceof HTMLInputElement) {
-          timezoneInput.value = defaultTimezone;
-        }
       };
 
       const applyCreateFormState = (state) => {
@@ -274,17 +251,10 @@ export function createHomeView({ vm, shell, resetSidebar }) {
         const formData = new FormData(createForm);
         const name = formData.get("name");
         const description = formData.get("description");
-        const timezone = formData.get("timezone");
         vm
           .createVillage({
             name: typeof name === "string" ? name : "",
             description: typeof description === "string" ? description : descriptionInput?.value ?? "",
-            timezone:
-              typeof timezone === "string" && timezone.trim().length > 0
-                ? timezone
-                : timezoneInput instanceof HTMLInputElement && timezoneInput.value
-                  ? timezoneInput.value
-                  : defaultTimezone,
           })
           .then(() => {
             resetCreateForm();

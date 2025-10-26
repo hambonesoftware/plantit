@@ -7,10 +7,10 @@ from sqlmodel import Session, select
 from backend.models import Village
 
 
-def create_village(session: Session, *, name: str, description: str | None, timezone: str) -> Village:
+def create_village(session: Session, *, name: str, description: str | None) -> Village:
     """Persist a new village and return the instance."""
 
-    village = Village(name=name, description=description, timezone=timezone)
+    village = Village(name=name, description=description)
     session.add(village)
     session.commit()
     session.refresh(village)

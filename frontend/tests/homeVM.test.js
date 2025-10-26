@@ -112,7 +112,6 @@ test("createVillage posts payload and refreshes dashboard", async () => {
         assert.equal(path, "/villages");
         assert.equal(data.name, "Seedling");
         assert.equal(data.description, "Window");
-        assert.equal(data.timezone, "UTC");
         assert.equal(options.metadata.action, "village:create");
         return { data: { id: 3, name: data.name }, queued: false };
       },
@@ -120,7 +119,7 @@ test("createVillage posts payload and refreshes dashboard", async () => {
   });
 
   await vm.loadDashboard();
-  await vm.createVillage({ name: "Seedling", description: "Window", timezone: "UTC" });
+  await vm.createVillage({ name: "Seedling", description: "Window" });
 
   assert.equal(getCalls, 2);
   assert.equal(vm.snapshot().pending.creatingVillage, false);
