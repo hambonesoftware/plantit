@@ -10,6 +10,9 @@ authors = [{name = "Plantit"}]
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.110",
+    "httpx>=0.27",
+    "pydantic-settings>=2.0",
+    "python-multipart>=0.0.9",
     "sqlmodel>=0.0.16",
     "pillow>=10.0.0",
     "pydantic>=2.5",
