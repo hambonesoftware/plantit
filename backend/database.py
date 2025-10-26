@@ -5,7 +5,9 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator
 
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import NoSuchTableError
 from sqlmodel import Session, SQLModel, create_engine
 
 from backend.config import Settings, get_settings
@@ -31,7 +33,24 @@ def get_engine() -> Engine:
 def create_db_and_tables() -> None:
     """Create database tables if they do not exist."""
 
-    SQLModel.metadata.create_all(get_engine())
+    engine = get_engine()
+    _apply_schema_migrations(engine)
+    SQLModel.metadata.create_all(engine)
+
+
+def _apply_schema_migrations(engine: Engine) -> None:
+    """Apply ad-hoc schema migrations for legacy databases."""
+
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        try:
+            columns = {column["name"] for column in inspector.get_columns("villages")}
+        except NoSuchTableError:
+            return
+        if "description" not in columns:
+            connection.execute(
+                text("ALTER TABLE villages ADD COLUMN description VARCHAR(500)")
+            )
 
 
 @contextmanager
