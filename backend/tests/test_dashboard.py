@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+from fastapi import status
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -102,3 +103,30 @@ def test_dashboard_aggregates(client: TestClient, session: Session) -> None:
     assert calendar[today.isoformat()] == 1
     tomorrow = (today + date.resolution).isoformat()
     assert calendar[tomorrow] == 1
+
+
+def test_dashboard_includes_user_created_village(client: TestClient, session: Session) -> None:
+    response = client.post(
+        "/api/v1/villages",
+        json={"name": "User Corner", "description": "Shaded shelf"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    payload = response.json()
+    created_id = payload["id"]
+
+    stored = session.get(Village, created_id)
+    assert stored is not None
+    assert stored.name == "User Corner"
+    assert stored.description == "Shaded shelf"
+
+    dashboard = client.get("/api/v1/dashboard")
+    assert dashboard.status_code == status.HTTP_200_OK
+    data = dashboard.json()
+
+    assert len(data["villages"]) == 1
+    summary = data["villages"][0]
+    assert summary["id"] == created_id
+    assert summary["name"] == "User Corner"
+    assert summary["plant_count"] == 0
+    assert summary["due_today"] == 0
+    assert summary["overdue"] == 0
