@@ -29,6 +29,7 @@ export class HomeVM {
     this.pendingQuickAdd = new Set();
     this.pendingTasks = new Set();
     this.pendingVillageCreation = false;
+    this.nextTemporaryVillageId = -1;
   }
 
   subscribe(listener) {
@@ -151,6 +152,11 @@ export class HomeVM {
         ? description.trim()
         : null;
 
+    const optimisticVillage = this.createOptimisticVillage({
+      name: trimmedName,
+      description: normalizedDescription,
+    });
+
     this.pendingVillageCreation = true;
     this.notify();
 
@@ -163,6 +169,7 @@ export class HomeVM {
         },
         {
           metadata: { action: "village:create" },
+          optimisticData: optimisticVillage,
         },
       );
 
@@ -171,13 +178,16 @@ export class HomeVM {
           type: "info",
           message: `Creating ${trimmedName} when connectivity is restored.`,
         });
+        this.state.villages = [...this.state.villages, optimisticVillage];
+        this.recalculateMetrics();
+        this.notify();
       } else {
         const createdName = response.data?.name ?? trimmedName;
         emit("toast", { type: "success", message: `Created ${createdName}` });
         await this.loadDashboard();
       }
 
-      return response.data;
+      return response.data ?? optimisticVillage;
     } catch (error) {
       const message = error instanceof ApiError && typeof error.message === "string" && error.message.length > 0
         ? error.message
@@ -188,6 +198,22 @@ export class HomeVM {
       this.pendingVillageCreation = false;
       this.notify();
     }
+  }
+
+  createOptimisticVillage({ name, description }) {
+    const villageId = this.nextTemporaryVillageId;
+    this.nextTemporaryVillageId -= 1;
+    return {
+      id: villageId,
+      name,
+      description,
+      plant_count: 0,
+      due_today: 0,
+      overdue: 0,
+      last_watered_days: null,
+      cover_photo: null,
+      optimistic: true,
+    };
   }
 
   async completeTask(taskId) {

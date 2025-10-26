@@ -113,6 +113,9 @@ test("createVillage posts payload and refreshes dashboard", async () => {
         assert.equal(data.name, "Seedling");
         assert.equal(data.description, "Window");
         assert.equal(options.metadata.action, "village:create");
+        assert.equal(options.optimisticData.name, "Seedling");
+        assert.equal(options.optimisticData.description, "Window");
+        assert.equal(options.optimisticData.plant_count, 0);
         return { data: { id: 3, name: data.name }, queued: false };
       },
     },
@@ -143,6 +146,13 @@ test("createVillage does not reload when request is queued", async () => {
   await vm.createVillage({ name: "Offline" });
 
   assert.equal(getCalls, 1);
+  const snapshot = vm.snapshot();
+  assert.equal(snapshot.villages.length, 3);
+  const optimistic = snapshot.villages.find((village) => village.optimistic);
+  assert.ok(optimistic);
+  assert.equal(optimistic.name, "Offline");
+  assert.equal(optimistic.plant_count, 0);
+  assert.equal(snapshot.metrics.totalVillages, 3);
 });
 
 test("completeTask removes task and updates metrics", async () => {
