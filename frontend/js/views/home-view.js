@@ -1,4 +1,5 @@
 import { emit } from "../state.js";
+import { createSummarySkeleton, createVillageCardSkeletons } from "../ui/skeleton.js";
 import { createTodayPanel } from "./today-panel.js";
 
 function formatLastWatered(days) {
@@ -133,13 +134,15 @@ export function createHomeView({ vm, shell, resetSidebar }) {
       shell.setSidebar(todayPanel.element);
 
       const render = (state) => {
-        renderSummary(summaryEl, state.metrics);
-        renderCards(cardsEl, state, vm);
-        if (state.loading) {
-          container.classList.add("home-view--loading");
+        const showSkeleton = state.loading && state.villages.length === 0;
+        if (showSkeleton) {
+          summaryEl.replaceChildren(createSummarySkeleton());
+          cardsEl.replaceChildren(createVillageCardSkeletons(3));
         } else {
-          container.classList.remove("home-view--loading");
+          renderSummary(summaryEl, state.metrics);
+          renderCards(cardsEl, state, vm);
         }
+        container.classList.toggle("home-view--loading", state.loading);
         if (state.error) {
           container.setAttribute("data-error", state.error);
         } else {

@@ -32,6 +32,28 @@ Frontend unit tests leverage the Node.js test runner:
 npm test
 ```
 
+### Exporting and importing data
+
+Plantit exposes backup endpoints and a matching UI in the **Settings → Export & Import** view.
+
+- `GET /api/v1/export?scope=all|village|plant&target_id=<id>` returns a JSON bundle plus a media manifest.
+- `POST /api/v1/import` accepts a previously exported bundle and restores villages, plants, tasks, logs, and photos.
+
+The frontend downloads exports as `plantit-<scope>-export-<timestamp>.json` files. Import results surface any conflicts (for
+example missing media files) both in the UI activity log and via the API response.
+
+### Container image
+
+A multi-stage Dockerfile is included for production packaging. Build and run the container locally with:
+
+```bash
+docker build -t plantit .
+docker run --rm -p 8080:8080 plantit
+```
+
+The container serves the frontend at <http://localhost:8080/> and the API under `/api/v1`. A lightweight health endpoint lives
+at `/api/v1/health`, which also powers the container health check.
+
 ### Offline mode & PWA
 
 - The frontend registers a service worker from `/js/pwa/sw.js` to cache static assets and GET API responses. When serving the app

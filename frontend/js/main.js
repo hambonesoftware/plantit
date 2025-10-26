@@ -12,6 +12,7 @@ import { PlantVM } from "./viewmodels/PlantVM.js";
 import { createPlantView } from "./views/plant-view.js";
 import { TasksVM } from "./viewmodels/TasksVM.js";
 import { createTasksView } from "./views/tasks-view.js";
+import { createExportImportView } from "./views/export-import.js";
 
 const shell = initShell();
 createToastManager();
@@ -126,10 +127,8 @@ const router = createRouter({
     },
     {
       path: "/settings",
-      loader: async () => placeholderView({
-        title: "Settings",
-        description: "Configure Plantit preferences and data export options.",
-      }),
+      loader: async () =>
+        createExportImportView({ apiClient, shell, resetSidebar: setDefaultSidebar }),
     },
   ],
   notFound: async () => ({
