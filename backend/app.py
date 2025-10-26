@@ -30,6 +30,7 @@ def _mount_frontend(app: FastAPI) -> None:
         "/assets": frontend_dir / "assets",
         "/styles": frontend_dir / "styles",
         "/js": frontend_dir / "js",
+        "/types": frontend_dir / "types",
     }
     for mount_point, directory in static_mappings.items():
         if directory.is_dir():
