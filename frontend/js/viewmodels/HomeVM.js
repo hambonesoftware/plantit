@@ -1,5 +1,15 @@
 import { ApiError } from "../services/apiClient.js";
 import { emit } from "../state.js";
+import { fetchDashboard } from "../services/dashboardService.js";
+import {
+  createEmptyDashboardUi,
+  mergeDashboardUi,
+  computeDashboardMetrics,
+  updateVillage,
+  updateTask,
+  cloneDashboardUi,
+  toUiVillageSummary,
+} from "../../types/ui.js";
 
 function clone(value) {
   if (typeof structuredClone === "function") {
@@ -13,21 +23,17 @@ export class HomeVM {
     this.apiClient = apiClient;
     this.listeners = new Set();
     this.state = {
-      villages: [],
-      today: [],
-      calendar: [],
+      loading: false,
+      error: null,
+      lastLoadedAt: null,
       metrics: {
         totalVillages: 0,
         totalPlants: 0,
         dueToday: 0,
         overdue: 0,
       },
-      loading: false,
-      error: null,
-      lastLoadedAt: null,
     };
-    this.pendingQuickAdd = new Set();
-    this.pendingTasks = new Set();
+    this.uiState = createEmptyDashboardUi();
     this.pendingVillageCreation = false;
     this.nextTemporaryVillageId = -1;
   }
@@ -41,21 +47,29 @@ export class HomeVM {
   }
 
   snapshot() {
-    return {
-      villages: this.state.villages.map((village) => ({ ...village })),
-      today: this.state.today.map((task) => ({
+    const villages = this.uiState.villages.map((village) => ({ ...village }));
+    const today = this.uiState.today
+      .filter((task) => !task.pending)
+      .map((task) => ({
         ...task,
         plant: { ...task.plant },
         village: { ...task.village },
-      })),
-      calendar: this.state.calendar.map((entry) => ({ ...entry })),
+      }));
+    const calendar = this.uiState.calendar.map((entry) => ({ ...entry }));
+    const pendingQuickAdd = this.uiState.villages.filter((village) => village.quickAddPending).map((village) => village.id);
+    const pendingTasks = this.uiState.today.filter((task) => task.pending).map((task) => task.id);
+
+    return {
+      villages,
+      today,
+      calendar,
       metrics: { ...this.state.metrics },
       loading: this.state.loading,
       error: this.state.error,
       lastLoadedAt: this.state.lastLoadedAt,
       pending: {
-        quickAdd: Array.from(this.pendingQuickAdd),
-        tasks: Array.from(this.pendingTasks),
+        quickAdd: pendingQuickAdd,
+        tasks: pendingTasks,
         creatingVillage: this.pendingVillageCreation,
       },
     };
@@ -66,31 +80,20 @@ export class HomeVM {
     this.listeners.forEach((listener) => listener(clone(snapshot)));
   }
 
-  recalculateMetrics() {
-    const totalVillages = this.state.villages.length;
-    const totalPlants = this.state.villages.reduce((sum, village) => sum + village.plant_count, 0);
-    const dueToday = this.state.villages.reduce((sum, village) => sum + village.due_today, 0);
-    const overdue = this.state.villages.reduce((sum, village) => sum + village.overdue, 0);
-    this.state.metrics = {
-      totalVillages,
-      totalPlants,
-      dueToday,
-      overdue,
-    };
+  setUiState(nextState) {
+    this.uiState = nextState;
+    this.state.metrics = computeDashboardMetrics(this.uiState);
   }
 
   async loadDashboard() {
     this.state.loading = true;
     this.notify();
     try {
-      const { data } = await this.apiClient.get("/dashboard");
-      this.state.villages = data.villages;
-      this.state.today = data.today;
-      this.state.calendar = data.calendar;
+      const dto = await fetchDashboard(this.apiClient);
+      this.setUiState(mergeDashboardUi(this.uiState, dto));
       this.state.error = null;
       this.state.lastLoadedAt = new Date().toISOString();
-      this.recalculateMetrics();
-      return data;
+      return dto;
     } catch (error) {
       const message = error?.message || "Unable to load dashboard.";
       this.state.error = message;
@@ -103,14 +106,19 @@ export class HomeVM {
   }
 
   async quickAddPlant(villageId, { name } = {}) {
-    const village = this.state.villages.find((item) => item.id === villageId);
-    if (!village) {
+    const existing = this.uiState.villages.find((item) => item.id === villageId);
+    if (!existing) {
       throw new Error("Village not found");
     }
     const displayName = name && name.trim().length > 0 ? name.trim() : "New Plant";
-    village.plant_count += 1;
-    this.pendingQuickAdd.add(villageId);
-    this.recalculateMetrics();
+    const previousState = cloneDashboardUi(this.uiState);
+    this.setUiState(
+      updateVillage(this.uiState, villageId, (village) => ({
+        ...village,
+        plant_count: village.plant_count + 1,
+        quickAddPending: true,
+      })),
+    );
     this.notify();
     try {
       const response = await this.apiClient.post(
@@ -129,12 +137,17 @@ export class HomeVM {
       }
       return response.data;
     } catch (error) {
-      village.plant_count = Math.max(0, village.plant_count - 1);
-      this.recalculateMetrics();
+      this.setUiState(previousState);
       emit("toast", { type: "error", message: "Unable to add plant." });
+      this.notify();
       throw error;
     } finally {
-      this.pendingQuickAdd.delete(villageId);
+      this.setUiState(
+        updateVillage(this.uiState, villageId, (village) => ({
+          ...village,
+          quickAddPending: false,
+        })),
+      );
       this.notify();
     }
   }
@@ -148,9 +161,7 @@ export class HomeVM {
     }
 
     const normalizedDescription =
-      typeof description === "string" && description.trim().length > 0
-        ? description.trim()
-        : null;
+      typeof description === "string" && description.trim().length > 0 ? description.trim() : null;
 
     const optimisticVillage = this.createOptimisticVillage({
       name: trimmedName,
@@ -158,8 +169,10 @@ export class HomeVM {
     });
 
     this.pendingVillageCreation = true;
-    this.state.villages = [...this.state.villages, optimisticVillage];
-    this.recalculateMetrics();
+    this.setUiState({
+      ...this.uiState,
+      villages: [...this.uiState.villages, toUiVillageSummary({ ...optimisticVillage, optimistic: true }, { optimistic: true })],
+    });
     this.notify();
 
     try {
@@ -183,22 +196,17 @@ export class HomeVM {
       } else {
         const createdName = response.data?.name ?? trimmedName;
         const createdDescription =
-          typeof response.data?.description === "string"
-            ? response.data.description
-            : normalizedDescription;
-        const index = this.state.villages.findIndex((village) => village.id === optimisticVillage.id);
-        if (index !== -1) {
-          this.state.villages[index] = {
-            ...this.state.villages[index],
-            id: response.data?.id ?? this.state.villages[index].id,
+          typeof response.data?.description === "string" ? response.data.description : normalizedDescription;
+        this.setUiState(
+          updateVillage(this.uiState, optimisticVillage.id, (village) => ({
+            ...village,
+            id: response.data?.id ?? village.id,
             name: createdName,
             description: createdDescription,
             optimistic: false,
-          };
-          this.recalculateMetrics();
-          this.notify();
-        }
-        emit("toast", { type: "success", message: `Created ${createdName}` });
+          })),
+        );
+        this.notify();
         try {
           await this.loadDashboard();
         } catch (refreshError) {
@@ -208,8 +216,10 @@ export class HomeVM {
 
       return response.data ?? optimisticVillage;
     } catch (error) {
-      this.state.villages = this.state.villages.filter((village) => village.id !== optimisticVillage.id);
-      this.recalculateMetrics();
+      this.setUiState({
+        ...this.uiState,
+        villages: this.uiState.villages.filter((village) => village.id !== optimisticVillage.id),
+      });
       this.notify();
       const message = error instanceof ApiError && typeof error.message === "string" && error.message.length > 0
         ? error.message
@@ -234,28 +244,27 @@ export class HomeVM {
       overdue: 0,
       last_watered_days: null,
       cover_photo: null,
-      optimistic: true,
     };
   }
 
   async completeTask(taskId) {
-    const index = this.state.today.findIndex((task) => task.id === taskId);
-    if (index === -1) {
+    const task = this.uiState.today.find((item) => item.id === taskId);
+    if (!task) {
       return;
     }
-    const task = this.state.today[index];
-    const previousToday = [...this.state.today];
-    const villageBeforeUpdate = this.getVillage(task.village.id)
-      ? { ...this.getVillage(task.village.id) }
-      : null;
-
-    this.state.today.splice(index, 1);
-    this.pendingTasks.add(taskId);
-    const village = this.getVillage(task.village.id);
-    if (village) {
-      village.due_today = Math.max(0, village.due_today - 1);
-    }
-    this.recalculateMetrics();
+    const previousState = cloneDashboardUi(this.uiState);
+    this.setUiState(
+      updateTask(this.uiState, taskId, (current) => ({
+        ...current,
+        pending: true,
+      })),
+    );
+    this.setUiState(
+      updateVillage(this.uiState, task.village.id, (village) => ({
+        ...village,
+        due_today: Math.max(0, village.due_today - 1),
+      })),
+    );
     this.notify();
     try {
       const response = await this.apiClient.patch(`/tasks/${taskId}`, { state: "completed" }, {
@@ -268,40 +277,29 @@ export class HomeVM {
         await this.loadDashboard();
       }
     } catch (error) {
-      this.state.today = previousToday;
-      if (villageBeforeUpdate) {
-        const targetVillage = this.getVillage(villageBeforeUpdate.id);
-        if (targetVillage) {
-          Object.assign(targetVillage, villageBeforeUpdate);
-        }
-      }
-      this.recalculateMetrics();
+      this.setUiState(previousState);
       emit("toast", { type: "error", message: "Unable to complete task." });
       this.notify();
       throw error;
-    } finally {
-      this.pendingTasks.delete(taskId);
-      this.notify();
     }
   }
 
   adjustVillage(villageId, updates) {
-    const village = this.getVillage(villageId);
-    if (!village) {
-      return;
-    }
-    Object.assign(village, {
-      ...village,
-      ...updates,
-    });
+    this.setUiState(
+      updateVillage(this.uiState, villageId, (village) => ({
+        ...village,
+        ...updates,
+      })),
+    );
+    this.notify();
   }
 
   getVillage(villageId) {
-    return this.state.villages.find((item) => item.id === villageId);
+    return this.uiState.villages.find((item) => item.id === villageId);
   }
 
   getCalendarWindow(days = 14) {
-    const map = new Map(this.state.calendar.map((entry) => [entry.date, entry.count]));
+    const map = new Map(this.uiState.calendar.map((entry) => [entry.date, entry.count]));
     const window = [];
     const today = new Date();
     for (let offset = 0; offset < days; offset += 1) {
