@@ -38,18 +38,27 @@ function createVillageCard(village, state, vm) {
   const article = document.createElement("article");
   article.className = "village-card";
   article.innerHTML = `
-    <header class="village-card__header">
-      <div>
-        <h3>${village.name}</h3>
-        <p class="village-card__meta">${formatLastWatered(village.last_watered_days)}</p>
+    <div class="village-card__media" aria-hidden="true"></div>
+    <div class="village-card__content">
+      <header class="village-card__header">
+        <div>
+          <h3>${village.name}</h3>
+          <p class="village-card__meta">${formatLastWatered(village.last_watered_days)}</p>
+        </div>
+        <span class="village-card__due">
+          <span class="village-card__due-label">Due today</span>
+          <span class="village-card__due-value">${village.due_today}</span>
+        </span>
+      </header>
+      <div class="village-card__metrics">
+        <p class="village-card__count"><strong>${village.plant_count}</strong> ${village.plant_count === 1 ? "plant" : "plants"}</p>
+        <div class="village-card__chips"></div>
       </div>
-      <a class="village-card__link" href="#/v/${village.id}">View</a>
-    </header>
-    <div class="village-card__body">
-      <p class="village-card__count"><strong>${village.plant_count}</strong> plants</p>
-      <div class="village-card__chips"></div>
+    </div>
+    <div class="village-card__footer">
+      <a class="village-card__link" href="#/v/${village.id}">Open</a>
       <form class="village-card__quick-add">
-        <label class="visually-hidden" for="quick-add-${village.id}">Quick add plant</label>
+        <label class="visually-hidden" for="quick-add-${village.id}">Quick add plant to ${village.name}</label>
         <input id="quick-add-${village.id}" type="text" name="name" placeholder="Quick add plant" autocomplete="off" />
         <button type="submit">
           <img src="./assets/icons/plus.svg" alt="" aria-hidden="true" />
@@ -59,20 +68,27 @@ function createVillageCard(village, state, vm) {
     </div>
   `;
 
+  const media = article.querySelector(".village-card__media");
+  if (media instanceof HTMLElement) {
+    const hashSource = `${village.name ?? ""}${village.id ?? ""}`;
+    let hash = 0;
+    for (const char of hashSource) {
+      hash = (hash + char.charCodeAt(0)) % 360;
+    }
+    const hue = 120 + (hash % 28);
+    const secondaryHue = (hue + 18) % 360;
+    media.style.background = `linear-gradient(135deg, hsl(${hue} 48% 70% / 0.9), hsl(${secondaryHue} 58% 78% / 0.6))`;
+  }
+
   const chips = article.querySelector(".village-card__chips");
   const quickAddForm = article.querySelector(".village-card__quick-add");
   const quickAddInput = quickAddForm.querySelector("input");
   const quickAddButton = quickAddForm.querySelector("button");
 
-  const dueChip = document.createElement("span");
-  dueChip.className = "chip";
-  dueChip.textContent = `${village.due_today} due today`;
-  chips.appendChild(dueChip);
-
   const overdueChip = document.createElement("span");
   overdueChip.className = "chip chip--warning";
   overdueChip.textContent = `${village.overdue} overdue`;
-  chips.appendChild(overdueChip);
+  chips?.appendChild(overdueChip);
 
   const pending = state.pending.quickAdd.includes(village.id);
   quickAddInput.disabled = pending;
