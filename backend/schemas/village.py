@@ -33,13 +33,42 @@ class VillageBase(BaseModel):
         normalized = value.strip()
         if not normalized:
             raise ValueError("Timezone is required.")
-        try:
-            ZoneInfo(normalized)
-        except ZoneInfoNotFoundError as exc:  # pragma: no cover - specific exception type
-            raise ValueError("Invalid timezone.") from exc
-        except Exception as exc:  # pragma: no cover - fallback for platforms without tz data
-            raise ValueError("Invalid timezone.") from exc
-        return normalized
+
+        normalized = normalized.replace(" ", "_")
+
+        def candidate_title_case(candidate: str) -> str:
+            if "/" not in candidate:
+                return candidate
+            parts: list[str] = []
+            for part in candidate.split("/"):
+                if part.isupper():
+                    parts.append(part)
+                    continue
+                with_spaces = part.replace("_", " ")
+                titled = " ".join(word.capitalize() for word in with_spaces.split())
+                parts.append(titled.replace(" ", "_"))
+            return "/".join(parts)
+
+        candidates = []
+
+        def add_candidate(candidate: str) -> None:
+            if candidate not in candidates:
+                candidates.append(candidate)
+
+        add_candidate(normalized)
+        add_candidate(normalized.upper())
+        add_candidate(candidate_title_case(normalized))
+
+        for candidate in candidates:
+            try:
+                zone = ZoneInfo(candidate)
+            except ZoneInfoNotFoundError:  # pragma: no cover - specific exception type
+                continue
+            except Exception as exc:  # pragma: no cover - fallback for platforms without tz data
+                raise ValueError("Invalid timezone.") from exc
+            return getattr(zone, "key", candidate)
+
+        raise ValueError("Invalid timezone. Examples: America/New_York, Europe/Paris.")
 
 
 class VillageCreate(VillageBase):

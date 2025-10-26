@@ -41,6 +41,18 @@ def test_post_village_accepts_valid_timezone(client, timezone):
     assert response.status_code == status.HTTP_201_CREATED
 
 
+def test_post_village_normalizes_timezone_variations(client, session: Session):
+    response = client.post(
+        "/api/v1/villages",
+        json={"name": "Timezone Test", "timezone": "america/new york"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    payload = response.json()
+    assert payload["timezone"] == "America/New_York"
+    created = session.exec(select(Village).where(Village.name == "Timezone Test")).one()
+    assert created.timezone == "America/New_York"
+
+
 def test_post_village_rejects_invalid_timezone(client):
     response = client.post(
         "/api/v1/villages",

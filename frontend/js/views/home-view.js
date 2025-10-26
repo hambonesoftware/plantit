@@ -68,6 +68,37 @@ function createVillageCard(village, state, vm) {
     </div>
   `;
 
+  const interactiveSelector = "a, button, input, textarea, select, label, form";
+  const navigateToVillage = () => {
+    window.location.hash = `#/v/${village.id}`;
+  };
+
+  article.dataset.villageId = String(village.id);
+  article.setAttribute("role", "link");
+  article.tabIndex = 0;
+  article.setAttribute("aria-label", `Open ${village.name}`);
+
+  article.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest(interactiveSelector)) {
+      return;
+    }
+    if (typeof event.button === "number" && event.button !== 0) {
+      return;
+    }
+    navigateToVillage();
+  });
+
+  article.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+      event.preventDefault();
+      navigateToVillage();
+    }
+  });
+
   const media = article.querySelector(".village-card__media");
   if (media instanceof HTMLElement) {
     const hashSource = `${village.name ?? ""}${village.id ?? ""}`;

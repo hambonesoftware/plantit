@@ -263,7 +263,34 @@ export class APIClient {
 
 export function normalizeError(status, payload) {
   if (payload && typeof payload === "object") {
-    const message = payload.detail || payload.message || "Unexpected server error";
+    let message = payload.message || "Unexpected server error";
+    const detail = payload.detail;
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((item) => {
+          if (!item) {
+            return null;
+          }
+          if (typeof item === "string") {
+            return item;
+          }
+          if (typeof item === "object" && typeof item.msg === "string") {
+            return item.msg;
+          }
+          if (typeof item.detail === "string") {
+            return item.detail;
+          }
+          return null;
+        })
+        .filter((value) => typeof value === "string" && value.trim().length > 0);
+      if (messages.length > 0) {
+        message = messages.join("\n");
+      } else {
+        message = "Invalid request.";
+      }
+    } else if (typeof detail === "string" && detail.trim().length > 0) {
+      message = detail;
+    }
     return {
       status,
       message,
