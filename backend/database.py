@@ -16,7 +16,9 @@ _engine: Engine | None = None
 
 
 def _create_engine(settings: Settings) -> Engine:
-    connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+    connect_args: dict[str, object] = {}
+    if settings.database_url.startswith("sqlite"):
+        connect_args = {"check_same_thread": False, "timeout": 30}
     return create_engine(settings.database_url, echo=settings.debug, connect_args=connect_args)
 
 
