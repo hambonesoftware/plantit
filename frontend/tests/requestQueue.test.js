@@ -79,3 +79,25 @@ test("APIClient queues mutation when offline", async () => {
   assert.equal(stored[0].method, "PATCH");
   delete global.navigator;
 });
+
+test("APIClient binds global fetch implementation", async () => {
+  clearAllListeners();
+  const originalFetch = global.fetch;
+  let callCount = 0;
+  global.fetch = function boundRequiredFetch(...args) {
+    callCount += 1;
+    if (this !== globalThis) {
+      throw new TypeError("Illegal invocation");
+    }
+    return createResponse(200);
+  };
+
+  try {
+    const client = new APIClient({ baseUrl: "" });
+    const response = await client.get("/ping");
+    assert.equal(response.status, 200);
+    assert.equal(callCount, 1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
