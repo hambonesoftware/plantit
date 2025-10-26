@@ -28,25 +28,31 @@ function createSummaryChip(label, value) {
 function createVillageCard(village, state, vm) {
   const article = document.createElement("article");
   article.className = "village-card";
+  const coverPhoto = village.cover_photo ? `/media/${village.cover_photo}` : null;
   article.innerHTML = `
-    <header class="village-card__header">
-      <div>
-        <h3>${village.name}</h3>
-        <p class="village-card__meta">${formatLastWatered(village.last_watered_days)}</p>
-      </div>
-      <a class="village-card__link" href="#/v/${village.id}">View</a>
-    </header>
-    <div class="village-card__body">
-      <p class="village-card__count"><strong>${village.plant_count}</strong> plants</p>
+    <div class="village-card__media${coverPhoto ? "" : " village-card__media--empty"}" aria-hidden="true">
+      ${coverPhoto ? `<img src="${coverPhoto}" alt="" aria-hidden="true" />` : ""}
+    </div>
+    <div class="village-card__content">
+      <header class="village-card__header">
+        <div class="village-card__title">
+          <h3>${village.name}</h3>
+          <p class="village-card__meta">${formatLastWatered(village.last_watered_days)}</p>
+        </div>
+        <p class="village-card__count"><strong>${village.plant_count}</strong> ${village.plant_count === 1 ? "plant" : "plants"}</p>
+      </header>
       <div class="village-card__chips"></div>
-      <form class="village-card__quick-add">
-        <label class="visually-hidden" for="quick-add-${village.id}">Quick add plant</label>
-        <input id="quick-add-${village.id}" type="text" name="name" placeholder="Quick add plant" autocomplete="off" />
-        <button type="submit">
-          <img src="./assets/icons/plus.svg" alt="" aria-hidden="true" />
-          <span>Add</span>
-        </button>
-      </form>
+      <div class="village-card__actions">
+        <a class="village-card__link" href="#/v/${village.id}">Open</a>
+        <form class="village-card__quick-add">
+          <label class="visually-hidden" for="quick-add-${village.id}">Quick add plant to ${village.name}</label>
+          <input id="quick-add-${village.id}" type="text" name="name" placeholder="Quick add plant" autocomplete="off" />
+          <button type="submit" aria-label="Add plant to ${village.name}">
+            <img src="./assets/icons/plus.svg" alt="" aria-hidden="true" />
+            <span class="visually-hidden">Add plant</span>
+          </button>
+        </form>
+      </div>
     </div>
   `;
 

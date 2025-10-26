@@ -30,18 +30,29 @@ export function createVillageCardSkeletons(count = 3) {
     const card = document.createElement("article");
     card.className = `village-card village-card--skeleton ${SKELETON_CLASS}`;
     card.setAttribute("aria-hidden", "true");
+    const media = shimmer(document.createElement("div"));
+    media.className = "village-card__media";
+    card.appendChild(media);
+
+    const content = document.createElement("div");
+    content.className = "village-card__content";
+
     const header = document.createElement("header");
     header.className = "village-card__header";
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "village-card__title";
     const title = shimmer(document.createElement("div"));
     title.classList.add("skeleton-line", "skeleton-line--title");
     const meta = shimmer(document.createElement("div"));
     meta.classList.add("skeleton-line", "skeleton-line--meta");
-    header.appendChild(title);
-    header.appendChild(meta);
-    const body = document.createElement("div");
-    body.className = "village-card__body";
-    const countLine = shimmer(document.createElement("div"));
-    countLine.classList.add("skeleton-line", "skeleton-line--count");
+    titleWrap.appendChild(title);
+    titleWrap.appendChild(meta);
+    const count = shimmer(document.createElement("div"));
+    count.classList.add("skeleton-line", "skeleton-line--count");
+    header.appendChild(titleWrap);
+    header.appendChild(count);
+    content.appendChild(header);
+
     const chips = document.createElement("div");
     chips.className = "village-card__chips";
     for (let chipIndex = 0; chipIndex < 2; chipIndex += 1) {
@@ -49,10 +60,30 @@ export function createVillageCardSkeletons(count = 3) {
       chip.classList.add("skeleton-pill");
       chips.appendChild(chip);
     }
-    body.appendChild(countLine);
-    body.appendChild(chips);
-    card.appendChild(header);
-    card.appendChild(body);
+    content.appendChild(chips);
+
+    const actions = document.createElement("div");
+    actions.className = "village-card__actions";
+    const link = shimmer(document.createElement("div"));
+    link.classList.add("skeleton-pill");
+    link.style.width = "4.5rem";
+    const quickAdd = document.createElement("div");
+    quickAdd.className = "village-card__quick-add";
+    const quickAddInput = shimmer(document.createElement("div"));
+    quickAddInput.classList.add("skeleton-line", "skeleton-line--meta");
+    quickAddInput.style.flex = "1";
+    quickAddInput.style.height = "0.85rem";
+    const quickAddButton = shimmer(document.createElement("div"));
+    quickAddButton.classList.add("skeleton-pill");
+    quickAddButton.style.width = "2.5rem";
+    quickAddButton.style.height = "2.5rem";
+    quickAdd.appendChild(quickAddInput);
+    quickAdd.appendChild(quickAddButton);
+    actions.appendChild(link);
+    actions.appendChild(quickAdd);
+    content.appendChild(actions);
+
+    card.appendChild(content);
     fragment.appendChild(card);
   }
   return fragment;
