@@ -1,0 +1,21 @@
+{
+  "status": "success",
+  "changes": [
+    { "path": "README.md", "action": "created" },
+    { "path": "package.json", "action": "created" },
+    { "path": ".gitignore", "action": "modified" },
+    { "path": "frontend/index.html", "action": "created" },
+    { "path": "frontend/styles/tokens.css", "action": "created" },
+    { "path": "frontend/styles/base.css", "action": "created" },
+    { "path": "frontend/js/main.js", "action": "created" },
+    { "path": "frontend/js/router.js", "action": "created" },
+    { "path": "frontend/js/state.js", "action": "created" },
+    { "path": "frontend/js/services/apiClient.js", "action": "created" },
+    { "path": "frontend/js/ui/toast.js", "action": "created" },
+    { "path": "frontend/js/views/_shell.js", "action": "created" },
+    { "path": "frontend/tests/state.test.js", "action": "created" },
+    { "path": "frontend/tests/router.test.js", "action": "created" }
+  ],
+  "ui_routes": ["#/", "#/v/:id", "#/p/:id", "#/tasks", "#/settings"],
+  "notes": "Implemented the frontend application shell with router, event bus, toast manager, and API client. Added Node-based unit tests and documentation for running the frontend."
+}
