@@ -67,7 +67,7 @@ def store_photo(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Empty upload.")
     if len(raw) > cfg.max_upload_size:
         raise HTTPException(
-            status.HTTP_413_CONTENT_TOO_LARGE, detail="File too large."
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File too large."
         )
 
     try:
