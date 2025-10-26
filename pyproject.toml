@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plantit"
+version = "0.1.0"
+description = "Local-first plant care manager"
+authors = [{name = "Plantit"}]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "sqlmodel>=0.0.16",
+    "pillow>=10.0.0",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["backend/tests"]
