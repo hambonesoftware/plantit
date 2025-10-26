@@ -11,7 +11,12 @@ from backend.models import Photo, Plant, Task
 from backend.models.task import TaskCategory, TaskState
 from backend.repositories.logs import create_log as create_log_entry
 from backend.repositories.logs import list_logs
-from backend.repositories.plants import update_plant as update_plant_record
+from backend.repositories.plants import (
+    create_plant as create_plant_record,
+    move_plant as move_plant_record,
+    update_plant as update_plant_record,
+)
+from backend.repositories.villages import get_village as fetch_village
 from backend.repositories.tasks import (
     create_task as create_task_record,
     list_tasks,
@@ -21,7 +26,9 @@ from backend.schemas.photo import PhotoRead
 from backend.schemas.plant import (
     PlantCareProfile,
     PlantCareProfileUpdate,
+    PlantCreate,
     PlantDetail,
+    PlantMoveRequest,
     PlantOverviewMetrics,
     PlantTaskCreate,
     PlantUpdate,
@@ -51,9 +58,27 @@ def _store_care_profile(plant: Plant, profile: PlantCareProfile) -> None:
     plant.updated_at = utcnow()
 
 
+def create_plant(session: Session, payload: PlantCreate) -> Plant:
+    """Create a plant after ensuring the village exists."""
+
+    village = fetch_village(session, payload.village_id)
+    if village is None:
+        raise ValueError("Village not found")
+    return create_plant_record(session, payload)
+
+
 def update_plant(session: Session, plant: Plant, payload: PlantUpdate) -> Plant:
     updated = update_plant_record(session, plant, payload)
     return updated
+
+
+def move_plant(session: Session, plant: Plant, payload: PlantMoveRequest) -> Plant:
+    """Move a plant to another village once the destination is validated."""
+
+    destination = fetch_village(session, payload.destination_village_id)
+    if destination is None:
+        raise ValueError("Destination village not found")
+    return move_plant_record(session, plant, payload)
 
 
 def schedule_task(session: Session, plant: Plant, payload: PlantTaskCreate) -> Task:

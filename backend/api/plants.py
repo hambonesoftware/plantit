@@ -11,8 +11,10 @@ from backend.repositories.plants import get_plant as fetch_plant
 from backend.repositories.plants import list_plants as list_plants_records
 from backend.schemas.log import LogCreate, LogRead
 from backend.schemas.plant import (
+    PlantCreate,
     PlantCareProfileUpdate,
     PlantDetail,
+    PlantMoveRequest,
     PlantRead,
     PlantTaskCreate,
     PlantUpdate,
@@ -20,7 +22,9 @@ from backend.schemas.plant import (
 from backend.schemas.task import TaskPlantSummary, TaskRead
 from backend.services.plants import (
     add_log,
+    create_plant as create_plant_service,
     get_detail,
+    move_plant as move_plant_service,
     schedule_task,
     update_care_profile,
     update_plant,
@@ -61,6 +65,17 @@ def get_plant_detail(plant_id: int, session: Session = Depends(get_session)) -> 
     return detail
 
 
+@router.post("", response_model=PlantRead, status_code=status.HTTP_201_CREATED)
+def create_plant(payload: PlantCreate, session: Session = Depends(get_session)) -> PlantRead:
+    """Create a new plant within the specified village."""
+
+    try:
+        plant = create_plant_service(session, payload)
+    except ValueError as exc:  # destination village missing
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return PlantRead.model_validate(plant.model_dump())
+
+
 @router.patch("/{plant_id}", response_model=PlantDetail)
 def patch_plant(
     plant_id: int,
@@ -73,6 +88,20 @@ def patch_plant(
     detail = get_detail(session, plant_id)
     assert detail is not None
     return detail
+
+
+@router.post("/{plant_id}:move", response_model=PlantRead)
+def move_plant(
+    plant_id: int,
+    payload: PlantMoveRequest,
+    session: Session = Depends(get_session),
+) -> PlantRead:
+    plant = _plant_or_404(session, plant_id)
+    try:
+        moved = move_plant_service(session, plant, payload)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return PlantRead.model_validate(moved.model_dump())
 
 
 @router.put("/{plant_id}/care_profile", response_model=PlantDetail)
