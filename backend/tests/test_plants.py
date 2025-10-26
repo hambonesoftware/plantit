@@ -78,6 +78,14 @@ def test_patch_plant_updates_fields(client, session, sample_plant):
     assert sample_plant.tags == ["shade"]
 
 
+def test_delete_plant_removes_record(client, session, sample_plant):
+    plant_id = sample_plant.id
+    response = client.delete(f"/api/v1/plants/{plant_id}")
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    session.expire_all()
+    assert session.get(Plant, plant_id) is None
+
+
 def test_move_plant_updates_village(client, session, sample_plant, sample_village):
     destination = Village(name="Sunny Patch")
     session.add(destination)

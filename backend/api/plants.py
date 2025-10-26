@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlmodel import Session
 
 from backend.database import get_session
@@ -23,6 +23,7 @@ from backend.schemas.task import TaskPlantSummary, TaskRead
 from backend.services.plants import (
     add_log,
     create_plant as create_plant_service,
+    delete_plant as delete_plant_service,
     get_detail,
     move_plant as move_plant_service,
     schedule_task,
@@ -88,6 +89,13 @@ def patch_plant(
     detail = get_detail(session, plant_id)
     assert detail is not None
     return detail
+
+
+@router.delete("/{plant_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_plant(plant_id: int, session: Session = Depends(get_session)) -> Response:
+    plant = _plant_or_404(session, plant_id)
+    delete_plant_service(session, plant)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{plant_id}:move", response_model=PlantRead)
