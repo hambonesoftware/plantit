@@ -34,10 +34,26 @@ function resolveOptimisticData(optimistic) {
   return optimistic ?? null;
 }
 
+function resolveFetch(fetchImpl) {
+  if (fetchImpl) {
+    return fetchImpl;
+  }
+  if (typeof fetch === "function") {
+    return fetch;
+  }
+  throw new Error("A fetch implementation must be provided");
+}
+
 export class APIClient {
-  constructor({ baseUrl = "/api/v1", fetchImpl = fetch, cache = new Map(), requestQueue = null } = {}) {
+  constructor({ baseUrl = "/api/v1", fetchImpl, cache = new Map(), requestQueue = null } = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
-    this.fetchImpl = fetchImpl;
+    const resolvedFetch = resolveFetch(fetchImpl);
+    const globalObject = typeof globalThis !== "undefined" ? globalThis : undefined;
+    if (globalObject && typeof resolvedFetch === "function" && resolvedFetch === globalObject.fetch) {
+      this.fetchImpl = resolvedFetch.bind(globalObject);
+    } else {
+      this.fetchImpl = resolvedFetch;
+    }
     this.cache = cache;
     this.requestQueue = requestQueue;
   }
