@@ -1,6 +1,15 @@
-import { emit } from "../state.js";
 import { createSummarySkeleton, createVillageCardSkeletons } from "../ui/skeleton.js";
 import { createTodayPanel } from "./today-panel.js";
+
+function getDefaultTimezone() {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return zone || "UTC";
+  } catch (error) {
+    console.warn("Unable to resolve local timezone", error);
+  }
+  return "UTC";
+}
 
 function formatLastWatered(days) {
   if (days === null || days === undefined) {
@@ -112,6 +121,27 @@ export function createHomeView({ vm, shell, resetSidebar }) {
           </div>
           <button class="home-view__cta">New Village</button>
         </header>
+        <form class="home-view__create" hidden>
+          <fieldset>
+            <legend class="visually-hidden">Create a new village</legend>
+            <div class="field">
+              <label for="home-view-create-name">Village name</label>
+              <input id="home-view-create-name" name="name" type="text" required maxlength="120" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="home-view-create-description">Description <span class="home-view__optional">(optional)</span></label>
+              <textarea id="home-view-create-description" name="description" maxlength="500" rows="3"></textarea>
+            </div>
+            <div class="field">
+              <label for="home-view-create-timezone">Timezone</label>
+              <input id="home-view-create-timezone" name="timezone" type="text" maxlength="64" placeholder="e.g., Europe/Paris" />
+            </div>
+          </fieldset>
+          <div class="home-view__create-actions">
+            <button type="submit" class="home-view__create-submit">Create village</button>
+            <button type="button" class="home-view__create-cancel" data-action="cancel">Cancel</button>
+          </div>
+        </form>
         <section class="home-view__summary" aria-label="Totals"></section>
         <section class="home-view__cards" aria-live="polite"></section>
       `;
@@ -120,20 +150,148 @@ export function createHomeView({ vm, shell, resetSidebar }) {
       const summaryEl = container.querySelector(".home-view__summary");
       const cardsEl = container.querySelector(".home-view__cards");
       const ctaButton = container.querySelector(".home-view__cta");
+      const createForm = container.querySelector(".home-view__create");
+      const nameInput = createForm?.querySelector("[name='name']");
+      const descriptionInput = createForm?.querySelector("[name='description']");
+      const timezoneInput = createForm?.querySelector("[name='timezone']");
+      const cancelButton = createForm?.querySelector("[data-action='cancel']");
+
+      const defaultTimezone = getDefaultTimezone();
+      if (timezoneInput instanceof HTMLInputElement) {
+        timezoneInput.value = defaultTimezone;
+      }
+
+      let latestState = vm.snapshot();
+
+      const resetCreateForm = () => {
+        if (!(createForm instanceof HTMLFormElement)) {
+          return;
+        }
+        createForm.reset();
+        if (timezoneInput instanceof HTMLInputElement) {
+          timezoneInput.value = defaultTimezone;
+        }
+      };
+
+      const applyCreateFormState = (state) => {
+        latestState = state;
+        const isCreating = Boolean(state.pending?.creatingVillage);
+        if (createForm instanceof HTMLFormElement) {
+          createForm.toggleAttribute("aria-busy", isCreating);
+          const controls = Array.from(createForm.elements ?? []);
+          controls.forEach((element) => {
+            if (element instanceof HTMLButtonElement) {
+              if (element.type === "submit") {
+                element.disabled = isCreating;
+                element.textContent = isCreating ? "Creating…" : "Create village";
+              } else {
+                element.disabled = isCreating;
+              }
+            } else if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+              element.toggleAttribute("disabled", isCreating);
+            }
+          });
+        }
+        if (ctaButton instanceof HTMLButtonElement) {
+          ctaButton.disabled = isCreating;
+        }
+      };
+
+      const setCreateFormVisible = (visible) => {
+        if (createForm instanceof HTMLFormElement) {
+          createForm.hidden = !visible;
+        }
+        if (ctaButton instanceof HTMLButtonElement) {
+          ctaButton.hidden = visible;
+        }
+        if (visible) {
+          if (nameInput instanceof HTMLInputElement) {
+            nameInput.focus({ preventScroll: true });
+          }
+        }
+        applyCreateFormState(latestState);
+      };
 
       const handleNewVillage = () => {
-        emit("toast", {
-          type: "info",
-          message: "Village creation will arrive in a later phase.",
-        });
+        setCreateFormVisible(true);
       };
+
+      const handleCreateSubmit = (event) => {
+        if (!(createForm instanceof HTMLFormElement)) {
+          return;
+        }
+        event.preventDefault();
+        if (latestState.pending?.creatingVillage) {
+          return;
+        }
+        const formData = new FormData(createForm);
+        const name = formData.get("name");
+        const description = formData.get("description");
+        const timezone = formData.get("timezone");
+        vm
+          .createVillage({
+            name: typeof name === "string" ? name : "",
+            description: typeof description === "string" ? description : descriptionInput?.value ?? "",
+            timezone:
+              typeof timezone === "string" && timezone.trim().length > 0
+                ? timezone
+                : timezoneInput instanceof HTMLInputElement && timezoneInput.value
+                  ? timezoneInput.value
+                  : defaultTimezone,
+          })
+          .then(() => {
+            resetCreateForm();
+            setCreateFormVisible(false);
+            if (ctaButton instanceof HTMLButtonElement) {
+              ctaButton.focus({ preventScroll: true });
+            }
+          })
+          .catch((error) => {
+            console.error("Village creation failed", error);
+            if (nameInput instanceof HTMLInputElement) {
+              nameInput.focus({ preventScroll: true });
+              nameInput.select();
+            }
+          });
+      };
+
+      const handleCreateCancel = () => {
+        resetCreateForm();
+        setCreateFormVisible(false);
+        if (ctaButton instanceof HTMLButtonElement) {
+          ctaButton.focus({ preventScroll: true });
+        }
+      };
+
+      const handleCreateKeydown = (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          handleCreateCancel();
+        }
+      };
+
       ctaButton.addEventListener("click", handleNewVillage);
       cleanup.push(() => ctaButton.removeEventListener("click", handleNewVillage));
+
+      if (createForm instanceof HTMLFormElement) {
+        createForm.addEventListener("submit", handleCreateSubmit);
+        createForm.addEventListener("keydown", handleCreateKeydown);
+        cleanup.push(() => {
+          createForm.removeEventListener("submit", handleCreateSubmit);
+          createForm.removeEventListener("keydown", handleCreateKeydown);
+        });
+      }
+
+      if (cancelButton instanceof HTMLButtonElement) {
+        cancelButton.addEventListener("click", handleCreateCancel);
+        cleanup.push(() => cancelButton.removeEventListener("click", handleCreateCancel));
+      }
 
       todayPanel = createTodayPanel(vm);
       shell.setSidebar(todayPanel.element);
 
       const render = (state) => {
+        applyCreateFormState(state);
         const showSkeleton = state.loading && state.villages.length === 0;
         if (showSkeleton) {
           summaryEl.replaceChildren(createSummarySkeleton());

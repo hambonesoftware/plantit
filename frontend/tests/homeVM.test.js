@@ -100,6 +100,52 @@ test("quickAddPlant optimistically increments counts and refreshes", async () =>
   unsubscribe();
 });
 
+test("createVillage posts payload and refreshes dashboard", async () => {
+  let getCalls = 0;
+  const vm = new HomeVM({
+    apiClient: {
+      async get() {
+        getCalls += 1;
+        return { data: cloneDashboard() };
+      },
+      async post(path, data, options) {
+        assert.equal(path, "/villages");
+        assert.equal(data.name, "Seedling");
+        assert.equal(data.description, "Window");
+        assert.equal(data.timezone, "UTC");
+        assert.equal(options.metadata.action, "village:create");
+        return { data: { id: 3, name: data.name }, queued: false };
+      },
+    },
+  });
+
+  await vm.loadDashboard();
+  await vm.createVillage({ name: "Seedling", description: "Window", timezone: "UTC" });
+
+  assert.equal(getCalls, 2);
+  assert.equal(vm.snapshot().pending.creatingVillage, false);
+});
+
+test("createVillage does not reload when request is queued", async () => {
+  let getCalls = 0;
+  const vm = new HomeVM({
+    apiClient: {
+      async get() {
+        getCalls += 1;
+        return { data: cloneDashboard() };
+      },
+      async post() {
+        return { data: null, queued: true };
+      },
+    },
+  });
+
+  await vm.loadDashboard();
+  await vm.createVillage({ name: "Offline" });
+
+  assert.equal(getCalls, 1);
+});
+
 test("completeTask removes task and updates metrics", async () => {
   let call = 0;
   const vm = new HomeVM({

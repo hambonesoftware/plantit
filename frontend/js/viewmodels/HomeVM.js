@@ -27,6 +27,7 @@ export class HomeVM {
     };
     this.pendingQuickAdd = new Set();
     this.pendingTasks = new Set();
+    this.pendingVillageCreation = false;
   }
 
   subscribe(listener) {
@@ -53,6 +54,7 @@ export class HomeVM {
       pending: {
         quickAdd: Array.from(this.pendingQuickAdd),
         tasks: Array.from(this.pendingTasks),
+        creatingVillage: this.pendingVillageCreation,
       },
     };
   }
@@ -131,6 +133,60 @@ export class HomeVM {
       throw error;
     } finally {
       this.pendingQuickAdd.delete(villageId);
+      this.notify();
+    }
+  }
+
+  async createVillage({ name, description, timezone } = {}) {
+    const trimmedName = typeof name === "string" ? name.trim() : "";
+    if (!trimmedName) {
+      const message = "Village name is required.";
+      emit("toast", { type: "error", message });
+      throw new Error(message);
+    }
+
+    const normalizedDescription =
+      typeof description === "string" && description.trim().length > 0
+        ? description.trim()
+        : null;
+    const normalizedTimezone =
+      typeof timezone === "string" && timezone.trim().length > 0
+        ? timezone.trim()
+        : "UTC";
+
+    this.pendingVillageCreation = true;
+    this.notify();
+
+    try {
+      const response = await this.apiClient.post(
+        "/villages",
+        {
+          name: trimmedName,
+          description: normalizedDescription,
+          timezone: normalizedTimezone,
+        },
+        {
+          metadata: { action: "village:create" },
+        },
+      );
+
+      if (response.queued) {
+        emit("toast", {
+          type: "info",
+          message: `Creating ${trimmedName} when connectivity is restored.`,
+        });
+      } else {
+        const createdName = response.data?.name ?? trimmedName;
+        emit("toast", { type: "success", message: `Created ${createdName}` });
+        await this.loadDashboard();
+      }
+
+      return response.data;
+    } catch (error) {
+      emit("toast", { type: "error", message: "Unable to create village." });
+      throw error;
+    } finally {
+      this.pendingVillageCreation = false;
       this.notify();
     }
   }

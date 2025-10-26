@@ -675,6 +675,83 @@ textarea:focus-visible {
   align-items: flex-end;
 }
 
+.home-view__create {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: grid;
+  gap: var(--space-4);
+}
+
+.home-view__create[hidden] {
+  display: none;
+}
+
+.home-view__create fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.home-view__optional {
+  color: var(--color-text-muted);
+  font-weight: 400;
+  font-size: 0.85em;
+}
+
+.home-view__create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.home-view__create-submit {
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.home-view__create-submit:hover,
+.home-view__create-submit:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.home-view__create-submit:disabled {
+  opacity: 0.7;
+  cursor: progress;
+  transform: none;
+  box-shadow: none;
+}
+
+.home-view__create-cancel {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.home-view__create-cancel:hover,
+.home-view__create-cancel:focus-visible {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+.home-view__create[aria-busy="true"] {
+  opacity: 0.85;
+}
+
 .home-view__intro {
   color: var(--color-text-muted);
   max-width: 32rem;
