@@ -2,15 +2,48 @@ import { initShell } from "./views/_shell.js";
 import { createRouter } from "./router.js";
 import { createToastManager } from "./ui/toast.js";
 import { createAPIClient } from "./services/apiClient.js";
+import { createRequestQueue } from "./services/requestQueue.js";
 import { emit, subscribe } from "./state.js";
 import { HomeVM } from "./viewmodels/HomeVM.js";
 import { createHomeView } from "./views/home-view.js";
 import { VillageVM } from "./viewmodels/VillageVM.js";
 import { createVillageView } from "./views/village-view.js";
+import { PlantVM } from "./viewmodels/PlantVM.js";
+import { createPlantView } from "./views/plant-view.js";
+import { TasksVM } from "./viewmodels/TasksVM.js";
+import { createTasksView } from "./views/tasks-view.js";
 
 const shell = initShell();
 createToastManager();
-export const apiClient = createAPIClient({ baseUrl: "/api/v1" });
+const requestQueue = createRequestQueue();
+export const apiClient = createAPIClient({ baseUrl: "/api/v1", requestQueue });
+
+let queueRefreshHandle = null;
+function scheduleDashboardRefresh() {
+  if (queueRefreshHandle) {
+    return;
+  }
+  queueRefreshHandle = setTimeout(() => {
+    queueRefreshHandle = null;
+    homeVM.loadDashboard().catch((error) => console.error("Failed to refresh dashboard after sync", error));
+  }, 300);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("offline", () => {
+    emit("toast", { type: "warning", message: "You are offline. Changes will sync when back online." });
+  });
+  window.addEventListener("online", () => {
+    emit("toast", { type: "success", message: "Back online. Resuming sync." });
+  });
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("/js/pwa/sw.js")
+        .catch((error) => console.error("Service worker registration failed", error));
+    });
+  }
+}
 
 const defaultSidebar = () => {
   const wrapper = document.createElement("section");
@@ -25,6 +58,14 @@ const setDefaultSidebar = () => shell.setSidebar(defaultSidebar());
 setDefaultSidebar();
 
 const homeVM = new HomeVM({ apiClient });
+subscribe("requestQueue:success", (entry) => {
+  if (!entry || typeof entry.path !== "string") {
+    return;
+  }
+  if (entry.path.includes("/tasks") || entry.path.includes("/plants")) {
+    scheduleDashboardRefresh();
+  }
+});
 
 function placeholderView({ title, description, sidebar }) {
   return {
@@ -71,17 +112,17 @@ const router = createRouter({
     },
     {
       path: "/p/:id",
-      loader: async ({ params }) => placeholderView({
-        title: `Plant ${params.id}`,
-        description: "Plant detail appears after Phase 08.",
-      }),
+      loader: async ({ params }) => {
+        const vm = new PlantVM({ apiClient, plantId: Number(params.id) });
+        return createPlantView({ vm, shell, resetSidebar: setDefaultSidebar });
+      },
     },
     {
       path: "/tasks",
-      loader: async () => placeholderView({
-        title: "Tasks",
-        description: "Track upcoming plant care tasks here soon.",
-      }),
+      loader: async () => {
+        const vm = new TasksVM({ apiClient });
+        return createTasksView({ vm, shell, resetSidebar: setDefaultSidebar });
+      },
     },
     {
       path: "/settings",
