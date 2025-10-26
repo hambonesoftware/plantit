@@ -4,6 +4,20 @@ Plantit is a local-first garden planner built with a FastAPI backend and a light
 
 ## Development setup
 
+### All-in-one dev server
+
+Start the FastAPI backend (which also serves the compiled frontend) and load
+demo garden data with a single command:
+
+```bash
+python run.py
+```
+
+The script creates the SQLite database at `backend/data/plantit.db`, seeds it
+with a representative set of villages, plants, and tasks, and then launches a
+Uvicorn server on <http://127.0.0.1:8000>. Pass `--skip-sample-data` to keep any
+existing local records untouched.
+
 ### Backend
 
 ```bash
