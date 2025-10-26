@@ -177,7 +177,11 @@ function renderPlantList(state, vm) {
   state.filteredPlants.forEach((plant) => {
     const row = document.createElement("tr");
     const titleCell = document.createElement("td");
-    titleCell.innerHTML = `<strong>${plant.name}</strong><div class="village-plant__species">${plant.species}</div>`;
+    const titleLink = document.createElement("a");
+    titleLink.href = `#/p/${plant.id}`;
+    titleLink.className = "village-plant__name-link";
+    titleLink.innerHTML = `<strong>${plant.name}</strong><div class="village-plant__species">${plant.species}</div>`;
+    titleCell.appendChild(titleLink);
     const statusCell = document.createElement("td");
     statusCell.appendChild(createStatusPill(plant.due_state));
     const tagsCell = document.createElement("td");
@@ -207,6 +211,33 @@ function createPlantCard(plant, state, vm) {
     <div class="village-plant-card__tags"></div>
     <div class="village-plant-card__actions"></div>
   `;
+  const interactiveSelector = "a, button, input, textarea, select, label";
+  const navigateToPlant = () => {
+    window.location.hash = `#/p/${plant.id}`;
+  };
+  card.dataset.plantId = String(plant.id);
+  card.setAttribute("role", "link");
+  card.tabIndex = 0;
+  card.setAttribute("aria-label", `Open ${plant.name}`);
+  card.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest(interactiveSelector)) {
+      return;
+    }
+    if (typeof event.button === "number" && event.button !== 0) {
+      return;
+    }
+    navigateToPlant();
+  });
+  card.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+      event.preventDefault();
+      navigateToPlant();
+    }
+  });
   const statusEl = card.querySelector(".village-plant-card__status");
   statusEl.appendChild(createStatusPill(plant.due_state));
   const tagsEl = card.querySelector(".village-plant-card__tags");
