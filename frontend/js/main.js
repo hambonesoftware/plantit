@@ -63,7 +63,7 @@ subscribe("requestQueue:success", (entry) => {
   if (!entry || typeof entry.path !== "string") {
     return;
   }
-  if (entry.path.includes("/tasks") || entry.path.includes("/plants")) {
+  if (entry.path.includes("/tasks") || entry.path.includes("/plants") || entry.path.includes("/villages")) {
     scheduleDashboardRefresh();
   }
 });
