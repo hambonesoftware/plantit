@@ -13,7 +13,7 @@ from backend.services import search as search_service
 @pytest.fixture()
 def seeded_data(session: Session) -> dict[str, object]:
     search_service.ensure_indexes(session)
-    village = Village(name="Garden", description="", timezone="UTC")
+    village = Village(name="Garden", description="")
     session.add(village)
     session.commit()
     session.refresh(village)

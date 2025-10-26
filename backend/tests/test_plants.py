@@ -9,7 +9,7 @@ from backend.models.task import TaskCategory, TaskState
 
 @pytest.fixture()
 def sample_village(session):
-    village = Village(name="Greenhouse", timezone="UTC")
+    village = Village(name="Greenhouse")
     session.add(village)
     session.commit()
     session.refresh(village)
@@ -79,7 +79,7 @@ def test_patch_plant_updates_fields(client, session, sample_plant):
 
 
 def test_move_plant_updates_village(client, session, sample_plant, sample_village):
-    destination = Village(name="Sunny Patch", timezone="UTC")
+    destination = Village(name="Sunny Patch")
     session.add(destination)
     session.commit()
     session.refresh(destination)

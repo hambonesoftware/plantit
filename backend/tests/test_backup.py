@@ -19,7 +19,7 @@ def sample_data(session: Session) -> dict[str, int]:
     media_root = settings.media_root
     media_root.mkdir(parents=True, exist_ok=True)
 
-    village = Village(name="Eden", description="Test village", timezone="UTC")
+    village = Village(name="Eden", description="Test village")
     session.add(village)
     session.commit()
     session.refresh(village)

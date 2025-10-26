@@ -28,8 +28,8 @@ def _add_task(
 def test_dashboard_aggregates(client: TestClient, session: Session) -> None:
     today = date(2024, 1, 10)
 
-    village = Village(name="Herb Patch", description="", timezone="UTC")
-    other_village = Village(name="Citrus Grove", description="", timezone="UTC")
+    village = Village(name="Herb Patch", description="")
+    other_village = Village(name="Citrus Grove", description="")
     session.add(village)
     session.add(other_village)
     session.commit()

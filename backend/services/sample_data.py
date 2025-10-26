@@ -34,17 +34,14 @@ def ensure_sample_data(session: Session, *, force: bool = False) -> bool:
     herb_patch = Village(
         name="Herb Patch",
         description="Kitchen herbs thriving in morning sun.",
-        timezone="UTC",
     )
     citrus_row = Village(
         name="Citrus Row",
         description="Container citrus experimenting with dwarf varieties.",
-        timezone="UTC",
     )
     greenhouse = Village(
         name="Propagation Greenhouse",
         description="Cuttings and seedlings under grow lights.",
-        timezone="UTC",
     )
 
     session.add_all([herb_patch, citrus_row, greenhouse])
