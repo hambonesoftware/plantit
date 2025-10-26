@@ -13,6 +13,7 @@ from backend.repositories.logs import create_log as create_log_entry
 from backend.repositories.logs import list_logs
 from backend.repositories.plants import (
     create_plant as create_plant_record,
+    delete_plant as delete_plant_record,
     move_plant as move_plant_record,
     update_plant as update_plant_record,
 )
@@ -70,6 +71,12 @@ def create_plant(session: Session, payload: PlantCreate) -> Plant:
 def update_plant(session: Session, plant: Plant, payload: PlantUpdate) -> Plant:
     updated = update_plant_record(session, plant, payload)
     return updated
+
+
+def delete_plant(session: Session, plant: Plant) -> None:
+    """Delete the provided plant."""
+
+    delete_plant_record(session, plant.id)
 
 
 def move_plant(session: Session, plant: Plant, payload: PlantMoveRequest) -> Plant:
