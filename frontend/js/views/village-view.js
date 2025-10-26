@@ -1,3 +1,5 @@
+import { createVillageCardSkeletons, createVillageListSkeleton } from "../ui/skeleton.js";
+
 export function createVillageView({ vm, shell, resetSidebar }) {
   let unsubscribe;
   const cleanup = [];
@@ -130,10 +132,11 @@ function updateViewToggle(toggleEl, mode) {
 function renderPlants(container, state, vm) {
   container.replaceChildren();
   if (state.loading && state.metrics.total === 0) {
-    const loading = document.createElement("p");
-    loading.className = "village-view__loading";
-    loading.textContent = "Loading plants...";
-    container.appendChild(loading);
+    if (state.viewMode === "list") {
+      container.appendChild(createVillageListSkeleton(4));
+    } else {
+      container.appendChild(createVillageCardSkeletons(4));
+    }
     return;
   }
   if (state.filteredPlants.length === 0) {

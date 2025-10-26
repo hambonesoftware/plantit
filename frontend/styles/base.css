@@ -48,6 +48,84 @@ textarea:focus-visible {
   border: 0;
 }
 
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-skeleton-base);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-skeleton-highlight),
+    transparent
+  );
+  animation: skeleton-wave 1.2s ease-in-out infinite;
+}
+
+.skeleton-line {
+  display: block;
+  height: 0.75rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-skeleton-base);
+  margin-bottom: var(--space-2);
+}
+
+.skeleton-line--value {
+  height: 1.75rem;
+  width: 55%;
+}
+
+.skeleton-line--label {
+  width: 40%;
+}
+
+.skeleton-line--title {
+  width: 65%;
+  height: 1.25rem;
+}
+
+.skeleton-line--meta {
+  width: 45%;
+}
+
+.skeleton-line--count {
+  width: 50%;
+  height: 1rem;
+}
+
+.skeleton-pill {
+  display: inline-block;
+  height: 0.9rem;
+  width: 4.5rem;
+  border-radius: 999px;
+  background: var(--color-skeleton-base);
+}
+
+.is-skeleton {
+  position: relative;
+  pointer-events: none;
+  color: transparent !important;
+}
+
+.is-skeleton .skeleton-line:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes skeleton-wave {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 #app-shell {
   display: grid;
   grid-template-rows: var(--nav-height) 1fr;
@@ -570,14 +648,17 @@ textarea:focus-visible {
   border-radius: var(--radius-sm);
   background: var(--color-accent-muted);
   color: var(--color-accent);
+  border: 1px solid rgba(125, 211, 252, 0.4);
   font-size: 0.75rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .chip--warning {
-  background: rgba(250, 204, 21, 0.18);
+  background: rgba(250, 204, 21, 0.15);
   color: var(--color-warning);
+  border-color: rgba(250, 204, 21, 0.35);
 }
 
 .home-view {
@@ -607,7 +688,7 @@ textarea:focus-visible {
   border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .home-view__cta:hover,
@@ -623,11 +704,15 @@ textarea:focus-visible {
 }
 
 .home-view__summary-chip {
-  background: var(--color-surface);
+  background: var(--color-surface-elevated);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   min-width: 8rem;
-  box-shadow: inset 0 0 0 1px var(--color-border);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .home-view__summary-value {
@@ -641,6 +726,20 @@ textarea:focus-visible {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-text-muted);
+}
+
+.home-view__summary-chip.is-skeleton {
+  background: var(--color-subtle);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.home-view__summary-chip.is-skeleton .skeleton-line--value {
+  width: 60%;
+}
+
+.home-view__summary-chip.is-skeleton .skeleton-line--label {
+  width: 40%;
 }
 
 .home-view__cards {
@@ -660,6 +759,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  border: 1px solid var(--color-border);
   box-shadow: var(--shadow-soft);
 }
 
@@ -704,8 +804,14 @@ textarea:focus-visible {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--color-subtle);
   color: var(--color-text);
+}
+
+.village-card__quick-add input:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-ring);
+  outline: none;
 }
 
 .village-card__quick-add button {
@@ -719,11 +825,32 @@ textarea:focus-visible {
   color: var(--color-background);
   font-weight: 600;
   cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .village-card__quick-add button img {
   width: 1rem;
   height: 1rem;
+}
+
+.village-card__quick-add button:hover,
+.village-card__quick-add button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.village-card--skeleton {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+.village-card--skeleton .village-card__body {
+  gap: var(--space-3);
+}
+
+.village-card--skeleton .village-card__chips {
+  gap: var(--space-2);
 }
 
 .today-panel {
@@ -930,6 +1057,19 @@ textarea:focus-visible {
   border-bottom: none;
 }
 
+.village-view__table--skeleton {
+  box-shadow: none;
+  border: 1px solid var(--color-border);
+}
+
+.village-view__table--skeleton td {
+  padding: var(--space-3);
+}
+
+.village-view__table--skeleton .skeleton-line {
+  width: 80%;
+}
+
 .village-view__empty,
 .village-view__loading {
   color: var(--color-text-muted);
@@ -1016,6 +1156,165 @@ textarea:focus-visible {
   background: transparent;
   color: var(--color-text);
   cursor: pointer;
+}
+
+.export-import {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.export-import__header p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.export-import__grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+}
+
+.export-import__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-soft);
+}
+
+.export-import__form fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.export-import__form label {
+  font-weight: 600;
+}
+
+.export-import__form input,
+.export-import__form select {
+  background: var(--color-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.export-import__form input:focus-visible,
+.export-import__form select:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-ring);
+  outline: none;
+}
+
+.export-import__submit {
+  align-self: flex-start;
+  background: var(--color-accent);
+  color: var(--color-background);
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.export-import__submit:hover,
+.export-import__submit:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.export-import__help {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.export-import__log {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.export-import__log-entry {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-subtle);
+  border: 1px solid transparent;
+  font-size: 0.875rem;
+}
+
+.export-import__log-entry--success {
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.export-import__log-entry--warning {
+  border-color: rgba(250, 204, 21, 0.35);
+  color: var(--color-warning);
+}
+
+.export-import__log-entry--error {
+  border-color: rgba(248, 113, 113, 0.35);
+  color: var(--color-danger);
+}
+
+.export-import__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.export-import__sidebar h2,
+.export-import__sidebar h3 {
+  margin: 0;
+}
+
+.export-import__sidebar p,
+.export-import__sidebar dd {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.export-import__sidebar dl {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-view__cta,
+  .village-card__quick-add button,
+  .export-import__submit {
+    transition: none;
+  }
+
+  .home-view__cta:hover,
+  .home-view__cta:focus-visible,
+  .village-card__quick-add button:hover,
+  .village-card__quick-add button:focus-visible,
+  .export-import__submit:hover,
+  .export-import__submit:focus-visible {
+    transform: none;
+  }
+
+  .skeleton::after {
+    animation: none;
+  }
 }
 
 .village-action:disabled {
