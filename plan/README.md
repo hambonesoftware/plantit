@@ -1,25 +1,31 @@
-# Plantit — Full Development Plan
-Date: 2025-10-25
+# Plantit — Plan v3 (Backend VM/M, Frontend V/thin-VM)
+Date: 2025-10-27
 
-This archive contains **one plan file per phase**. Each phase specifies: objective, prerequisites, detailed work items, file tree changes, API/UI contracts, tests, manual QA, risks & mitigations, rollback, definition of done, and artifacts. No timelines are included.
+This plan set supersedes previous versions. It merges the original instructions with your updated architecture:
+- **Backend**: Python FastAPI with **Models + ViewModels (VM/M)**; SQLite via SQLModel.
+- **Frontend**: HTML/CSS/ESM-JS with **Views + thin ViewModels** that fetch backend VMs and forward CRUD writes.
+- **Persistence**: All Villages and Plants are stored with full CRUD.
+- **Design**: Crisp white UI, thin black borders, soft shadows.
 
-## Architecture Summary
-- Backend: Python 3.12, FastAPI, SQLModel (SQLite), Uvicorn, Pillow, SQLite FTS5.
-- Frontend: HTML/CSS/ESM-JS, MVVM pattern, native Web Components, optional Vite for dev HMR.
-- Storage: `./backend/data/plantit.db`, media at `./backend/data/media/{yyyy}/{mm}/{uuid}.ext` with thumbnails `thumb_{uuid}.jpg`.
-- Local-first: Operable entirely offline after first load; request queue optional in Phase 10.
+## API Namespacing
+- CRUD base: `/api/v1` (e.g., `/api/v1/villages`, `/api/v1/plants`).
+- ViewModels base: `/api/v1/vm` (e.g., `/api/v1/vm/home`, `/api/v1/vm/village/{id}`, `/api/v1/vm/plant/{id}`).
+- All GET list/detail endpoints return `ETag`; clients send `If-None-Match`.
 
-## Conventions
-- Repo root:
+## Storage Layout
+- Database file: `backend/data/plantit.db` (SQLite).
+- Media: `backend/data/media/{yyyy}/{mm}/{uuid}.ext` and `thumb_{uuid}.jpg`.
+
+## Visual System Tokens (excerpt)
 ```
-plantit/
-  backend/
-  frontend/
-  scripts/
-  tests/
+:root{
+  --bg:#ffffff; --fg:#111111; --muted:#6b7280; --border:#111111;
+  --radius:14px; --shadow:0 8px 24px rgba(0,0,0,0.08);
+  --gap:16px; --card-pad:16px;
+}
+.card{background:var(--bg);color:var(--fg);border:1px solid var(--border);
+      border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--card-pad);}
 ```
-- Makefile targets: `dev`, `test`, `lint`, `fmt`, `seed`, `build`, `serve`.
-- API base: `/api/v1`
-- Routes (initial): `/`, `/v/:id`, `/p/:id`, `/tasks`, `/settings`.
-- Accessibility: Keyboard navigable; visible focus; sufficient contrast; reduced-motion respected.
-- Security: Input validation, strict media handling, path traversal protection, content-type verification.
+
+## Phase Files
+This folder contains one Markdown file per phase (A–N). Each file includes Objective, Prerequisites, Detailed Work Items, File Tree Changes, API/UI Contracts, Tests, Manual QA, Risks & Mitigations, Rollback, and a strict Definition of Done.

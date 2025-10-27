@@ -1,16 +1,21 @@
-# Global Guardrails for Plantit
+# Global Guardrails — Plantit (VM/M backend, V/thin-VM frontend)
 
-Date: 2025-10-25
+Date: 2025-10-27
 
-## Non-Negotiables
-1. **Stack Lock**: Backend = Python 3.12 + FastAPI + SQLModel (SQLite). Frontend = HTML/CSS/ESM-JS with native modules and optional Vite dev server. No React/Angular/Next. No DB other than SQLite for local-first.
-2. **Local-First**: Operate without internet. Do not add third-party cloud calls. All assets served locally.
-3. **No Kill Switch**: Do not add a global network toggle. Offline behavior is achieved via caching and a request queue.
-4. **Security**: Never commit secrets. Validate all file paths and uploads. Enforce content-type and size limits.
-5. **Idempotence**: Migrations, seeds, and scheduling must be idempotent. Re-running must not corrupt data.
-6. **Accessibility**: Keyboard navigable. Respect prefers-reduced-motion. Maintain color contrast >= 4.5:1 where applicable.
-7. **Performance Targets**: Local API < 100ms typical, < 300ms worst-case; Home render < 300ms after dashboard fetch; 60fps scroll on plant grids.
-8. **Testing Level**: Each phase ships with tests (pytest for backend, minimal DOM/VM unit tests for frontend when applicable). CI gates: lint + format + tests must pass.
-9. **File Paths**: Persist DB at ./data/plantit.db; media under ./data/media/{yyyy}/{mm}/{uuid}. Thumbnails named thumb_{uuid}.jpg.
-10. **No Ellipses**: Do not elide code with “...”. Provide complete implementations and file contents.
-11. **Time-boxing**: If execution window is short, complete the highest-priority subset and emit partial artifacts with a clear TODO list. Never leave the repo in a broken state.
+## Architectural Hard Rules
+1. **Ownership of logic**: Backend (FastAPI) owns **Models** and **ViewModels** (VM/M). Frontend has **Views + thin ViewModels** only. No business logic in the browser.
+2. **Persistence**: SQLite via SQLModel; DB at `./backend/data/plantit.db`. All Villages and Plants must be persisted. Enforce FKs and timestamps.
+3. **CRUD coverage**: Villages and Plants have full CRUD (GET list/detail, POST, PATCH, DELETE). IDs are UUIDs. Responses include stable IDs and ETags.
+4. **VM Endpoints**: `/api/v1/vm/home`, `/api/v1/vm/villages`, `/api/v1/vm/village/{id}`, `/api/v1/vm/plant/{id}` return view-ready JSON. Shapes are **stable** once published.
+5. **Thin VM Rule**: Frontend thin VMs read via `/vm/*` and **write via CRUD**, then **re-fetch** the relevant VM endpoint to re-sync state.
+6. **Local-first**: No cloud dependencies. Media stored under `./backend/data/media/{yyyy}/{mm}/{uuid}.ext` with `thumb_{uuid}.jpg` thumbnails.
+7. **Design language**: Crisp **white** surfaces, **thin black borders**, **soft shadows**, rounded corners. Consistent tokens in `frontend/styles/tokens.css`.
+8. **Accessibility**: Visible focus outlines, keyboard operable controls, color contrast ≥ 4.5:1, `prefers-reduced-motion` respected.
+9. **Error model**: JSON envelope
+   ```json
+   {"error": {"code": "VALIDATION_ERROR", "message": "...", "field": "..."}}
+   ```
+10. **ETags & caching**: All GET list/detail (CRUD and VM) return `ETag`. Clients send `If-None-Match`.
+11. **Testing**: Backend pytest for CRUD + VM shapes; frontend thin-VM tests for load/mutate-reload; basic view smoke tests.
+12. **No ellipses in code**: Do not elide implementation with `...`.
+13. **Idempotence**: Seeds, migrations, and scripts are safe to re-run. If partial work is delivered, mark artifacts accordingly.
