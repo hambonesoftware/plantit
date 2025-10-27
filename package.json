@@ -1,0 +1,13 @@
+{
+  "name": "plantit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint \"frontend/js/**/*.js\"",
+    "dev": "npx serve frontend -l 5173"
+  },
+  "devDependencies": {
+    "eslint": "^9.5.0"
+  }
+}

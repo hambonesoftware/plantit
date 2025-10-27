@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plantit</title>
+    <link rel="stylesheet" href="styles/tokens.css" />
+    <link rel="stylesheet" href="styles/base.css" />
+  </head>
+  <body>
+    <div class="app-shell" data-app-shell>
+      <aside class="sidebar" aria-label="Main navigation">
+        <h1>Plantit</h1>
+        <nav>
+          <ul>
+            <li><a href="#/" data-nav-link>Home</a></li>
+            <li><a href="#/villages" data-nav-link>Villages</a></li>
+          </ul>
+        </nav>
+      </aside>
+      <main class="main-content" id="app-main" tabindex="-1"></main>
+    </div>
+    <script type="module" src="js/router.js"></script>
+  </body>
+</html>
