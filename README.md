@@ -71,6 +71,7 @@ By default the frontend expects the backend at `http://localhost:8000`. Override
 make test      # Runs pytest suite
 make lint      # Ruff + Black + ESLint
 make format    # Formats Python code and fixes import ordering
+npm test       # Runs frontend thin-VM tests via node:test
 ```
 
 ### Seeding Demo Data
