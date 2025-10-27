@@ -1,0 +1,22 @@
+{
+  "status": "success",
+  "changes": [
+    {"path": "backend/viewmodels/home_vm.py", "action": "created"},
+    {"path": "backend/viewmodels/villages_vm.py", "action": "created"},
+    {"path": "backend/viewmodels/village_vm.py", "action": "created"},
+    {"path": "backend/viewmodels/plant_vm.py", "action": "created"},
+    {"path": "backend/api/vm.py", "action": "created"},
+    {"path": "backend/services/aggregations.py", "action": "updated"},
+    {"path": "backend/tests/test_vm_home.py", "action": "created"},
+    {"path": "backend/tests/test_vm_village.py", "action": "created"},
+    {"path": "backend/tests/test_vm_plant.py", "action": "created"}
+  ],
+  "api_endpoints": [
+    "GET /api/v1/vm/home",
+    "GET /api/v1/vm/villages",
+    "GET /api/v1/vm/village/{id}",
+    "GET /api/v1/vm/plant/{id}"
+  ],
+  "ui_routes": [],
+  "notes": "Implemented backend view model builders with ETag-aware FastAPI routes and pytest coverage for all VM shapes."
+}
