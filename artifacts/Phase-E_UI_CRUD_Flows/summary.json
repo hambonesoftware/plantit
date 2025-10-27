@@ -1,0 +1,16 @@
+{
+  "status": "success",
+  "changes": [
+    {"path": "frontend/js/services/apiClient.js", "action": "modified"},
+    {"path": "frontend/js/thinvms/VillagesThinVM.js", "action": "modified"},
+    {"path": "frontend/js/thinvms/VillageDetailThinVM.js", "action": "modified"},
+    {"path": "frontend/js/thinvms/PlantDetailThinVM.js", "action": "modified"},
+    {"path": "frontend/js/views/villages-view.js", "action": "modified"},
+    {"path": "frontend/js/views/village-detail-view.js", "action": "modified"},
+    {"path": "frontend/js/views/plant-detail-view.js", "action": "modified"},
+    {"path": "frontend/js/thinvms/__tests__/crud-thinvm.test.js", "action": "created"}
+  ],
+  "api_endpoints": [],
+  "ui_routes": ["#/villages", "#/villages/{id}", "#/plants/{id}"],
+  "notes": "Thin VMs expose PATCH/DELETE helpers and the villages, village detail, and plant detail views now offer inline edit/delete flows with optimistic messaging and regression tests."
+}

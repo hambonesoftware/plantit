@@ -1,7 +1,8 @@
 """API router composition for Plantit."""
+
 from fastapi import FastAPI
 
-from . import health, plants, villages, vm
+from . import health, photos, plants, villages, vm
 
 
 def register_routers(app: FastAPI) -> None:
@@ -9,6 +10,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(health.router)
     app.include_router(villages.router)
     app.include_router(plants.router)
+    app.include_router(photos.router)
     app.include_router(vm.router)
 
 

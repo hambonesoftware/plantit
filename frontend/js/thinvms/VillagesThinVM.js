@@ -1,4 +1,16 @@
-import { fetchVillagesVM, createVillage } from "../services/apiClient.js";
+import {
+  fetchVillagesVM,
+  createVillage,
+  updateVillage as updateVillageRequest,
+  deleteVillage as deleteVillageRequest,
+} from "../services/apiClient.js";
+
+function messageFrom(error) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "Request failed";
+}
 
 export class VillagesThinVM {
   constructor() {
@@ -32,7 +44,35 @@ export class VillagesThinVM {
   }
 
   async createVillage(payload) {
-    await createVillage(payload);
-    await this.load();
+    try {
+      await createVillage(payload);
+      await this.load();
+    } catch (error) {
+      this.state = { ...this.state, error: messageFrom(error) };
+      this.notify();
+      throw error;
+    }
+  }
+
+  async updateVillage(villageId, payload) {
+    try {
+      await updateVillageRequest(villageId, payload);
+      await this.load();
+    } catch (error) {
+      this.state = { ...this.state, error: messageFrom(error) };
+      this.notify();
+      throw error;
+    }
+  }
+
+  async deleteVillage(villageId) {
+    try {
+      await deleteVillageRequest(villageId);
+      await this.load();
+    } catch (error) {
+      this.state = { ...this.state, error: messageFrom(error) };
+      this.notify();
+      throw error;
+    }
   }
 }

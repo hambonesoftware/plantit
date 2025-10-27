@@ -50,6 +50,8 @@ The API listens on `http://localhost:8000`. Available endpoints:
 - `GET /api/v1/health`
 - `GET/POST/PATCH/DELETE /api/v1/villages`
 - `GET/POST/PATCH/DELETE /api/v1/plants`
+- `POST /api/v1/plants/{id}/photos`
+- `DELETE /api/v1/photos/{id}`
 - `GET /api/v1/vm/home`
 - `GET /api/v1/vm/villages`
 - `GET /api/v1/vm/village/{id}`
@@ -87,4 +89,5 @@ The seed script is idempotent and populates sample villages and plants.
 - Follow guardrails in `agents/Global_Guardrails.md` for architecture and error handling.
 - All backend GET endpoints return `ETag` headers and respect `If-None-Match`.
 - Errors follow the `{ "error": { "code", "message", "field" } }` envelope.
+- Media uploads are stored under `backend/data/media` and exposed via `/media/...` URLs with automatic JPEG thumbnails.
 - Frontend thin VMs fetch view models via `/api/v1/vm/*` and mutate state via CRUD endpoints, then reload from the backend.

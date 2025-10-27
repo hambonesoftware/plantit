@@ -1,4 +1,5 @@
 """Tests for the village view model endpoint."""
+
 from __future__ import annotations
 
 from uuid import uuid4
@@ -36,6 +37,9 @@ def test_village_vm_returns_plants(client: TestClient) -> None:
     payload = response.json()
     assert payload["village"]["id"] == village_id
     assert len(payload["plants"]) == 1
+    plant_payload = payload["plants"][0]
+    assert plant_payload["has_photo"] is False
+    assert plant_payload["thumbnail_url"] is None
 
     cached = client.get(
         f"/api/v1/vm/village/{village_id}", headers={"If-None-Match": etag}

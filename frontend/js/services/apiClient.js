@@ -8,12 +8,12 @@ function buildCacheKey(method, path) {
   return `${method.toUpperCase()}:${path}`;
 }
 
-function normalizeHeaders(method, path, headers, hasBody) {
+function normalizeHeaders(method, path, headers, hasBody, isFormData) {
   const normalized = new Headers(headers ?? {});
   if (!normalized.has("Accept")) {
     normalized.set("Accept", "application/json");
   }
-  if (hasBody && !normalized.has("Content-Type")) {
+  if (hasBody && !isFormData && !normalized.has("Content-Type")) {
     normalized.set("Content-Type", "application/json");
   }
   if (method === "GET") {
@@ -43,7 +43,9 @@ async function request(path, options = {}) {
   const method = (options.method ?? "GET").toUpperCase();
   const cacheKey = buildCacheKey(method, path);
   const hasBody = Object.prototype.hasOwnProperty.call(options, "body");
-  const headers = normalizeHeaders(method, path, options.headers, hasBody);
+  const isFormData =
+    hasBody && typeof FormData !== "undefined" && options.body instanceof FormData;
+  const headers = normalizeHeaders(method, path, options.headers, hasBody, isFormData);
   const fetchOptions = {
     ...options,
     method,
@@ -106,9 +108,50 @@ export async function createVillage(payload) {
   });
 }
 
+export async function updateVillage(villageId, payload) {
+  return request(`/api/v1/villages/${villageId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteVillage(villageId) {
+  return request(`/api/v1/villages/${villageId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createPlant(payload) {
   return request("/api/v1/plants/", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function updatePlant(plantId, payload) {
+  return request(`/api/v1/plants/${plantId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePlant(plantId) {
+  return request(`/api/v1/plants/${plantId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function uploadPlantPhoto(plantId, file) {
+  const formData = new FormData();
+  formData.set("file", file);
+  return request(`/api/v1/plants/${plantId}/photos`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function deletePhoto(photoId) {
+  return request(`/api/v1/photos/${photoId}`, {
+    method: "DELETE",
   });
 }

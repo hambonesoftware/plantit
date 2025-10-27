@@ -11,6 +11,15 @@ body {
   color: var(--color-text);
 }
 
+.muted {
+  color: var(--color-muted);
+}
+
+.feedback {
+  margin-top: var(--spacing-sm);
+  color: var(--color-muted);
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -50,6 +59,61 @@ input:focus {
   margin-bottom: var(--spacing-lg);
 }
 
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+details.card-details {
+  margin-top: var(--spacing-md);
+}
+
+details.card-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+details.card-details[open] {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--spacing-md);
+}
+
+form {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+label {
+  display: grid;
+  gap: var(--spacing-xs);
+  font-weight: 600;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -61,6 +125,16 @@ input:focus {
   color: var(--color-text);
   cursor: pointer;
   transition: transform 150ms ease;
+}
+
+.button-danger {
+  background: var(--color-danger);
+  color: #ffffff;
+  border-color: var(--color-border);
+}
+
+.button-danger:hover {
+  background: #8c1f16;
 }
 
 .button:hover {
@@ -80,4 +154,47 @@ input:focus {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+.plant-card {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.plant-thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+}
+
+.plant-card__content {
+  flex: 1;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.photo-card {
+  display: grid;
+  gap: var(--spacing-sm);
+  justify-items: center;
+}
+
+.photo-card img {
+  width: 100%;
+  border-radius: var(--radius-medium);
+  border: 1px solid var(--color-border);
+  object-fit: cover;
+}
+
+.file-input input[type="file"] {
+  border: 1px dashed var(--color-border);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-medium);
 }
