@@ -1,0 +1,17 @@
+{
+  "status": "success",
+  "changes": [
+    {"path": "backend/app.py", "action": "created"},
+    {"path": "backend/api/health.py", "action": "created"},
+    {"path": "backend/tests/test_health.py", "action": "created"},
+    {"path": "frontend/index.html", "action": "created"},
+    {"path": "frontend/js/router.js", "action": "created"},
+    {"path": "frontend/styles/base.css", "action": "created"},
+    {"path": "frontend/styles/tokens.css", "action": "created"},
+    {"path": "Makefile", "action": "created"},
+    {"path": "README.md", "action": "created"}
+  ],
+  "api_endpoints": ["GET /api/v1/health"],
+  "ui_routes": ["#/", "#/villages"],
+  "notes": "Established FastAPI app shell, health endpoint, tooling, and static frontend scaffold."
+}

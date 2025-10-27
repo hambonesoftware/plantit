@@ -1,0 +1,15 @@
+:root {
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
+  --color-border: #1a1a1a;
+  --color-text: #111111;
+  --color-accent: #2d7a46;
+  --shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.08);
+  --radius-medium: 12px;
+  --font-family-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --focus-ring: 0 0 0 3px rgba(45, 122, 70, 0.3);
+}
