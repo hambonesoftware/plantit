@@ -1,4 +1,18 @@
-import { fetchVillageDetail, createPlant } from "../services/apiClient.js";
+import {
+  fetchVillageDetail,
+  createPlant,
+  updateVillage as updateVillageRequest,
+  deleteVillage as deleteVillageRequest,
+  updatePlant as updatePlantRequest,
+  deletePlant as deletePlantRequest,
+} from "../services/apiClient.js";
+
+function messageFrom(error) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "Request failed";
+}
 
 export class VillageDetailThinVM {
   constructor(villageId) {
@@ -37,7 +51,62 @@ export class VillageDetailThinVM {
   }
 
   async createPlant(payload) {
-    await createPlant({ ...payload, village_id: this.villageId });
-    await this.load();
+    try {
+      await createPlant({ ...payload, village_id: this.villageId });
+      await this.load();
+    } catch (error) {
+      this.state = { ...this.state, error: messageFrom(error) };
+      this.notify();
+      throw error;
+    }
+  }
+
+  async updateVillage(payload) {
+    try {
+      await updateVillageRequest(this.villageId, payload);
+      await this.load();
+    } catch (error) {
+      this.state = { ...this.state, error: messageFrom(error) };
+      this.notify();
+      throw error;
+    }
+  }
+
+  async deleteVillage() {
+    try {
+      await deleteVillageRequest(this.villageId);
+      this.state = {
+        loading: false,
+        error: null,
+        data: { village: null, plants: [] },
+      };
+      this.notify();
+    } catch (error) {
+      this.state = { ...this.state, error: messageFrom(error) };
+      this.notify();
+      throw error;
+    }
+  }
+
+  async updatePlant(plantId, payload) {
+    try {
+      await updatePlantRequest(plantId, payload);
+      await this.load();
+    } catch (error) {
+      this.state = { ...this.state, error: messageFrom(error) };
+      this.notify();
+      throw error;
+    }
+  }
+
+  async deletePlant(plantId) {
+    try {
+      await deletePlantRequest(plantId);
+      await this.load();
+    } catch (error) {
+      this.state = { ...this.state, error: messageFrom(error) };
+      this.notify();
+      throw error;
+    }
   }
 }

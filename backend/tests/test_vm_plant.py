@@ -1,4 +1,5 @@
 """Tests for the plant view model endpoint."""
+
 from __future__ import annotations
 
 from uuid import uuid4
@@ -34,6 +35,7 @@ def test_plant_vm_response(client: TestClient) -> None:
     assert etag
     payload = response.json()
     assert payload["plant"]["id"] == plant_id
+    assert payload["plant"]["photos"] == []
 
     cached = client.get(f"/api/v1/vm/plant/{plant_id}", headers={"If-None-Match": etag})
     assert cached.status_code == 304

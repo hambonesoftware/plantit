@@ -1,7 +1,10 @@
 """Pytest fixtures for backend tests."""
+
 from __future__ import annotations
 
 from typing import Iterator
+
+import shutil
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +12,7 @@ from sqlmodel import Session, SQLModel
 
 from backend.app import create_app
 from backend.db import create_test_engine, get_session
+from backend.services.photos import MEDIA_ROOT
 
 
 @pytest.fixture()
@@ -40,3 +44,14 @@ def client(app):
 def session(engine):
     with Session(engine) as db_session:
         yield db_session
+
+
+@pytest.fixture(autouse=True)
+def clean_media_directory():
+    if MEDIA_ROOT.exists():
+        shutil.rmtree(MEDIA_ROOT)
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    yield
+    if MEDIA_ROOT.exists():
+        shutil.rmtree(MEDIA_ROOT)
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)

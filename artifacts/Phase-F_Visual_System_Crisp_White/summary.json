@@ -1,0 +1,10 @@
+{
+  "status": "success",
+  "changes": [
+    {"path": "frontend/styles/base.css", "action": "modified"},
+    {"path": "frontend/styles/tokens.css", "action": "modified"}
+  ],
+  "api_endpoints": [],
+  "ui_routes": ["#/villages", "#/villages/{id}", "#/plants/{id}"],
+  "notes": "Expanded design tokens and base styles with muted text, danger buttons, card headers, form controls, and responsive grids to reinforce the crisp white aesthetic with accessible focus rings."
+}
