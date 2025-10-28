@@ -1,8 +1,33 @@
 import { offlineQueue } from "./offlineQueue.js";
 
-const API_BASE =
-  (typeof window !== "undefined" && window.PLANTIT_API_BASE) ||
-  "http://localhost:8000";
+function resolveApiBase() {
+  if (typeof window === "undefined") {
+    return "http://localhost:8000";
+  }
+
+  if (window.PLANTIT_API_BASE) {
+    return window.PLANTIT_API_BASE;
+  }
+
+  const { location } = window;
+  const origin = location?.origin;
+  const hostname = location?.hostname;
+  const port = location?.port;
+
+  if (hostname && (hostname === "localhost" || hostname === "127.0.0.1")) {
+    if (port && port !== "" && port !== "8000") {
+      return "http://localhost:8000";
+    }
+  }
+
+  if (origin && origin !== "null") {
+    return origin;
+  }
+
+  return "http://localhost:8000";
+}
+
+const API_BASE = resolveApiBase();
 
 const etagCache = new Map();
 const mutationListeners = new Set();
@@ -350,3 +375,5 @@ export async function deletePhoto(photoId) {
     { resources: ["villages", "home"] },
   );
 }
+
+export { resolveApiBase };

@@ -1,5 +1,7 @@
 import { VillagesThinVM } from "../thinvms/VillagesThinVM.js";
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
 function escapeHtml(value) {
   return value
     .replaceAll("&", "&amp;")
@@ -9,28 +11,70 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function formatRelativeTime(isoValue) {
+  if (!isoValue) {
+    return "Updated just now";
+  }
+  const date = new Date(isoValue);
+  if (Number.isNaN(date.getTime())) {
+    return "Updated just now";
+  }
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const diffMinutes = Math.round(diffMs / 60000);
+  if (Math.abs(diffMinutes) < 1) {
+    return "Updated just now";
+  }
+  if (Math.abs(diffMinutes) < 60) {
+    return `Updated ${relativeTimeFormatter.format(diffMinutes, "minute")}`;
+  }
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) {
+    return `Updated ${relativeTimeFormatter.format(diffHours, "hour")}`;
+  }
+  const diffDays = Math.round(diffHours / 24);
+  if (Math.abs(diffDays) < 7) {
+    return `Updated ${relativeTimeFormatter.format(diffDays, "day")}`;
+  }
+  const diffWeeks = Math.round(diffDays / 7);
+  if (Math.abs(diffWeeks) < 5) {
+    return `Updated ${relativeTimeFormatter.format(diffWeeks, "week")}`;
+  }
+  const diffMonths = Math.round(diffDays / 30);
+  if (Math.abs(diffMonths) < 12) {
+    return `Updated ${relativeTimeFormatter.format(diffMonths, "month")}`;
+  }
+  const diffYears = Math.round(diffDays / 365);
+  return `Updated ${relativeTimeFormatter.format(diffYears, "year")}`;
+}
+
 function villageCard(village) {
   const description = village.description
-    ? `<p class="muted">${escapeHtml(village.description)}</p>`
+    ? `<p>${escapeHtml(village.description)}</p>`
     : "";
   const location = village.location
     ? `<p class="muted">${escapeHtml(village.location)}</p>`
     : "";
+  const updatedLabel = formatRelativeTime(village.updated_at);
   return `
-    <article class="card" data-village-id="${village.id}">
-      <header class="card-header">
+    <article class="card village-card" data-village-id="${village.id}">
+      <div class="village-card__media" aria-hidden="true"></div>
+      <div class="village-card__header">
         <div>
           <h3>${escapeHtml(village.name)}</h3>
           ${location}
         </div>
-        <div class="card-actions">
-          <a class="button" href="#/villages/${village.id}">View details</a>
-          <button class="button button-danger" type="button" data-delete-village>
-            Delete
-          </button>
+        <div class="village-card__meta">
+          <span class="chip chip--muted">${escapeHtml(updatedLabel)}</span>
         </div>
-      </header>
+      </div>
       ${description}
+      <div class="village-card__actions">
+        <a class="button button-ghost" href="#/villages/${village.id}">Open</a>
+        <button class="button button-danger" type="button" data-delete-village>
+          Delete
+        </button>
+      </div>
       <details class="card-details">
         <summary>Edit village</summary>
         <form data-edit-village data-village-id="${village.id}">
@@ -57,10 +101,11 @@ function villageCard(village) {
 
 function skeletonCard() {
   return `
-    <article class="card skeleton-card">
-      <div class="skeleton-line skeleton-line--lg"></div>
-      <div class="skeleton-line skeleton-line--sm"></div>
-      <div class="skeleton-line skeleton-line--md"></div>
+    <article class="card village-card skeleton-card" aria-hidden="true">
+      <div class="village-card__media" aria-hidden="true"></div>
+      <span class="skeleton-line skeleton-line--lg"></span>
+      <span class="skeleton-line"></span>
+      <span class="skeleton-line skeleton-line--sm"></span>
     </article>
   `;
 }
@@ -70,39 +115,59 @@ export function renderVillagesView(root) {
   const container = document.createElement("div");
   container.className = "page";
   container.innerHTML = `
-    <div class="page-header">
-      <h2>Villages</h2>
-      <p class="muted">Create and update the growing spaces you care for.</p>
+    <div class="page-header page-header--split">
+      <div>
+        <h2>Villages</h2>
+        <p class="muted">Design every growing space and keep track of their story.</p>
+      </div>
+      <button class="button button-primary" type="button" data-scroll-to-form>New village</button>
     </div>
-    <section class="card">
-      <h3>Add village</h3>
-      <form data-form>
-        <label>
-          <span>Name</span>
-          <input name="name" required />
-        </label>
-        <label>
-          <span>Location</span>
-          <input name="location" />
-        </label>
-        <label>
-          <span>Description</span>
-          <textarea name="description"></textarea>
-        </label>
-        <button class="button" type="submit">Create village</button>
-      </form>
-      <p class="feedback" data-alert aria-live="polite"></p>
-    </section>
-    <section>
-      <h3>All villages</h3>
-      <div class="card-grid" data-list aria-live="polite"></div>
-    </section>
+    <div class="villages-layout">
+      <section class="card" id="create-village">
+        <h3>Add village</h3>
+        <p class="muted">Capture the basics so you can start planting right away.</p>
+        <form data-form>
+          <label>
+            <span>Name</span>
+            <input name="name" required />
+          </label>
+          <label>
+            <span>Location</span>
+            <input name="location" />
+          </label>
+          <label>
+            <span>Description</span>
+            <textarea name="description"></textarea>
+          </label>
+          <button class="button button-primary" type="submit">Create village</button>
+        </form>
+        <p class="feedback" data-alert aria-live="polite"></p>
+      </section>
+      <section class="card">
+        <div class="section-heading">
+          <h3>All villages</h3>
+          <p class="muted">Open a village to add plants, notes, and photos.</p>
+        </div>
+        <div class="village-collection" data-list aria-live="polite"></div>
+      </section>
+    </div>
   `;
   root.replaceChildren(container);
 
   const form = container.querySelector("[data-form]");
   const list = container.querySelector("[data-list]");
   const alert = container.querySelector("[data-alert]");
+  const scrollButton = container.querySelector("[data-scroll-to-form]");
+
+  if (scrollButton) {
+    scrollButton.addEventListener("click", () => {
+      form.scrollIntoView({ behavior: "smooth" });
+      const firstInput = form.querySelector("input[name='name']");
+      if (firstInput instanceof HTMLElement) {
+        firstInput.focus({ preventScroll: true });
+      }
+    });
+  }
 
   function setAlert(message) {
     if (!message) {
@@ -197,10 +262,12 @@ export function renderVillagesView(root) {
       list.innerHTML = `${skeletonCard()}${skeletonCard()}`;
       return;
     }
+
     if (!state.data.villages.length) {
       list.innerHTML = "<article class=\"card card--empty\"><p>No villages yet. Add one above!</p></article>";
       return;
     }
+
     list.innerHTML = state.data.villages.map(villageCard).join("");
   });
 
