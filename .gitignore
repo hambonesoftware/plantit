@@ -210,3 +210,7 @@ __marimo__/
 
 # Node
 node_modules/
+
+# Keep offline wheel directory placeholder
+!vendor/wheels/.gitkeep
+!vendor/wheels/

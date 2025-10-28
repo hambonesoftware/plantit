@@ -1,43 +1,47 @@
-import os, uvicorn
+"""Application entrypoint for Plantit."""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import uvicorn
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from starlette.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.backend.db import init_db
-from app.backend.routers.vm import router as vm_router
 from app.backend.routers.crud import router as crud_router
+from app.backend.routers.vm import router as vm_router
+
+ROOT = Path(__file__).resolve().parent
+STATIC_DIR = ROOT / "app" / "frontend" / "static"
+INDEX_FILE = ROOT / "app" / "frontend" / "index.html"
 
 app = FastAPI(title="Plantit", docs_url="/docs", redoc_url=None)
-
-# Serve static assets
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "app", "frontend", "static")
-INDEX_FILE = os.path.join(os.path.dirname(__file__), "app", "frontend", "index.html")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# Same-origin serving; CORS not needed, but keep minimal if future split occurs
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # same origin default, tighten if needed
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+@app.on_event("startup")
+def on_startup() -> None:
+    """Ensure the SQLite database exists before serving requests."""
+    init_db()
+
 
 @app.get("/")
-async def index():
+async def index() -> FileResponse:
     return FileResponse(INDEX_FILE)
 
-@app.get("/health")
-async def health():
-    return JSONResponse({"status":"ok"})
 
-# Routers
+@app.get("/health")
+async def health() -> JSONResponse:
+    return JSONResponse({"status": "ok"})
+
+
 app.include_router(vm_router, prefix="/api/vm", tags=["vm"])
 app.include_router(crud_router, prefix="/api", tags=["api"])
 
+
 if __name__ == "__main__":
-    init_db()  # create tables & seed if empty
     host = os.environ.get("APP_HOST", "127.0.0.1")
     port = int(os.environ.get("APP_PORT", "7600"))
     uvicorn.run("run:app", host=host, port=port, reload=False)

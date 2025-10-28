@@ -22,3 +22,14 @@ body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 var(--font);
 a{color:inherit}
 button{font:inherit}
 :focus-visible{outline:none;box-shadow:var(--ring)}
+
+.sr-only{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  border:0;
+}
