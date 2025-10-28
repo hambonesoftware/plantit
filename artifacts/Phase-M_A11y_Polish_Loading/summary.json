@@ -1,0 +1,13 @@
+{
+  "status": "success",
+  "changes": [
+    {"path": "frontend/styles/base.css", "action": "modified"},
+    {"path": "frontend/js/views/home-view.js", "action": "modified"},
+    {"path": "frontend/js/views/village-detail-view.js", "action": "modified"},
+    {"path": "frontend/js/views/villages-view.js", "action": "modified"},
+    {"path": "frontend/js/views/plant-detail-view.js", "action": "modified"}
+  ],
+  "api_endpoints": [],
+  "ui_routes": ["#/", "#/villages", "#/villages/{id}", "#/plants/{id}"],
+  "notes": "Added skeleton loaders, focus-visible styling, offline notices, and prefers-reduced-motion-friendly shimmer for core views."
+}

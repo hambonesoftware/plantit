@@ -73,6 +73,16 @@ function renderPendingTasks(tasks) {
   `;
 }
 
+function renderSkeleton() {
+  return `
+    <div class="skeleton-stack" aria-hidden="true">
+      <span class="skeleton-line skeleton-line--lg"></span>
+      <span class="skeleton-line skeleton-line--md"></span>
+      <span class="skeleton-line skeleton-line--sm"></span>
+    </div>
+  `;
+}
+
 export function renderPlantDetailView(root, plantId) {
   const vm = new PlantDetailThinVM(plantId);
   const container = document.createElement("div");
@@ -84,7 +94,7 @@ export function renderPlantDetailView(root, plantId) {
           Delete plant
         </button>
       </header>
-      <div data-content>Loading...</div>
+      <div data-content>${renderSkeleton()}</div>
       <details class="card-details">
         <summary>Edit plant</summary>
         <form data-edit-plant>
@@ -148,7 +158,7 @@ export function renderPlantDetailView(root, plantId) {
     event.preventDefault();
     const formData = new FormData(editForm);
     try {
-      await vm.updatePlant({
+      const result = await vm.updatePlant({
         name: formData.get("name"),
         species: formData.get("species"),
         notes: formData.get("notes"),
@@ -157,7 +167,11 @@ export function renderPlantDetailView(root, plantId) {
           .map((value) => value.trim())
           .filter(Boolean),
       });
-      setAlert("Plant updated");
+      if (!result?.queued) {
+        setAlert("Plant updated");
+      } else {
+        setAlert("Update queued. We'll sync when you're online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
@@ -170,11 +184,11 @@ export function renderPlantDetailView(root, plantId) {
     }
     try {
       const villageId = await vm.deletePlant();
-      setAlert("Plant deleted");
       if (villageId) {
+        setAlert("Plant deleted");
         window.location.hash = `#/villages/${villageId}`;
-      } else {
-        window.location.hash = "#/villages";
+      } else if (villageId === null) {
+        setAlert("Deletion queued. We'll remove it once you're online.");
       }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
@@ -187,9 +201,13 @@ export function renderPlantDetailView(root, plantId) {
     const file = fileInput.files?.[0];
     if (!file) return;
     try {
-      await vm.addPhoto(file);
-      uploadForm.reset();
-      setAlert("Photo uploaded");
+      const result = await vm.addPhoto(file);
+      if (!result?.queued) {
+        uploadForm.reset();
+        setAlert("Photo uploaded");
+      } else {
+        setAlert("Photo upload requires a connection. We'll retry online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
@@ -200,63 +218,66 @@ export function renderPlantDetailView(root, plantId) {
       ? event.target.closest("[data-delete-photo]")
       : null;
     if (!button) return;
-    const figure = button.closest("[data-photo-id]");
-    const photoId = figure?.dataset.photoId;
+    const photoId = button.closest("[data-photo-id]")?.dataset.photoId;
     if (!photoId) return;
-    if (!window.confirm("Remove this photo?")) {
-      return;
-    }
     try {
-      await vm.removePhoto(photoId);
-      setAlert("Photo removed");
+      const result = await vm.removePhoto(photoId);
+      if (!result?.queued) {
+        setAlert("Photo removed");
+      } else {
+        setAlert("Photo deletion queued. We'll sync once online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
   });
 
   vm.subscribe((state) => {
+    if (state.notice) {
+      setAlert(state.notice);
+    } else if (state.error) {
+      setAlert(state.error);
+    }
+
     if (state.loading) {
-      content.innerHTML = "<p>Loading plant...</p>";
+      content.innerHTML = renderSkeleton();
       photoList.innerHTML = "";
       return;
     }
     if (state.error) {
       content.innerHTML = `<p role="alert">${escapeHtml(state.error)}</p>`;
       photoList.innerHTML = "";
-      setAlert(state.error);
       return;
     }
-    if (!state.data.plant) {
+    const plantData = state.data.plant;
+    latestPlant = plantData;
+    if (!plantData) {
       content.innerHTML = "<p>Plant not found.</p>";
       photoList.innerHTML = "";
       return;
     }
-    const plant = state.data.plant;
-    latestPlant = plant;
-    const tags = (plant.tags || []).join(", ");
-    const careProfiles = state.data.care_profiles ?? [];
-    const pendingTasks = state.data.tasks?.pending ?? [];
+    editForm.querySelector("[name=name]").value = plantData.name;
+    editForm.querySelector("[name=species]").value = plantData.species ?? "";
+    editForm.querySelector("[name=notes]").value = plantData.notes ?? "";
+    editForm.querySelector("[name=tags]").value = (plantData.tags || []).join(", ");
+
     content.innerHTML = `
-      <p><strong>${escapeHtml(plant.name)}</strong></p>
-      <p class="muted">${escapeHtml(plant.species ?? "")}</p>
-      <p>${escapeHtml(plant.notes ?? "")}</p>
-      <p class="muted">Tags: ${escapeHtml(tags)}</p>
+      <div>
+        <p><strong>${escapeHtml(plantData.name)}</strong></p>
+        <p class="muted">${escapeHtml(plantData.species ?? "")}</p>
+        <p>${escapeHtml(plantData.notes ?? "")}</p>
+        <p class="muted">Tags: ${escapeHtml((plantData.tags || []).join(", "))}</p>
+      </div>
       <section>
         <h3>Care profiles</h3>
-        ${renderCareProfiles(careProfiles)}
+        ${renderCareProfiles(plantData.care_profiles ?? [])}
       </section>
       <section>
         <h3>Pending tasks</h3>
-        ${renderPendingTasks(pendingTasks)}
+        ${renderPendingTasks(plantData.pending_tasks ?? [])}
       </section>
-      <a class="button" href="#/villages/${plant.village_id}">Back to village</a>
     `;
-    editForm.querySelector("[name=name]").value = plant.name;
-    editForm.querySelector("[name=species]").value = plant.species ?? "";
-    editForm.querySelector("[name=notes]").value = plant.notes ?? "";
-    editForm.querySelector("[name=tags]").value = tags;
-    photoList.innerHTML = renderPhotos(plant.photos ?? [], plant.name);
-    setAlert("");
+    photoList.innerHTML = renderPhotos(plantData.photos ?? [], plantData.name);
   });
 
   vm.load();

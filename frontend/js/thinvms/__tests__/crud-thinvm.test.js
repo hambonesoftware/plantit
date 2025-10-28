@@ -42,6 +42,7 @@ test("VillageDetailThinVM.deleteVillage clears state", async () => {
   vm.state = {
     loading: false,
     error: null,
+    notice: null,
     data: {
       village: { id: "v1", name: "Village", location: "", description: "" },
       plants: [],
@@ -62,6 +63,7 @@ test("PlantDetailThinVM.deletePlant returns village id and clears plant", async 
   vm.state = {
     loading: false,
     error: null,
+    notice: null,
     data: {
       plant: {
         id: "p1",

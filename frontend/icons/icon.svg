@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Plantit sprout icon">
+  <rect width="128" height="128" rx="16" fill="#f5fff5" stroke="#1b5e20" stroke-width="4" />
+  <path d="M64 92c0-18 8-28 8-44 0-12-8-20-8-20s-8 8-8 20c0 16 8 26 8 44z" fill="#1b5e20"/>
+  <path d="M64 36c-14 0-26-10-32-24 22 0 40 12 40 24 0-12 18-24 40-24-6 14-18 24-32 24" fill="#66bb6a"/>
+</svg>

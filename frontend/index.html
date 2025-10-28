@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plantit</title>
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles/tokens.css" />
     <link rel="stylesheet" href="styles/base.css" />
   </head>
@@ -21,5 +23,16 @@
       <main class="main-content" id="app-main" tabindex="-1"></main>
     </div>
     <script type="module" src="js/router.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/service-worker.js")
+            .catch((error) => {
+              console.error("Service worker registration failed", error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

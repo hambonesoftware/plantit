@@ -1,0 +1,15 @@
+{
+  "status": "success",
+  "changes": [
+    {"path": "frontend/js/services/offlineQueue.js", "action": "created"},
+    {"path": "frontend/js/services/apiClient.js", "action": "modified"},
+    {"path": "frontend/service-worker.js", "action": "created"},
+    {"path": "frontend/manifest.webmanifest", "action": "created"},
+    {"path": "frontend/index.html", "action": "modified"},
+    {"path": "frontend/js/thinvms/VillagesThinVM.js", "action": "modified"},
+    {"path": "frontend/js/views/villages-view.js", "action": "modified"}
+  ],
+  "api_endpoints": [],
+  "ui_routes": ["#/", "#/villages", "#/villages/{id}", "#/plants/{id}"],
+  "notes": "Added a service worker, manifest, and IndexedDB-backed offline queue. Mutations now enqueue while offline and replay automatically with user notices when connectivity returns."
+}

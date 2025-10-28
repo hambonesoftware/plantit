@@ -55,6 +55,16 @@ function villageCard(village) {
   `;
 }
 
+function skeletonCard() {
+  return `
+    <article class="card skeleton-card">
+      <div class="skeleton-line skeleton-line--lg"></div>
+      <div class="skeleton-line skeleton-line--sm"></div>
+      <div class="skeleton-line skeleton-line--md"></div>
+    </article>
+  `;
+}
+
 export function renderVillagesView(root) {
   const vm = new VillagesThinVM();
   const container = document.createElement("div");
@@ -78,7 +88,7 @@ export function renderVillagesView(root) {
       </form>
       <p class="feedback" data-alert aria-live="polite"></p>
     </section>
-    <section data-list></section>
+    <section data-list aria-live="polite"></section>
   `;
   root.replaceChildren(container);
 
@@ -100,14 +110,18 @@ export function renderVillagesView(root) {
     event.preventDefault();
     const formData = new FormData(form);
     try {
-      await vm.createVillage({
+      const result = await vm.createVillage({
         name: formData.get("name"),
         location: formData.get("location"),
         description: formData.get("description"),
       });
-      form.reset();
-      setAlert("Village created");
-      list.scrollIntoView({ behavior: "smooth" });
+      if (!result?.queued) {
+        form.reset();
+        setAlert("Village created");
+        list.scrollIntoView({ behavior: "smooth" });
+      } else {
+        setAlert("Village queued. We'll sync it when you're back online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
@@ -121,14 +135,18 @@ export function renderVillagesView(root) {
     const villageId = formElement.dataset.villageId;
     const formData = new FormData(formElement);
     try {
-      await vm.updateVillage(villageId, {
+      const result = await vm.updateVillage(villageId, {
         name: formData.get("name"),
         location: formData.get("location"),
         description: formData.get("description"),
       });
-      const details = formElement.closest("details");
-      if (details) details.open = false;
-      setAlert("Village updated");
+      if (!result?.queued) {
+        const details = formElement.closest("details");
+        if (details) details.open = false;
+        setAlert("Village updated");
+      } else {
+        setAlert("Update queued. Changes will sync when you're online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
@@ -147,21 +165,28 @@ export function renderVillagesView(root) {
       return;
     }
     try {
-      await vm.deleteVillage(villageId);
-      setAlert("Village deleted");
+      const result = await vm.deleteVillage(villageId);
+      if (!result?.queued) {
+        setAlert("Village deleted");
+      } else {
+        setAlert("Deletion queued. We'll remove it once you're online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
   });
 
   vm.subscribe((state) => {
-    if (state.error) {
+    if (state.notice) {
+      setAlert(state.notice);
+    } else if (state.error) {
       setAlert(state.error);
     } else if (!state.loading) {
       setAlert("");
     }
+
     if (state.loading) {
-      list.innerHTML = "<p>Loading villages...</p>";
+      list.innerHTML = `${skeletonCard()}${skeletonCard()}`;
       return;
     }
     if (!state.data.villages.length) {

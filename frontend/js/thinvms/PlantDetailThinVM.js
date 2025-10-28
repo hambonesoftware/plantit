@@ -4,6 +4,7 @@ import {
   deletePlant as deletePlantRequest,
   uploadPlantPhoto,
   deletePhoto,
+  onMutationComplete,
 } from "../services/apiClient.js";
 
 function messageFrom(error) {
@@ -19,9 +20,20 @@ export class PlantDetailThinVM {
     this.state = {
       loading: false,
       error: null,
+      notice: null,
       data: { plant: null },
     };
     this.listeners = new Set();
+    this.unsubscribe = onMutationComplete((detail) => {
+      if (!detail || detail.source !== "offlineQueue") {
+        return;
+      }
+      if (this.state.loading) {
+        return;
+      }
+      this.state = { ...this.state, notice: null };
+      this.load();
+    });
   }
 
   subscribe(listener) {
@@ -38,11 +50,17 @@ export class PlantDetailThinVM {
     this.notify();
     try {
       const data = await fetchPlantDetail(this.plantId);
-      this.state = { loading: false, error: null, data };
+      this.state = {
+        loading: false,
+        error: null,
+        notice: this.state.notice,
+        data,
+      };
     } catch (error) {
       this.state = {
         loading: false,
         error: messageFrom(error),
+        notice: this.state.notice,
         data: { plant: null },
       };
     }
@@ -51,7 +69,16 @@ export class PlantDetailThinVM {
 
   async updatePlant(payload) {
     try {
-      await updatePlantRequest(this.plantId, payload);
+      const result = await updatePlantRequest(this.plantId, payload);
+      if (result?.queued) {
+        this.state = {
+          ...this.state,
+          notice: "Plant update queued. We'll sync once you're online.",
+        };
+        this.notify();
+        return result;
+      }
+      this.state = { ...this.state, notice: null };
       await this.load();
     } catch (error) {
       this.state = { ...this.state, error: messageFrom(error) };
@@ -64,8 +91,16 @@ export class PlantDetailThinVM {
     const plant = this.state.data.plant;
     const villageId = plant?.village_id ?? null;
     try {
-      await deletePlantRequest(this.plantId);
-      this.state = { loading: false, error: null, data: { plant: null } };
+      const result = await deletePlantRequest(this.plantId);
+      if (result?.queued) {
+        this.state = {
+          ...this.state,
+          notice: "Deletion queued. We'll remove the plant when online.",
+        };
+        this.notify();
+        return null;
+      }
+      this.state = { loading: false, error: null, notice: null, data: { plant: null } };
       this.notify();
       return villageId;
     } catch (error) {
@@ -77,7 +112,16 @@ export class PlantDetailThinVM {
 
   async addPhoto(file) {
     try {
-      await uploadPlantPhoto(this.plantId, file);
+      const result = await uploadPlantPhoto(this.plantId, file);
+      if (result?.queued) {
+        this.state = {
+          ...this.state,
+          notice: "Photo uploads require a connection. Please retry online.",
+        };
+        this.notify();
+        return result;
+      }
+      this.state = { ...this.state, notice: null };
       await this.load();
     } catch (error) {
       this.state = { ...this.state, error: messageFrom(error) };
@@ -88,7 +132,16 @@ export class PlantDetailThinVM {
 
   async removePhoto(photoId) {
     try {
-      await deletePhoto(photoId);
+      const result = await deletePhoto(photoId);
+      if (result?.queued) {
+        this.state = {
+          ...this.state,
+          notice: "Photo deletion queued. We'll sync once online.",
+        };
+        this.notify();
+        return result;
+      }
+      this.state = { ...this.state, notice: null };
       await this.load();
     } catch (error) {
       this.state = { ...this.state, error: messageFrom(error) };
