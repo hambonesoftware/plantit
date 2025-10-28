@@ -6,7 +6,8 @@ from typing import Sequence
 from sqlmodel import Session, select
 
 from backend.db import get_engine
-from backend.models import Plant, Village
+from backend.models import CareProfile, CareProfileCreate, CareCadenceType, Plant, Village
+from backend.repositories.care_profiles import CareProfileRepository
 
 
 VILLAGE_DATA = [
@@ -34,6 +35,19 @@ PLANT_DATA = [
         "species": "Solanum lycopersicum",
         "notes": "High-yield hybrid for summer harvests.",
         "tags": ["annual", "edible"],
+    },
+]
+
+CARE_PROFILE_DATA = [
+    {
+        "title": "Water deeply",
+        "cadence_type": CareCadenceType.INTERVAL,
+        "interval_days": 3,
+    },
+    {
+        "title": "Harvest",
+        "cadence_type": CareCadenceType.WEEKLY,
+        "weekly_days": [2, 5],
     },
 ]
 
@@ -69,11 +83,29 @@ def _ensure_plants(session: Session, villages: Sequence[Village]) -> None:
         session.commit()
 
 
+def _ensure_care_profiles(session: Session) -> None:
+    plants = list(session.exec(select(Plant).order_by(Plant.created_at)))
+    if not plants:
+        return
+    repository = CareProfileRepository(session)
+    for plant, config in zip(plants, CARE_PROFILE_DATA):
+        existing = session.exec(
+            select(CareProfile)
+            .where(CareProfile.plant_id == plant.id)
+            .where(CareProfile.title == config["title"])
+        ).first()
+        if existing:
+            continue
+        payload = CareProfileCreate(plant_id=plant.id, **config)
+        repository.create(payload)
+
+
 def run() -> None:
     engine = get_engine()
     with Session(engine) as session:
         villages = _ensure_villages(session)
         _ensure_plants(session, villages)
+        _ensure_care_profiles(session)
 
 
 if __name__ == "__main__":

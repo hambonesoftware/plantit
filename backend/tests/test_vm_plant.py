@@ -36,6 +36,8 @@ def test_plant_vm_response(client: TestClient) -> None:
     payload = response.json()
     assert payload["plant"]["id"] == plant_id
     assert payload["plant"]["photos"] == []
+    assert payload["care_profiles"] == []
+    assert payload["tasks"]["pending"] == []
 
     cached = client.get(f"/api/v1/vm/plant/{plant_id}", headers={"If-None-Match": etag})
     assert cached.status_code == 304

@@ -11,14 +11,14 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel
 
 from backend.app import create_app
-from backend.db import create_test_engine, get_session
+from backend.db import create_schema, create_test_engine, get_session
 from backend.services.photos import MEDIA_ROOT
 
 
 @pytest.fixture()
 def engine():
     engine = create_test_engine()
-    SQLModel.metadata.create_all(engine)
+    create_schema(engine)
     yield engine
 
 

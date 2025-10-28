@@ -1,0 +1,28 @@
+{
+  "status": "success",
+  "changes": [
+    {"path": "backend/models/care_profile.py", "action": "created"},
+    {"path": "backend/models/task.py", "action": "created"},
+    {"path": "backend/api/care_profiles.py", "action": "created"},
+    {"path": "backend/api/tasks.py", "action": "created"},
+    {"path": "backend/repositories/care_profiles.py", "action": "created"},
+    {"path": "backend/repositories/tasks.py", "action": "created"},
+    {"path": "backend/services/cadence.py", "action": "created"},
+    {"path": "backend/viewmodels/plant_vm.py", "action": "modified"},
+    {"path": "backend/tests/test_tasks_and_care_profiles.py", "action": "created"},
+    {"path": "frontend/js/views/plant-detail-view.js", "action": "modified"},
+    {"path": "backend/seeds/seed_data.py", "action": "modified"}
+  ],
+  "api_endpoints": [
+    "GET /api/v1/care-profiles",
+    "POST /api/v1/care-profiles",
+    "PATCH /api/v1/care-profiles/{id}",
+    "DELETE /api/v1/care-profiles/{id}",
+    "GET /api/v1/tasks",
+    "POST /api/v1/tasks",
+    "PATCH /api/v1/tasks/{id}",
+    "DELETE /api/v1/tasks/{id}"
+  ],
+  "ui_routes": ["#/plants/:id"],
+  "notes": "Introduced care profiles with interval/weekly cadences, automated task scheduling, and surfaced next-due work in plant detail and home dashboards."
+}
