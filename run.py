@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, Tuple
+from shutil import which
 
 ROOT_DIR = Path(__file__).resolve().parent
 
@@ -111,6 +112,42 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _resolve_command(executable: str) -> str:
+    """Return an OS-appropriate executable for subprocess calls."""
+
+    explicit_path = Path(executable)
+    if explicit_path.is_file():
+        return str(explicit_path)
+
+    local_bin = ROOT_DIR / "node_modules" / ".bin"
+
+    def candidate_names() -> Iterable[str]:
+        if os.name != "nt":
+            yield executable
+            return
+
+        path = Path(executable)
+        suffix = path.suffix.lower()
+        if suffix in {".cmd", ".bat", ".exe"}:
+            yield executable
+            return
+
+        base = executable
+        for ext in (".cmd", ".bat", ".exe", ""):
+            yield base + ext
+
+    for candidate in candidate_names():
+        local_candidate = local_bin / candidate
+        if local_candidate.exists():
+            return str(local_candidate)
+
+        resolved = which(candidate)
+        if resolved is not None:
+            return resolved
+
+    return executable
+
+
 def build_commands(args: argparse.Namespace) -> Dict[str, Tuple[str, ...]]:
     backend_cmd = [
         sys.executable,
@@ -127,7 +164,7 @@ def build_commands(args: argparse.Namespace) -> Dict[str, Tuple[str, ...]]:
 
     listen = f"{args.frontend_host}:{args.frontend_port}"
     frontend_cmd = [
-        "npx",
+        _resolve_command("npx"),
         "serve",
         "frontend",
         "-l",
