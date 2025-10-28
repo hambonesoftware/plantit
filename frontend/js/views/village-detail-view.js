@@ -68,13 +68,28 @@ function renderSkeleton() {
   `;
 }
 
+function skeletonPlantCard() {
+  return `
+    <article class="card skeleton-card" aria-hidden="true">
+      <span class="skeleton-line skeleton-line--lg"></span>
+      <span class="skeleton-line"></span>
+      <span class="skeleton-line skeleton-line--sm"></span>
+    </article>
+  `;
+}
+
 export function renderVillageDetailView(root, villageId) {
   const vm = new VillageDetailThinVM(villageId);
   const container = document.createElement("div");
+  container.className = "page";
   container.innerHTML = `
+    <div class="page-header">
+      <h2>Village</h2>
+      <p class="muted">Review details and manage every plant in this village.</p>
+    </div>
     <section class="card" data-header>
       <header class="card-header">
-        <h2>Village</h2>
+        <h3>Village details</h3>
         <button class="button button-danger" type="button" data-delete-village>
           Delete village
         </button>
@@ -124,7 +139,10 @@ export function renderVillageDetailView(root, villageId) {
         <button type="submit" class="button">Add plant</button>
       </form>
     </section>
-    <section data-plants aria-live="polite"></section>
+    <section>
+      <h3>Plants</h3>
+      <div class="card-grid" data-plants aria-live="polite"></div>
+    </section>
   `;
   root.replaceChildren(container);
 
@@ -273,12 +291,12 @@ export function renderVillageDetailView(root, villageId) {
     }
     if (state.loading) {
       villageContainer.innerHTML = renderSkeleton();
-      plantsContainer.innerHTML = "";
+      plantsContainer.innerHTML = `${skeletonPlantCard()}${skeletonPlantCard()}`;
       return;
     }
     if (state.error) {
       villageContainer.innerHTML = `<p role="alert">${escapeHtml(state.error)}</p>`;
-      plantsContainer.innerHTML = "";
+      plantsContainer.innerHTML = `<article class="card card--empty"><p role="alert">${escapeHtml(state.error)}</p></article>`;
       return;
     }
     const { village, plants } = state.data;
@@ -295,7 +313,7 @@ export function renderVillageDetailView(root, villageId) {
       editVillageForm.querySelector("[name=description]").value = village.description ?? "";
     }
     if (!plants.length) {
-      plantsContainer.innerHTML = "<p>No plants yet.</p>";
+      plantsContainer.innerHTML = "<article class=\"card card--empty\"><p>No plants yet.</p></article>";
       return;
     }
     plantsContainer.innerHTML = plants.map(plantItem).join("");

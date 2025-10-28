@@ -68,9 +68,14 @@ function skeletonCard() {
 export function renderVillagesView(root) {
   const vm = new VillagesThinVM();
   const container = document.createElement("div");
+  container.className = "page";
   container.innerHTML = `
+    <div class="page-header">
+      <h2>Villages</h2>
+      <p class="muted">Create and update the growing spaces you care for.</p>
+    </div>
     <section class="card">
-      <h2>Add Village</h2>
+      <h3>Add village</h3>
       <form data-form>
         <label>
           <span>Name</span>
@@ -88,7 +93,10 @@ export function renderVillagesView(root) {
       </form>
       <p class="feedback" data-alert aria-live="polite"></p>
     </section>
-    <section data-list aria-live="polite"></section>
+    <section>
+      <h3>All villages</h3>
+      <div class="card-grid" data-list aria-live="polite"></div>
+    </section>
   `;
   root.replaceChildren(container);
 
@@ -190,7 +198,7 @@ export function renderVillagesView(root) {
       return;
     }
     if (!state.data.villages.length) {
-      list.innerHTML = "<p>No villages yet. Add one above!</p>";
+      list.innerHTML = "<article class=\"card card--empty\"><p>No villages yet. Add one above!</p></article>";
       return;
     }
     list.innerHTML = state.data.villages.map(villageCard).join("");
