@@ -46,7 +46,7 @@ This installs Python dependencies (including dev tooling) and Node dev dependenc
 make run-backend
 ```
 
-The API listens on `http://localhost:8000`. Available endpoints:
+The backend listens on `http://localhost:8000`, serving the SPA shell at `/` and all API endpoints under `/api/v1`. Available endpoints:
 - `GET /api/v1/health`
 - `GET/POST/PATCH/DELETE /api/v1/villages`
 - `GET/POST/PATCH/DELETE /api/v1/plants`
@@ -62,6 +62,17 @@ The API listens on `http://localhost:8000`. Available endpoints:
 - `GET /api/v1/vm/plant/{id}`
 - `GET /api/v1/export?scope=all|village|plant&{id=UUID}`
 - `POST /api/v1/import`
+
+### Running with Docker
+
+Build the production container image and start it on port 8080:
+
+```bash
+docker build -t plantit .
+docker run --rm -p 8080:8080 plantit
+```
+
+The container exposes a health check at `http://localhost:8080/api/v1/health` and serves the frontend at `http://localhost:8080/`.
 
 ### Frontend Development
 
