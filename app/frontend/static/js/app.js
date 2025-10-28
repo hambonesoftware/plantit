@@ -7,28 +7,34 @@ function mount() {
   const shell = AppShell();
   root.appendChild(shell);
 
-  const main = document.createElement('div');
-  main.className = 'grid';
+  const main = document.createElement('main');
+  main.className = 'layout';
+  main.setAttribute('aria-label', 'Village overview');
 
-  const cards = document.createElement('div');
+  const cards = document.createElement('section');
   cards.className = 'cards';
   cards.id = 'cards';
+  cards.setAttribute('aria-live', 'polite');
 
-  const right = document.createElement('div');
+  const right = document.createElement('aside');
   right.className = 'panel';
   right.id = 'right-panel';
+  right.setAttribute('aria-label', 'Today panel');
 
   main.appendChild(cards);
   main.appendChild(right);
 
   root.appendChild(main);
 
-  const footer = document.createElement('div');
+  const footer = document.createElement('footer');
   footer.className = 'footer';
-  footer.innerHTML = '<button class="link-btn" id="exportBtn">Export</button><button class="link-btn" id="importBtn">Import</button>';
+  footer.innerHTML = `
+    <button class="link-btn" id="exportBtn" type="button">Export</button>
+    <button class="link-btn" id="importBtn" type="button">Import</button>
+  `;
   root.appendChild(footer);
 
-  DashboardView(); // boot the dashboard
+  DashboardView();
 }
 
 document.addEventListener('DOMContentLoaded', mount);
