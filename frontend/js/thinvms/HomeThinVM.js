@@ -1,4 +1,4 @@
-import { fetchHomeVM } from "../services/apiClient.js";
+import { fetchHomeVM, onMutationComplete } from "../services/apiClient.js";
 
 export class HomeThinVM {
   constructor() {
@@ -8,6 +8,15 @@ export class HomeThinVM {
       data: null,
     };
     this.listeners = new Set();
+    this.unsubscribe = onMutationComplete((detail) => {
+      if (!detail || detail.source !== "offlineQueue") {
+        return;
+      }
+      if (this.state.loading) {
+        return;
+      }
+      this.load();
+    });
   }
 
   subscribe(listener) {

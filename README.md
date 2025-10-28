@@ -60,6 +60,8 @@ The API listens on `http://localhost:8000`. Available endpoints:
 - `GET /api/v1/vm/villages`
 - `GET /api/v1/vm/village/{id}`
 - `GET /api/v1/vm/plant/{id}`
+- `GET /api/v1/export?scope=all|village|plant&{id=UUID}`
+- `POST /api/v1/import`
 
 ### Frontend Development
 
@@ -70,6 +72,14 @@ npm run dev
 ```
 
 By default the frontend expects the backend at `http://localhost:8000`. Override by setting `window.PLANTIT_API_BASE` before loading `router.js` if needed.
+
+The frontend now ships with an installable PWA shell and offline-first behaviors:
+
+- A service worker caches the shell, thin VM modules, and VM GET responses for offline reads.
+- Non-GET mutations queue in IndexedDB when the browser is offline and replay automatically once connectivity returns.
+- Successive replays trigger thin VMs to refresh and clear any queued notices.
+
+To reset offline state during development, unregister the service worker and clear site data from your browser.
 
 ### Tests & Quality Gates
 
@@ -95,5 +105,6 @@ The seed script is idempotent and populates sample villages, plants, care profil
 - Errors follow the `{ "error": { "code", "message", "field" } }` envelope.
 - Media uploads are stored under `backend/data/media` and exposed via `/media/...` URLs with automatic JPEG thumbnails.
 - Frontend thin VMs fetch view models via `/api/v1/vm/*` and mutate state via CRUD endpoints, then reload from the backend.
+- Export and import JSON bundles (including media manifests) via `/api/v1/export` and `/api/v1/import`. Missing media files are reported as import conflicts to keep the queue idempotent.
 - Full-text search is backed by SQLite FTS5; tags are aggregated directly from JSON metadata.
 - Care profiles automatically enqueue interval/weekly tasks and the home dashboard surfaces due-today and upcoming workload.

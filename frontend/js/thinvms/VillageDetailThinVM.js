@@ -5,6 +5,7 @@ import {
   deleteVillage as deleteVillageRequest,
   updatePlant as updatePlantRequest,
   deletePlant as deletePlantRequest,
+  onMutationComplete,
 } from "../services/apiClient.js";
 
 function messageFrom(error) {
@@ -20,9 +21,20 @@ export class VillageDetailThinVM {
     this.state = {
       loading: false,
       error: null,
+      notice: null,
       data: { village: null, plants: [] },
     };
     this.listeners = new Set();
+    this.unsubscribe = onMutationComplete((detail) => {
+      if (!detail || detail.source !== "offlineQueue") {
+        return;
+      }
+      if (this.state.loading) {
+        return;
+      }
+      this.state = { ...this.state, notice: null };
+      this.load();
+    });
   }
 
   subscribe(listener) {
@@ -39,11 +51,17 @@ export class VillageDetailThinVM {
     this.notify();
     try {
       const data = await fetchVillageDetail(this.villageId);
-      this.state = { loading: false, error: null, data };
+      this.state = {
+        loading: false,
+        error: null,
+        notice: this.state.notice,
+        data,
+      };
     } catch (error) {
       this.state = {
         loading: false,
         error: error.message,
+        notice: this.state.notice,
         data: { village: null, plants: [] },
       };
     }
@@ -52,7 +70,16 @@ export class VillageDetailThinVM {
 
   async createPlant(payload) {
     try {
-      await createPlant({ ...payload, village_id: this.villageId });
+      const result = await createPlant({ ...payload, village_id: this.villageId });
+      if (result?.queued) {
+        this.state = {
+          ...this.state,
+          notice: "Plant creation queued. We'll sync when online.",
+        };
+        this.notify();
+        return result;
+      }
+      this.state = { ...this.state, notice: null };
       await this.load();
     } catch (error) {
       this.state = { ...this.state, error: messageFrom(error) };
@@ -63,7 +90,16 @@ export class VillageDetailThinVM {
 
   async updateVillage(payload) {
     try {
-      await updateVillageRequest(this.villageId, payload);
+      const result = await updateVillageRequest(this.villageId, payload);
+      if (result?.queued) {
+        this.state = {
+          ...this.state,
+          notice: "Village update queued. Changes will apply once online.",
+        };
+        this.notify();
+        return result;
+      }
+      this.state = { ...this.state, notice: null };
       await this.load();
     } catch (error) {
       this.state = { ...this.state, error: messageFrom(error) };
@@ -74,10 +110,19 @@ export class VillageDetailThinVM {
 
   async deleteVillage() {
     try {
-      await deleteVillageRequest(this.villageId);
+      const result = await deleteVillageRequest(this.villageId);
+      if (result?.queued) {
+        this.state = {
+          ...this.state,
+          notice: "Deletion queued. We'll remove the village when you're online.",
+        };
+        this.notify();
+        return result;
+      }
       this.state = {
         loading: false,
         error: null,
+        notice: null,
         data: { village: null, plants: [] },
       };
       this.notify();
@@ -90,7 +135,16 @@ export class VillageDetailThinVM {
 
   async updatePlant(plantId, payload) {
     try {
-      await updatePlantRequest(plantId, payload);
+      const result = await updatePlantRequest(plantId, payload);
+      if (result?.queued) {
+        this.state = {
+          ...this.state,
+          notice: "Plant update queued. Changes will apply once online.",
+        };
+        this.notify();
+        return result;
+      }
+      this.state = { ...this.state, notice: null };
       await this.load();
     } catch (error) {
       this.state = { ...this.state, error: messageFrom(error) };
@@ -101,7 +155,16 @@ export class VillageDetailThinVM {
 
   async deletePlant(plantId) {
     try {
-      await deletePlantRequest(plantId);
+      const result = await deletePlantRequest(plantId);
+      if (result?.queued) {
+        this.state = {
+          ...this.state,
+          notice: "Plant deletion queued. We'll sync once online.",
+        };
+        this.notify();
+        return result;
+      }
+      this.state = { ...this.state, notice: null };
       await this.load();
     } catch (error) {
       this.state = { ...this.state, error: messageFrom(error) };

@@ -93,14 +93,51 @@ function renderTasks(tasks) {
   `;
 }
 
+function renderSkeleton() {
+  return `
+    <div class="home-skeleton" aria-hidden="true">
+      <div class="stat-grid">
+        <div class="stat-card"><span class="skeleton-line skeleton-line--lg"></span></div>
+        <div class="stat-card"><span class="skeleton-line skeleton-line--lg"></span></div>
+      </div>
+      <div class="home-layout">
+        <section>
+          <h3><span class="skeleton-line skeleton-line--md"></span></h3>
+          <div class="skeleton-stack">
+            <span class="skeleton-line"></span>
+            <span class="skeleton-line"></span>
+            <span class="skeleton-line"></span>
+          </div>
+        </section>
+        <section>
+          <h3><span class="skeleton-line skeleton-line--md"></span></h3>
+          <div class="skeleton-stack">
+            <span class="skeleton-line"></span>
+            <span class="skeleton-line"></span>
+            <span class="skeleton-line"></span>
+          </div>
+        </section>
+        <section>
+          <h3><span class="skeleton-line skeleton-line--md"></span></h3>
+          <div class="skeleton-stack">
+            <span class="skeleton-line"></span>
+            <span class="skeleton-line"></span>
+            <span class="skeleton-line"></span>
+          </div>
+        </section>
+      </div>
+    </div>
+  `;
+}
+
 export function renderHomeView(root) {
   const vm = new HomeThinVM();
   const section = document.createElement("section");
   section.className = "card";
   section.innerHTML = `
     <h2>Overview</h2>
-    <div data-state="content">
-      <p>Loading...</p>
+    <div data-state="content" aria-live="polite">
+      ${renderSkeleton()}
     </div>
   `;
   root.replaceChildren(section);
@@ -109,11 +146,15 @@ export function renderHomeView(root) {
 
   vm.subscribe((state) => {
     if (state.loading) {
-      content.innerHTML = "<p>Loading...</p>";
+      content.innerHTML = renderSkeleton();
       return;
     }
     if (state.error) {
-      content.innerHTML = `<p role="alert">${state.error}</p>`;
+      content.innerHTML = `<p role="alert">${escapeHtml(state.error)}</p>`;
+      return;
+    }
+    if (!state.data) {
+      content.innerHTML = "<p>No data yet.</p>";
       return;
     }
     const { villages, plants, tasks } = state.data;

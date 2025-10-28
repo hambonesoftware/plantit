@@ -58,6 +58,16 @@ function plantItem(plant) {
   `;
 }
 
+function renderSkeleton() {
+  return `
+    <div class="skeleton-stack" aria-hidden="true">
+      <span class="skeleton-line skeleton-line--lg"></span>
+      <span class="skeleton-line skeleton-line--md"></span>
+      <span class="skeleton-line skeleton-line--sm"></span>
+    </div>
+  `;
+}
+
 export function renderVillageDetailView(root, villageId) {
   const vm = new VillageDetailThinVM(villageId);
   const container = document.createElement("div");
@@ -69,7 +79,7 @@ export function renderVillageDetailView(root, villageId) {
           Delete village
         </button>
       </header>
-      <div data-village>Loading...</div>
+      <div data-village>${renderSkeleton()}</div>
       <details class="card-details">
         <summary>Edit village</summary>
         <form data-edit-village>
@@ -114,7 +124,7 @@ export function renderVillageDetailView(root, villageId) {
         <button type="submit" class="button">Add plant</button>
       </form>
     </section>
-    <section data-plants></section>
+    <section data-plants aria-live="polite"></section>
   `;
   root.replaceChildren(container);
 
@@ -142,7 +152,7 @@ export function renderVillageDetailView(root, villageId) {
     event.preventDefault();
     const formData = new FormData(createForm);
     try {
-      await vm.createPlant({
+      const result = await vm.createPlant({
         name: formData.get("name"),
         species: formData.get("species"),
         notes: formData.get("notes"),
@@ -151,8 +161,12 @@ export function renderVillageDetailView(root, villageId) {
           .map((value) => value.trim())
           .filter(Boolean),
       });
-      createForm.reset();
-      setAlert("Plant added");
+      if (!result?.queued) {
+        createForm.reset();
+        setAlert("Plant added");
+      } else {
+        setAlert("Plant creation queued. We'll sync when you're online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
@@ -162,12 +176,16 @@ export function renderVillageDetailView(root, villageId) {
     event.preventDefault();
     const formData = new FormData(editVillageForm);
     try {
-      await vm.updateVillage({
+      const result = await vm.updateVillage({
         name: formData.get("name"),
         location: formData.get("location"),
         description: formData.get("description"),
       });
-      setAlert("Village updated");
+      if (!result?.queued) {
+        setAlert("Village updated");
+      } else {
+        setAlert("Update queued. Changes will sync once you're back online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
@@ -179,9 +197,13 @@ export function renderVillageDetailView(root, villageId) {
       return;
     }
     try {
-      await vm.deleteVillage();
-      setAlert("Village deleted");
-      window.location.hash = "#/villages";
+      const result = await vm.deleteVillage();
+      if (!result?.queued) {
+        setAlert("Village deleted");
+        window.location.hash = "#/villages";
+      } else {
+        setAlert("Deletion queued. We'll remove it once you're back online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
@@ -195,7 +217,7 @@ export function renderVillageDetailView(root, villageId) {
     const plantId = form.dataset.plantId;
     const formData = new FormData(form);
     try {
-      await vm.updatePlant(plantId, {
+      const result = await vm.updatePlant(plantId, {
         name: formData.get("name"),
         species: formData.get("species"),
         notes: formData.get("notes"),
@@ -204,9 +226,13 @@ export function renderVillageDetailView(root, villageId) {
           .map((value) => value.trim())
           .filter(Boolean),
       });
-      const details = form.closest("details");
-      if (details) details.open = false;
-      setAlert("Plant updated");
+      if (!result?.queued) {
+        const details = form.closest("details");
+        if (details) details.open = false;
+        setAlert("Plant updated");
+      } else {
+        setAlert("Update queued. We'll sync changes online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
@@ -226,23 +252,33 @@ export function renderVillageDetailView(root, villageId) {
       return;
     }
     try {
-      await vm.deletePlant(plantId);
-      setAlert("Plant deleted");
+      const result = await vm.deletePlant(plantId);
+      if (!result?.queued) {
+        setAlert("Plant deleted");
+      } else {
+        setAlert("Deletion queued. We'll remove it once you're online.");
+      }
     } catch (error) {
       setAlert(error instanceof Error ? error.message : "Request failed");
     }
   });
 
   vm.subscribe((state) => {
+    if (state.notice) {
+      setAlert(state.notice);
+    } else if (state.error) {
+      setAlert(state.error);
+    } else {
+      setAlert("");
+    }
     if (state.loading) {
-      villageContainer.innerHTML = "<p>Loading village...</p>";
+      villageContainer.innerHTML = renderSkeleton();
       plantsContainer.innerHTML = "";
       return;
     }
     if (state.error) {
       villageContainer.innerHTML = `<p role="alert">${escapeHtml(state.error)}</p>`;
       plantsContainer.innerHTML = "";
-      setAlert(state.error);
       return;
     }
     const { village, plants } = state.data;
@@ -258,7 +294,6 @@ export function renderVillageDetailView(root, villageId) {
       editVillageForm.querySelector("[name=location]").value = village.location ?? "";
       editVillageForm.querySelector("[name=description]").value = village.description ?? "";
     }
-    setAlert("");
     if (!plants.length) {
       plantsContainer.innerHTML = "<p>No plants yet.</p>";
       return;

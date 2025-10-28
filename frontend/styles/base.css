@@ -27,7 +27,16 @@ a {
 
 a:focus,
 button:focus,
-input:focus {
+input:focus,
+textarea:focus {
+  outline: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
@@ -197,6 +206,67 @@ textarea {
   border: 1px dashed var(--color-border);
   padding: var(--spacing-sm);
   border-radius: var(--radius-medium);
+}
+
+.skeleton-line {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  height: 0.875rem;
+}
+
+.skeleton-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.65) 50%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line--lg {
+  height: 1.5rem;
+  width: 70%;
+}
+
+.skeleton-line--md {
+  width: 50%;
+}
+
+.skeleton-line--sm {
+  width: 30%;
+}
+
+.skeleton-stack {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.skeleton-card {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line::after {
+    animation: none;
+  }
 }
 
 .stat-grid {
