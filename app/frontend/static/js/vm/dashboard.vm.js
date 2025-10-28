@@ -1,0 +1,1 @@
+export async function loadDashboardVM(){ const res = await fetch('/api/vm/dashboard'); return await res.json(); }
