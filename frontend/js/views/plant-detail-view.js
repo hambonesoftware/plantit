@@ -32,6 +32,47 @@ function renderPhotos(photos, plantName) {
   `;
 }
 
+function renderCareProfiles(profiles) {
+  if (!profiles.length) {
+    return "<p class=\"muted\">No care profiles yet.</p>";
+  }
+  return `
+    <ul class="list-plain">
+      ${profiles
+        .map(
+          (profile) => `
+            <li>
+              <strong>${escapeHtml(profile.title)}</strong>
+              <div class="muted">Cadence: ${escapeHtml(profile.cadence.type)}</div>
+              <div class="muted">Next due: ${escapeHtml(profile.next_due_date ?? "n/a")}</div>
+            </li>
+          `,
+        )
+        .join("")}
+    </ul>
+  `;
+}
+
+function renderPendingTasks(tasks) {
+  if (!tasks.length) {
+    return "<p class=\"muted\">No pending tasks.</p>";
+  }
+  return `
+    <ul class="list-plain">
+      ${tasks
+        .map(
+          (task) => `
+            <li>
+              <strong>${escapeHtml(task.title)}</strong>
+              <span class="muted">Due ${escapeHtml(task.due_date)}</span>
+            </li>
+          `,
+        )
+        .join("")}
+    </ul>
+  `;
+}
+
 export function renderPlantDetailView(root, plantId) {
   const vm = new PlantDetailThinVM(plantId);
   const container = document.createElement("div");
@@ -193,11 +234,21 @@ export function renderPlantDetailView(root, plantId) {
     const plant = state.data.plant;
     latestPlant = plant;
     const tags = (plant.tags || []).join(", ");
+    const careProfiles = state.data.care_profiles ?? [];
+    const pendingTasks = state.data.tasks?.pending ?? [];
     content.innerHTML = `
       <p><strong>${escapeHtml(plant.name)}</strong></p>
       <p class="muted">${escapeHtml(plant.species ?? "")}</p>
       <p>${escapeHtml(plant.notes ?? "")}</p>
       <p class="muted">Tags: ${escapeHtml(tags)}</p>
+      <section>
+        <h3>Care profiles</h3>
+        ${renderCareProfiles(careProfiles)}
+      </section>
+      <section>
+        <h3>Pending tasks</h3>
+        ${renderPendingTasks(pendingTasks)}
+      </section>
       <a class="button" href="#/villages/${plant.village_id}">Back to village</a>
     `;
     editForm.querySelector("[name=name]").value = plant.name;

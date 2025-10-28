@@ -16,7 +16,11 @@ afterEach(() => {
 });
 
 test("HomeThinVM.load caches ETag and reuses cached data on 304", async () => {
-  const payload = { villages: { total: 2 }, plants: { total: 5 } };
+  const payload = {
+    villages: { total: 2, summaries: [] },
+    plants: { total: 5, recent: [] },
+    tasks: { due_today: [], overdue_count: 0, next_task: null },
+  };
   const responses = [
     new Response(JSON.stringify(payload), {
       status: 200,

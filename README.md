@@ -52,6 +52,10 @@ The API listens on `http://localhost:8000`. Available endpoints:
 - `GET/POST/PATCH/DELETE /api/v1/plants`
 - `POST /api/v1/plants/{id}/photos`
 - `DELETE /api/v1/photos/{id}`
+- `GET /api/v1/search`
+- `GET /api/v1/tags`
+- `GET/POST/PATCH/DELETE /api/v1/care-profiles`
+- `GET/POST/PATCH/DELETE /api/v1/tasks`
 - `GET /api/v1/vm/home`
 - `GET /api/v1/vm/villages`
 - `GET /api/v1/vm/village/{id}`
@@ -82,7 +86,7 @@ npm test       # Runs frontend thin-VM tests via node:test
 make seed
 ```
 
-The seed script is idempotent and populates sample villages and plants.
+The seed script is idempotent and populates sample villages, plants, care profiles, and recurring tasks.
 
 ## Development Notes
 
@@ -91,3 +95,5 @@ The seed script is idempotent and populates sample villages and plants.
 - Errors follow the `{ "error": { "code", "message", "field" } }` envelope.
 - Media uploads are stored under `backend/data/media` and exposed via `/media/...` URLs with automatic JPEG thumbnails.
 - Frontend thin VMs fetch view models via `/api/v1/vm/*` and mutate state via CRUD endpoints, then reload from the backend.
+- Full-text search is backed by SQLite FTS5; tags are aggregated directly from JSON metadata.
+- Care profiles automatically enqueue interval/weekly tasks and the home dashboard surfaces due-today and upcoming workload.

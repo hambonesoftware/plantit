@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+from sqlalchemy import text
+from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -27,9 +29,104 @@ def get_engine():
     return _engine
 
 
+def create_schema(engine: Engine) -> None:
+    """Create SQLModel tables and supporting SQLite structures."""
+
+    SQLModel.metadata.create_all(engine)
+
+    if engine.url.get_backend_name() != "sqlite":
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE VIRTUAL TABLE IF NOT EXISTS plant_search
+                USING fts5(
+                    name,
+                    species,
+                    notes,
+                    tags,
+                    tokenize='porter'
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TRIGGER IF NOT EXISTS plants_ai_plant_search
+                AFTER INSERT ON plants BEGIN
+                    INSERT INTO plant_search(rowid, name, species, notes, tags)
+                    VALUES (
+                        new.rowid,
+                        COALESCE(new.name, ''),
+                        COALESCE(new.species, ''),
+                        COALESCE(new.notes, ''),
+                        COALESCE((
+                            SELECT group_concat(value, ' ')
+                            FROM json_each(new.tags)
+                        ), '')
+                    );
+                END;
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TRIGGER IF NOT EXISTS plants_au_plant_search
+                AFTER UPDATE ON plants BEGIN
+                    DELETE FROM plant_search WHERE rowid = old.rowid;
+                    INSERT INTO plant_search(rowid, name, species, notes, tags)
+                    VALUES (
+                        new.rowid,
+                        COALESCE(new.name, ''),
+                        COALESCE(new.species, ''),
+                        COALESCE(new.notes, ''),
+                        COALESCE((
+                            SELECT group_concat(value, ' ')
+                            FROM json_each(new.tags)
+                        ), '')
+                    );
+                END;
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TRIGGER IF NOT EXISTS plants_ad_plant_search
+                AFTER DELETE ON plants BEGIN
+                    DELETE FROM plant_search WHERE rowid = old.rowid;
+                END;
+                """
+            )
+        )
+        connection.execute(text("DELETE FROM plant_search"))
+        connection.execute(
+            text(
+                """
+                INSERT INTO plant_search(rowid, name, species, notes, tags)
+                SELECT
+                    rowid,
+                    COALESCE(name, ''),
+                    COALESCE(species, ''),
+                    COALESCE(notes, ''),
+                    COALESCE((
+                        SELECT group_concat(value, ' ')
+                        FROM json_each(tags)
+                    ), '')
+                FROM plants
+                """
+            )
+        )
+
+
 def init_db() -> None:
-    """Create all database tables."""
-    SQLModel.metadata.create_all(_engine)
+    """Create all database tables and supporting structures."""
+
+    create_schema(_engine)
 
 
 @contextmanager
