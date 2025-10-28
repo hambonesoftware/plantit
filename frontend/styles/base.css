@@ -7,7 +7,7 @@
 body {
   margin: 0;
   font-family: var(--font-family-sans);
-  background-color: var(--color-background);
+  background-color: var(--color-surface-alt);
   color: var(--color-text);
 }
 
@@ -54,9 +54,64 @@ select:focus-visible {
   box-shadow: var(--shadow-soft);
 }
 
+.sidebar nav ul {
+  list-style: none;
+  margin: var(--spacing-lg) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.sidebar nav a {
+  display: block;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-medium);
+  border: 1px solid transparent;
+}
+
+.sidebar nav a:hover {
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-soft);
+}
+
+.sidebar nav a:focus-visible {
+  border-color: var(--color-border);
+  box-shadow: var(--focus-ring), var(--shadow-soft);
+}
+
 .main-content {
   flex: 1;
   padding: var(--spacing-lg);
+  background: var(--color-surface-alt);
+}
+
+.page {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+.page-header {
+  display: grid;
+  gap: var(--spacing-xs);
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
+.page-header p {
+  margin: 0;
+}
+
+.card-grid {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+@media (min-width: 640px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
 }
 
 .card {
@@ -80,6 +135,20 @@ select:focus-visible {
   flex-wrap: wrap;
   gap: var(--spacing-sm);
   margin-top: var(--spacing-sm);
+}
+
+.card--empty {
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.stacked-text {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.stacked-text h4 {
+  margin: 0;
 }
 
 details.card-details {
@@ -296,25 +365,6 @@ textarea {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 0.75rem;
-}
-
-.home-layout {
-  display: grid;
-  gap: var(--spacing-lg);
-}
-
-@media (min-width: 768px) {
-  .home-layout {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: start;
-  }
-  .home-layout > section {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-medium);
-    padding: var(--spacing-md);
-    box-shadow: var(--shadow-soft);
-    background: var(--color-surface);
-  }
 }
 
 .list-plain {

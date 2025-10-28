@@ -18,7 +18,7 @@ function renderPhotos(photos, plantName) {
       ${photos
         .map(
           (photo) => `
-            <figure class="photo-card" data-photo-id="${photo.id}">
+            <figure class="card photo-card" data-photo-id="${photo.id}">
               <a href="${photo.original_url}" target="_blank" rel="noopener">
                 <img src="${photo.thumbnail_url}" alt="Photo of ${escapeHtml(plantName)}" />
               </a>
@@ -86,52 +86,59 @@ function renderSkeleton() {
 export function renderPlantDetailView(root, plantId) {
   const vm = new PlantDetailThinVM(plantId);
   const container = document.createElement("div");
+  container.className = "page";
   container.innerHTML = `
-    <section class="card" data-plant-card>
-      <header class="card-header">
-        <h2>Plant</h2>
-        <button class="button button-danger" type="button" data-delete-plant>
-          Delete plant
-        </button>
-      </header>
-      <div data-content>${renderSkeleton()}</div>
-      <details class="card-details">
-        <summary>Edit plant</summary>
-        <form data-edit-plant>
-          <label>
-            <span>Name</span>
-            <input name="name" required />
+    <div class="page-header">
+      <h2>Plant</h2>
+      <p class="muted">Check in on this plant, adjust details, and manage its photos.</p>
+    </div>
+    <div class="card-grid">
+      <section class="card" data-plant-card>
+        <header class="card-header">
+          <h3>Plant details</h3>
+          <button class="button button-danger" type="button" data-delete-plant>
+            Delete plant
+          </button>
+        </header>
+        <div data-content>${renderSkeleton()}</div>
+        <details class="card-details">
+          <summary>Edit plant</summary>
+          <form data-edit-plant>
+            <label>
+              <span>Name</span>
+              <input name="name" required />
+            </label>
+            <label>
+              <span>Species</span>
+              <input name="species" />
+            </label>
+            <label>
+              <span>Notes</span>
+              <textarea name="notes"></textarea>
+            </label>
+            <label>
+              <span>Tags (comma separated)</span>
+              <input name="tags" />
+            </label>
+            <div class="card-actions">
+              <button class="button" type="submit">Save plant</button>
+            </div>
+          </form>
+        </details>
+        <p class="feedback" data-alert aria-live="polite"></p>
+      </section>
+      <section class="card" data-photos-card>
+        <h3>Photos</h3>
+        <form data-upload-photo>
+          <label class="file-input">
+            <span>Upload photo</span>
+            <input name="photo" type="file" accept="image/*" required />
           </label>
-          <label>
-            <span>Species</span>
-            <input name="species" />
-          </label>
-          <label>
-            <span>Notes</span>
-            <textarea name="notes"></textarea>
-          </label>
-          <label>
-            <span>Tags (comma separated)</span>
-            <input name="tags" />
-          </label>
-          <div class="card-actions">
-            <button class="button" type="submit">Save plant</button>
-          </div>
+          <button class="button" type="submit">Upload</button>
         </form>
-      </details>
-      <p class="feedback" data-alert aria-live="polite"></p>
-    </section>
-    <section class="card" data-photos-card>
-      <h3>Photos</h3>
-      <form data-upload-photo>
-        <label class="file-input">
-          <span>Upload photo</span>
-          <input name="photo" type="file" accept="image/*" required />
-        </label>
-        <button class="button" type="submit">Upload</button>
-      </form>
-      <div data-photo-list></div>
-    </section>
+        <div data-photo-list></div>
+      </section>
+    </div>
   `;
   root.replaceChildren(container);
 

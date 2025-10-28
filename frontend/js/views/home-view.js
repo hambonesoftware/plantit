@@ -52,7 +52,7 @@ function renderRecentPlants(plants) {
   `;
 }
 
-function renderTasks(tasks) {
+function renderTasksContent(tasks) {
   if (!tasks) {
     return "<p class=\"muted\">No tasks tracked.</p>";
   }
@@ -60,8 +60,8 @@ function renderTasks(tasks) {
   const overdueCount = tasks.overdue_count ?? 0;
   const nextTask = tasks.next_task ?? null;
   return `
-    <div>
-      <h3>Tasks due today</h3>
+    <div class="stacked-text">
+      <h4>Due today</h4>
       ${
         dueToday.length
           ? `<ul class="list-plain">${dueToday
@@ -93,75 +93,89 @@ function renderTasks(tasks) {
   `;
 }
 
-function renderSkeleton() {
+function renderStatsSkeleton() {
   return `
-    <div class="home-skeleton" aria-hidden="true">
-      <div class="stat-grid">
-        <div class="stat-card"><span class="skeleton-line skeleton-line--lg"></span></div>
-        <div class="stat-card"><span class="skeleton-line skeleton-line--lg"></span></div>
-      </div>
-      <div class="home-layout">
-        <section>
-          <h3><span class="skeleton-line skeleton-line--md"></span></h3>
-          <div class="skeleton-stack">
-            <span class="skeleton-line"></span>
-            <span class="skeleton-line"></span>
-            <span class="skeleton-line"></span>
-          </div>
-        </section>
-        <section>
-          <h3><span class="skeleton-line skeleton-line--md"></span></h3>
-          <div class="skeleton-stack">
-            <span class="skeleton-line"></span>
-            <span class="skeleton-line"></span>
-            <span class="skeleton-line"></span>
-          </div>
-        </section>
-        <section>
-          <h3><span class="skeleton-line skeleton-line--md"></span></h3>
-          <div class="skeleton-stack">
-            <span class="skeleton-line"></span>
-            <span class="skeleton-line"></span>
-            <span class="skeleton-line"></span>
-          </div>
-        </section>
-      </div>
+    <div class="stat-grid" aria-hidden="true">
+      <div class="stat-card"><span class="skeleton-line skeleton-line--lg"></span></div>
+      <div class="stat-card"><span class="skeleton-line skeleton-line--lg"></span></div>
+    </div>
+  `;
+}
+
+function renderPanelSkeleton() {
+  return `
+    <div class="skeleton-stack" aria-hidden="true">
+      <span class="skeleton-line"></span>
+      <span class="skeleton-line"></span>
+      <span class="skeleton-line"></span>
     </div>
   `;
 }
 
 export function renderHomeView(root) {
   const vm = new HomeThinVM();
-  const section = document.createElement("section");
-  section.className = "card";
-  section.innerHTML = `
-    <h2>Overview</h2>
-    <div data-state="content" aria-live="polite">
-      ${renderSkeleton()}
+  const container = document.createElement("div");
+  container.className = "page";
+  container.innerHTML = `
+    <div class="page-header">
+      <h2>Overview</h2>
+      <p class="muted">Monitor activity across your villages and plants.</p>
+    </div>
+    <section class="card">
+      <h3>Totals</h3>
+      <div data-stats aria-live="polite">${renderStatsSkeleton()}</div>
+    </section>
+    <div class="card-grid">
+      <section class="card" data-panel="villages">
+        <h3>Village activity</h3>
+        <div data-panel-content>${renderPanelSkeleton()}</div>
+      </section>
+      <section class="card" data-panel="plants">
+        <h3>Recent plants</h3>
+        <div data-panel-content>${renderPanelSkeleton()}</div>
+      </section>
+      <section class="card" data-panel="tasks">
+        <h3>Tasks</h3>
+        <div data-panel-content>${renderPanelSkeleton()}</div>
+      </section>
     </div>
   `;
-  root.replaceChildren(section);
+  root.replaceChildren(container);
 
-  const content = section.querySelector('[data-state="content"]');
+  const statsContainer = container.querySelector("[data-stats]");
+  const villagePanel = container.querySelector('[data-panel="villages"] [data-panel-content]');
+  const plantPanel = container.querySelector('[data-panel="plants"] [data-panel-content]');
+  const tasksPanel = container.querySelector('[data-panel="tasks"] [data-panel-content]');
 
   vm.subscribe((state) => {
     if (state.loading) {
-      content.innerHTML = renderSkeleton();
+      statsContainer.innerHTML = renderStatsSkeleton();
+      villagePanel.innerHTML = renderPanelSkeleton();
+      plantPanel.innerHTML = renderPanelSkeleton();
+      tasksPanel.innerHTML = renderPanelSkeleton();
       return;
     }
     if (state.error) {
-      content.innerHTML = `<p role="alert">${escapeHtml(state.error)}</p>`;
+      const message = `<p role="alert">${escapeHtml(state.error)}</p>`;
+      statsContainer.innerHTML = message;
+      villagePanel.innerHTML = message;
+      plantPanel.innerHTML = message;
+      tasksPanel.innerHTML = message;
       return;
     }
     if (!state.data) {
-      content.innerHTML = "<p>No data yet.</p>";
+      const message = "<p class=\"muted\">No data yet.</p>";
+      statsContainer.innerHTML = message;
+      villagePanel.innerHTML = message;
+      plantPanel.innerHTML = message;
+      tasksPanel.innerHTML = message;
       return;
     }
     const { villages, plants, tasks } = state.data;
     const summaries = renderVillageSummaries(villages.summaries ?? []);
     const recent = renderRecentPlants(plants.recent ?? []);
-    const tasksMarkup = renderTasks(tasks);
-    content.innerHTML = `
+    const tasksMarkup = renderTasksContent(tasks);
+    statsContainer.innerHTML = `
       <div class="stat-grid">
         <div class="stat-card">
           <span class="stat-count">${villages.total}</span>
@@ -172,20 +186,10 @@ export function renderHomeView(root) {
           <span class="stat-label">Plants</span>
         </div>
       </div>
-      <div class="home-layout">
-        <section>
-          <h3>Village activity</h3>
-          ${summaries}
-        </section>
-        <section>
-          <h3>Recent plants</h3>
-          ${recent}
-        </section>
-        <section>
-          ${tasksMarkup}
-        </section>
-      </div>
     `;
+    villagePanel.innerHTML = summaries;
+    plantPanel.innerHTML = recent;
+    tasksPanel.innerHTML = tasksMarkup;
   });
 
   vm.load();
