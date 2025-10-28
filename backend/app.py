@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import (
     HTTPException as FastAPIHTTPException,
@@ -16,9 +19,17 @@ from backend.api import register_routers
 from backend.db import init_db
 from backend.services.photos import MEDIA_ROOT
 
+FRONTEND_ROOT = Path(__file__).resolve().parent.parent / "frontend"
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    init_db()
+    yield
+
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Plantit", version=__version__)
+    app = FastAPI(title="Plantit", version=__version__, lifespan=_lifespan)
 
     app.add_middleware(
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
@@ -52,7 +63,7 @@ def create_app() -> FastAPI:
                 field = loc[-1]
             message = first.get("msg", message)
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={
                 "error": {
                     "code": "VALIDATION_ERROR",
@@ -62,11 +73,15 @@ def create_app() -> FastAPI:
             },
         )
 
-    @app.on_event("startup")
-    def _startup() -> None:
-        init_db()
-
     app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
+
+    if FRONTEND_ROOT.exists():
+        app.mount(
+            "/",
+            StaticFiles(directory=FRONTEND_ROOT, html=True),
+            name="frontend",
+        )
+
 
     return app
 

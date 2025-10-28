@@ -55,7 +55,7 @@ class CareProfileRepository:
             profile = CareProfile(**payload.model_dump())
         except ValueError as exc:  # pragma: no cover - defensive validation
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail={
                     "error": {
                         "code": "VALIDATION_ERROR",
@@ -118,7 +118,7 @@ class CareProfileRepository:
     def _validate_profile(self, profile: CareProfile) -> None:
         if profile.cadence_type == CareCadenceType.INTERVAL and not profile.interval_days:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail={
                     "error": {
                         "code": "VALIDATION_ERROR",
@@ -129,7 +129,7 @@ class CareProfileRepository:
             )
         if profile.cadence_type == CareCadenceType.WEEKLY and not profile.weekly_days:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail={
                     "error": {
                         "code": "VALIDATION_ERROR",

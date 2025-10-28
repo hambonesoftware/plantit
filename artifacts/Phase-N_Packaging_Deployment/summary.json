@@ -1,0 +1,13 @@
+{
+  "status": "success",
+  "changes": [
+    {"path": "backend/app.py", "action": "modified"},
+    {"path": "backend/repositories/care_profiles.py", "action": "modified"},
+    {"path": "backend/tests/test_frontend_static.py", "action": "created"},
+    {"path": "Dockerfile", "action": "created"},
+    {"path": "README.md", "action": "modified"}
+  ],
+  "api_endpoints": [],
+  "ui_routes": ["/"],
+  "notes": "FastAPI now serves the SPA and media, and a multi-stage Docker image with health check is available."
+}
