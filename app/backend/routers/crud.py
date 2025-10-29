@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from typing import Iterable, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -21,6 +22,12 @@ from ..schemas import (
     VillageCreate,
     VillageRead,
     VillageUpdate,
+)
+from ..services.vm_builders import (
+    build_dashboard,
+    build_plant,
+    build_today,
+    build_village,
 )
 
 router = APIRouter()
@@ -149,6 +156,10 @@ def delete_plant(plant_id: int, session: Session = Depends(get_session)) -> None
 TaskDueFilter = Literal['today', 'overdue']
 
 
+class PlantActionPayload(BaseModel):
+    note: str | None = None
+
+
 @router.get("/tasks", response_model=list[TaskRead])
 def list_tasks(
     session: Session = Depends(get_session),
@@ -214,6 +225,64 @@ def complete_task(task_id: int, session: Session = Depends(get_session)) -> dict
     session.commit()
     session.refresh(task)
     return {"ok": True, "task": TaskRead.model_validate(task).model_dump()}
+
+
+@router.post("/plants/{plant_id}/water")
+def water_plant(
+    plant_id: int,
+    payload: PlantActionPayload | None = None,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    plant = _get_or_404(session, Plant, plant_id, "Plant")
+    note = payload.note if payload else None
+    now = datetime.utcnow()
+    plant.last_watered_at = now
+    session.add(
+        Log(
+            plant_id=plant_id,
+            kind="water",
+            note=note,
+            ts=now,
+        )
+    )
+
+    pending = (
+        session.query(Task)
+        .filter(Task.plant_id == plant_id, Task.kind == "water", Task.done_at.is_(None))
+        .order_by(Task.due_date.asc())
+        .all()
+    )
+    next_task = None
+    for task in pending:
+        if task.due_date <= now:
+            task.done_at = now
+        elif not next_task:
+            next_task = task
+
+    if next_task:
+        next_task.due_date = now + timedelta(days=plant.frequency_days)
+    else:
+        session.add(
+            Task(
+                plant_id=plant_id,
+                kind="water",
+                due_date=now + timedelta(days=plant.frequency_days),
+            )
+        )
+
+    session.commit()
+    session.refresh(plant)
+
+    dashboard_vm = build_dashboard(session).model_dump()
+    village_vm = build_village(session, plant.village_id).model_dump()
+    plant_vm = build_plant(session, plant_id).model_dump()
+    today_vm = build_today(session).model_dump()
+    return {
+        "plant": plant_vm,
+        "village": village_vm,
+        "dashboard": dashboard_vm,
+        "today": today_vm,
+    }
 
 
 # Logs ----------------------------------------------------------------------

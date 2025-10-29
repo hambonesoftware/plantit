@@ -1,33 +1,74 @@
 import {api} from '../apiClient.js';
 import {VillageCard} from '../components/VillageCard.js';
-import {Calendar} from '../components/Calendar.js';
+import {Store} from '../store.js';
+import {refreshDashboard} from '../vm/dashboard.vm.js';
+import {refreshVillage} from '../vm/village.vm.js';
 
-export async function DashboardView(){
-  const data = await api.get('/api/vm/dashboard');
-  const cards = document.getElementById('cards');
-  cards.innerHTML = '';
-  for(const v of data.villages){
-    cards.appendChild(VillageCard(v));
+let container;
+let unsubscribe;
+
+function render(state) {
+  if (!container) {
+    return;
+  }
+  const isDashboard = state.view === 'dashboard';
+  container.hidden = !isDashboard;
+  if (!isDashboard) {
+    return;
   }
 
-  const right = document.getElementById('right-panel');
-  right.innerHTML = '<h3>Today</h3>';
-  for(const t of data.today){
-    const row = document.createElement('div');
-    row.className = 'todo';
-    row.innerHTML = `
-      <input type="checkbox" data-id="${t.id}">
-      <div>
-        <div><strong>${t.plant_name}</strong> — ${t.kind}</div>
-        <div class="meta">${t.village_name} ${t.overdue_days>0?'<span class="overdue">— overdue '+t.overdue_days+'d</span>':''}</div>
-      </div>`;
-    row.querySelector('input').addEventListener('change', async (e)=>{
-      if(e.target.checked){
-        await api.post('/api/tasks/'+t.id+'/complete', {});
-        DashboardView(); // refresh
-      }
+  const dashboard = state.cache.dashboard;
+  container.innerHTML = '';
+
+  if (!dashboard) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'loading-state';
+    placeholder.textContent = 'Loading dashboard…';
+    container.appendChild(placeholder);
+    return;
+  }
+
+  if (!dashboard.villages.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'No villages yet. Add your first village to get started!';
+    container.appendChild(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const village of dashboard.villages) {
+    const card = VillageCard(village, {
+      onOpen: (vm) => {
+        Store.navigateToVillage(vm.id);
+        refreshVillage(vm.id, false).catch((error) => console.error(error));
+      },
+      onQuickAdd: async (vm, payload) => {
+        const body = {
+          village_id: vm.id,
+          name: payload.name,
+          species: payload.species,
+          frequency_days: payload.frequency_days,
+        };
+        const result = await api.post('/api/plants', body);
+        await Promise.all([
+          refreshDashboard(true),
+          refreshVillage(vm.id, true),
+        ]);
+        return result;
+      },
     });
-    right.appendChild(row);
+    fragment.appendChild(card);
   }
-  right.appendChild(Calendar(data.calendar));
+
+  container.appendChild(fragment);
+}
+
+export function initDashboardView(node) {
+  container = node;
+  container.hidden = true;
+  if (unsubscribe) {
+    unsubscribe();
+  }
+  unsubscribe = Store.subscribe(render);
 }

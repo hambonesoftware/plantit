@@ -5,6 +5,7 @@ from typing import List, Optional
 class TaskVM(BaseModel):
     id: int
     plant_id: int
+    village_id: int
     kind: str
     due_date: datetime
     overdue_days: int
