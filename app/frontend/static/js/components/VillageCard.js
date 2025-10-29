@@ -6,8 +6,8 @@ export function VillageCard(vm, handlers = {}) {
     <div class="body">
       <h4 class="title">${vm.name}</h4>
       <div class="row" role="group" aria-label="Task indicators">
-        <span class="badge green">Due today ${vm.due_today}</span>
-        <span class="badge ${vm.overdue > 0 ? 'red' : 'gray'}">${vm.overdue > 0 ? vm.overdue + ' overdue' : '0 overdue'}</span>
+        <span class="badge green" role="status" aria-label="${vm.due_today} plants due today">Due today ${vm.due_today}</span>
+        <span class="badge ${vm.overdue > 0 ? 'red' : 'gray'}" role="status" aria-label="${vm.overdue > 0 ? vm.overdue + ' plants overdue' : 'No overdue tasks'}">${vm.overdue > 0 ? vm.overdue + ' overdue' : '0 overdue'}</span>
       </div>
       <div class="meta">Last watered ${vm.last_watered_human}</div>
       <div class="actions">
@@ -45,7 +45,7 @@ export function VillageCard(vm, handlers = {}) {
       <button class="btn" type="submit">Add</button>
       <button class="link-btn" type="button" data-action="cancel">Cancel</button>
     </div>
-    <p class="form-message" aria-live="polite"></p>
+    <p class="form-message" aria-live="polite" role="status"></p>
   `;
   const body = card.querySelector('.body');
   body.appendChild(form);

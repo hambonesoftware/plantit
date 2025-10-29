@@ -41,7 +41,7 @@ function renderQuickAdd(villageId) {
         <input name="frequency" type="number" min="1" value="3">
       </label>
       <button class="btn" type="submit">Add plant</button>
-      <p class="form-message" aria-live="polite"></p>
+      <p class="form-message" aria-live="polite" role="status"></p>
     </form>
   `;
 
