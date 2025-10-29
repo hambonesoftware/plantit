@@ -11,11 +11,13 @@ from typing import Dict
 from dotenv import load_dotenv
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+
+import httpx
 
 from app.backend.db import init_db
 from app.backend.routers.crud import router as crud_router
@@ -55,6 +57,12 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
 load_dotenv()
 
 
+def _backend_origin() -> str:
+    backend_host = os.environ.get("BACKEND_HOST", os.environ.get("APP_HOST", "127.0.0.1"))
+    backend_port = os.environ.get("BACKEND_PORT", "5591")
+    return os.environ.get("BACKEND_ORIGIN", f"http://{backend_host}:{backend_port}")
+
+
 def create_frontend_app() -> FastAPI:
     """Build the ASGI application that serves the static frontend."""
 
@@ -62,9 +70,56 @@ def create_frontend_app() -> FastAPI:
     app.add_middleware(CacheControlMiddleware)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+    backend_origin = _backend_origin()
+
+    @app.on_event("startup")
+    async def startup() -> None:
+        app.state.proxy_client = httpx.AsyncClient(base_url=backend_origin, timeout=None)
+
+    @app.on_event("shutdown")
+    async def shutdown() -> None:
+        client = getattr(app.state, "proxy_client", None)
+        if client is not None:
+            await client.aclose()
+
     @app.get("/")
     async def index() -> FileResponse:
         return FileResponse(INDEX_FILE)
+
+    @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
+    async def proxy_api(request: Request, path: str) -> Response:
+        client: httpx.AsyncClient = app.state.proxy_client
+        url = f"/api/{path}"
+        headers = {
+            key: value
+            for key, value in request.headers.items()
+            if key.lower() not in {"host", "content-length", "connection"}
+        }
+        try:
+            upstream_request = client.build_request(
+                request.method,
+                url,
+                headers=headers,
+                content=await request.body(),
+                params=request.query_params,
+            )
+            upstream_response = await client.send(upstream_request)
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=502, detail=f"Upstream request failed: {exc}")
+
+        excluded_headers = {"content-length", "connection", "transfer-encoding"}
+        response_headers = {
+            key: value
+            for key, value in upstream_response.headers.items()
+            if key.lower() not in excluded_headers
+        }
+
+        return Response(
+            content=upstream_response.content,
+            status_code=upstream_response.status_code,
+            headers=response_headers,
+            media_type=upstream_response.headers.get("content-type"),
+        )
 
     return app
 
