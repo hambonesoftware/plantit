@@ -41,8 +41,14 @@ def build_today_list(session: Session) -> list[TaskVM]:
     for t, p, v in q:
         overdue_days = max(0, (today.date() - t.due_date.date()).days)
         out.append(TaskVM(
-            id=t.id, plant_id=p.id, kind=t.kind, due_date=t.due_date,
-            overdue_days=overdue_days, plant_name=p.name, village_name=v.name
+            id=t.id,
+            plant_id=p.id,
+            village_id=v.id,
+            kind=t.kind,
+            due_date=t.due_date,
+            overdue_days=overdue_days,
+            plant_name=p.name,
+            village_name=v.name,
         ))
     return out
 
