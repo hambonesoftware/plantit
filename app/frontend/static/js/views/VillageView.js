@@ -155,7 +155,9 @@ function render(state) {
     loading.className = 'loading-state';
     loading.textContent = 'Loading village…';
     container.appendChild(loading);
-    refreshVillage(villageId, true).catch((error) => console.error(error));
+    if (!state.loading.village) {
+      refreshVillage(villageId).catch((error) => console.error(error));
+    }
     return;
   }
 
