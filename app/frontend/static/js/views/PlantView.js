@@ -8,6 +8,33 @@ import {api} from '../apiClient.js';
 let overlay;
 let panel;
 let unsubscribe;
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
+function handleFocusTrap(event) {
+  if (!overlay || overlay.classList.contains('hidden')) {
+    return;
+  }
+  if (event.key !== 'Tab') {
+    return;
+  }
+  const focusable = overlay.querySelectorAll(FOCUSABLE_SELECTOR);
+  if (!focusable.length) {
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+
+  if (event.shiftKey) {
+    if (active === first || !overlay.contains(active)) {
+      event.preventDefault();
+      last.focus();
+    }
+  } else if (active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
 
 function ensureOverlay() {
   if (overlay) {
@@ -38,6 +65,8 @@ function ensureOverlay() {
       Store.closePlant();
     }
   });
+
+  document.addEventListener('keydown', handleFocusTrap, true);
 }
 
 function renderLogs(logs) {
@@ -80,7 +109,7 @@ function renderScheduleForm(plant) {
     </label>
     <div class="form-row">
       <button class="btn" type="submit">Save schedule</button>
-      <p class="form-message" aria-live="polite"></p>
+      <p class="form-message" aria-live="polite" role="status"></p>
     </div>
   `;
 
@@ -124,7 +153,7 @@ function renderWaterForm(plant) {
     </label>
     <div class="form-row">
       <button class="btn" type="submit">Log water now</button>
-      <p class="form-message" aria-live="polite"></p>
+      <p class="form-message" aria-live="polite" role="status"></p>
     </div>
   `;
 

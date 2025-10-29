@@ -9,6 +9,8 @@ from typing import Dict
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 from fastapi.staticfiles import StaticFiles
 
 from app.backend.db import init_db
@@ -31,7 +33,23 @@ def build_static_manifest() -> Dict[str, str]:
         manifest[str(rel_path)] = digest
     return manifest
 
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Apply cache headers to static assets while keeping HTML non-cacheable."""
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        response = await call_next(request)
+        path = request.url.path
+        if path.startswith("/static/"):
+            response.headers.setdefault(
+                "Cache-Control", "public, max-age=31536000, immutable"
+            )
+        elif path == "/":
+            response.headers.setdefault("Cache-Control", "no-cache")
+        return response
+
+
 app = FastAPI(title="Plantit", docs_url="/docs", redoc_url=None)
+app.add_middleware(CacheControlMiddleware)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
