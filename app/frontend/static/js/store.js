@@ -76,6 +76,15 @@ function writePrefs(prefs) {
   }
 }
 
+const canStructuredClone = typeof structuredClone === 'function';
+
+function clone(value) {
+  if (canStructuredClone) {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+
 const defaultState = {
   view: 'dashboard',
   selectedVillageId: null,
@@ -102,7 +111,7 @@ const defaultState = {
 
 export const Store = {
   listeners: new Set(),
-  state: structuredClone ? structuredClone(defaultState) : JSON.parse(JSON.stringify(defaultState)),
+  state: clone(defaultState),
 
   init() {
     const persisted = readPrefs();
