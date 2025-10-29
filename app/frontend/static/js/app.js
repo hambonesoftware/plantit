@@ -6,6 +6,7 @@ import {initTodayPanel} from './views/TodayPanel.js';
 import {initVillageView} from './views/VillageView.js';
 import {refreshDashboard} from './vm/dashboard.vm.js';
 import {refreshVillage} from './vm/village.vm.js';
+import {downloadExportBundle, importBundleFromFile} from './services/importExport.js';
 
 const root = document.getElementById('app');
 
@@ -45,10 +46,50 @@ function mount() {
 
   const footer = document.createElement('footer');
   footer.className = 'footer';
-  footer.innerHTML = `
-    <button class="link-btn" id="exportBtn" type="button">Export</button>
-    <button class="link-btn" id="importBtn" type="button">Import</button>
-  `;
+
+  const status = document.createElement('p');
+  status.className = 'status-text';
+  status.id = 'footerStatus';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  status.tabIndex = -1;
+
+  const buttons = document.createElement('div');
+  buttons.className = 'footer-buttons';
+
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'link-btn';
+  exportBtn.type = 'button';
+  exportBtn.id = 'exportBtn';
+  exportBtn.textContent = 'Export';
+
+  const importBtn = document.createElement('button');
+  importBtn.className = 'link-btn';
+  importBtn.type = 'button';
+  importBtn.id = 'importBtn';
+  importBtn.textContent = 'Import';
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'application/json';
+  fileInput.style.display = 'none';
+
+  exportBtn.addEventListener('click', () => {
+    downloadExportBundle(status);
+  });
+
+  importBtn.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', async (event) => {
+    const [file] = event.target.files;
+    await importBundleFromFile(file, status);
+    fileInput.value = '';
+  });
+
+  buttons.append(exportBtn, importBtn);
+  footer.append(status, buttons, fileInput);
   root.appendChild(footer);
 
   Store.init();
