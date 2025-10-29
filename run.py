@@ -38,6 +38,13 @@ STATIC_DIR = ROOT / "app" / "frontend" / "static"
 INDEX_FILE = ROOT / "app" / "frontend" / "index.html"
 STATIC_MANIFEST: Dict[str, str] = {}
 
+_MINIMAL_INDEX = """<!doctype html>\n<html lang=\"en\">\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>Plantit Minimal Frontend</title>\n<style>html,body{height:100%;margin:0;font:16px/1.4 system-ui,sans-serif;display:grid;place-items:center}.box{border:1px solid #ccc;padding:16px;border-radius:12px;max-width:540px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.08)}</style>\n<body>\n  <div class=\"box\">\n    <h1>Frontend minimal page loaded ✅</h1>\n    <p>If you can see this, static hosting is working and JavaScript was intentionally disabled.</p>\n    <p>Unset <code>FRONTEND_MINIMAL</code> to restore the full application.</p>\n  </div>\n</body>\n</html>\n"""
+
+
+def _minimal_mode_enabled() -> bool:
+    flag = os.environ.get("FRONTEND_MINIMAL", "").strip().lower()
+    return flag in {"1", "true", "yes", "on"}
+
 
 def build_static_manifest() -> Dict[str, str]:
     logger.debug("Starting static manifest build.")
@@ -134,7 +141,11 @@ def create_frontend_app() -> FastAPI:
             logger.debug("Frontend shutdown: AsyncClient closed.")
 
     @app.get("/")
-    async def index() -> FileResponse:
+    async def index() -> Response:
+        if _minimal_mode_enabled():
+            logger.debug("FRONTEND_MINIMAL enabled; serving diagnostic shell.")
+            return Response(content=_MINIMAL_INDEX, media_type="text/html")
+
         logger.debug("Serving frontend index.html to client.")
         return FileResponse(INDEX_FILE)
 
