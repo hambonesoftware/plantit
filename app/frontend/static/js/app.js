@@ -11,6 +11,10 @@ import {downloadExportBundle, importBundleFromFile} from './services/importExpor
 const root = document.getElementById('app');
 
 function mount() {
+  if (!root) {
+    console.error('Unable to mount Plantit UI: #app container is missing.');
+    return;
+  }
   const shell = AppShell();
   root.appendChild(shell);
 
@@ -105,4 +109,8 @@ function mount() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', mount);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mount, { once: true });
+} else {
+  queueMicrotask(mount);
+}
