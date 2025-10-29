@@ -270,7 +270,22 @@ async def _serve() -> None:
             logger.debug("Fallback signal handler registered for %s via signal.signal.", sig)
 
     logger.debug("Starting uvicorn servers concurrently.")
-    await asyncio.gather(frontend_server.serve(), backend_server.serve())
+    results = await asyncio.gather(
+        frontend_server.serve(), backend_server.serve(), return_exceptions=True
+    )
+
+    errors = []
+    for result in results:
+        if isinstance(result, asyncio.CancelledError):
+            logger.debug("Uvicorn server task cancelled during shutdown; ignoring.")
+            continue
+        if isinstance(result, Exception):
+            errors.append(result)
+
+    if errors:
+        logger.error("Encountered %d errors while serving: %s", len(errors), errors)
+        raise errors[0]
+
     logger.debug("Uvicorn servers have exited. Shutdown complete.")
 
 
