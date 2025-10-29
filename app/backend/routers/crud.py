@@ -84,12 +84,16 @@ def update_village(village_id: int, payload: VillageUpdate, session: Session = D
 
 
 @router.delete(
-    "/villages/{village_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+    "/villages/{village_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
 )
-def delete_village(village_id: int, session: Session = Depends(get_session)) -> None:
+def delete_village(village_id: int, session: Session = Depends(get_session)) -> Response:
     village = _get_or_404(session, Village, village_id, "Village")
     session.delete(village)
     session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # Plants --------------------------------------------------------------------
@@ -147,12 +151,16 @@ def update_plant(plant_id: int, payload: PlantUpdate, session: Session = Depends
 
 
 @router.delete(
-    "/plants/{plant_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+    "/plants/{plant_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
 )
-def delete_plant(plant_id: int, session: Session = Depends(get_session)) -> None:
+def delete_plant(plant_id: int, session: Session = Depends(get_session)) -> Response:
     plant = _get_or_404(session, Plant, plant_id, "Plant")
     session.delete(plant)
     session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # Tasks ---------------------------------------------------------------------
@@ -217,12 +225,16 @@ def update_task(task_id: int, payload: TaskUpdate, session: Session = Depends(ge
 
 
 @router.delete(
-    "/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+    "/tasks/{task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
 )
-def delete_task(task_id: int, session: Session = Depends(get_session)) -> None:
+def delete_task(task_id: int, session: Session = Depends(get_session)) -> Response:
     task = _get_or_404(session, Task, task_id, "Task")
     session.delete(task)
     session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/tasks/{task_id}/complete")
@@ -329,12 +341,16 @@ def get_log(log_id: int, session: Session = Depends(get_session)) -> LogRead:
 
 
 @router.delete(
-    "/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+    "/logs/{log_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
 )
-def delete_log(log_id: int, session: Session = Depends(get_session)) -> None:
+def delete_log(log_id: int, session: Session = Depends(get_session)) -> Response:
     log = _get_or_404(session, Log, log_id, "Log")
     session.delete(log)
     session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/export")
