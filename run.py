@@ -1,7 +1,9 @@
 """Application entrypoint for Plantit."""
 from __future__ import annotations
 
+import asyncio
 import os
+import signal
 from hashlib import sha256
 from pathlib import Path
 from typing import Dict
@@ -11,9 +13,9 @@ from dotenv import load_dotenv
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from fastapi.staticfiles import StaticFiles
 
 from app.backend.db import init_db
 from app.backend.routers.crud import router as crud_router
@@ -53,34 +55,91 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
 load_dotenv()
 
 
-app = FastAPI(title="Plantit", docs_url="/docs", redoc_url=None)
-app.add_middleware(CacheControlMiddleware)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+def create_frontend_app() -> FastAPI:
+    """Build the ASGI application that serves the static frontend."""
+
+    app = FastAPI(title="Plantit Frontend", docs_url=None, redoc_url=None)
+    app.add_middleware(CacheControlMiddleware)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/")
+    async def index() -> FileResponse:
+        return FileResponse(INDEX_FILE)
+
+    return app
 
 
-@app.on_event("startup")
-def on_startup() -> None:
-    """Ensure the SQLite database exists before serving requests."""
-    init_db()
-    global STATIC_MANIFEST
-    STATIC_MANIFEST = build_static_manifest()
+def create_backend_app() -> FastAPI:
+    """Build the ASGI application that exposes the API surface."""
+
+    app = FastAPI(title="Plantit Backend", docs_url="/docs", redoc_url=None)
+
+    @app.on_event("startup")
+    def on_startup() -> None:
+        """Ensure the SQLite database exists before serving requests."""
+        init_db()
+        global STATIC_MANIFEST
+        STATIC_MANIFEST = build_static_manifest()
+
+    @app.get("/health")
+    async def health() -> JSONResponse:
+        return JSONResponse({"status": "ok", "static": STATIC_MANIFEST})
+
+    app.include_router(vm_router, prefix="/api/vm", tags=["vm"])
+    app.include_router(crud_router, prefix="/api", tags=["api"])
+
+    return app
 
 
-@app.get("/")
-async def index() -> FileResponse:
-    return FileResponse(INDEX_FILE)
+frontend_app = create_frontend_app()
+backend_app = create_backend_app()
+
+# Backwards compatibility for tests/tools that import ``run:app``.
+app = backend_app
 
 
-@app.get("/health")
-async def health() -> JSONResponse:
-    return JSONResponse({"status": "ok", "static": STATIC_MANIFEST})
+async def _serve() -> None:
+    """Launch both the frontend and backend servers concurrently."""
+
+    frontend_host = os.environ.get("FRONTEND_HOST", os.environ.get("APP_HOST", "127.0.0.1"))
+    backend_host = os.environ.get("BACKEND_HOST", os.environ.get("APP_HOST", "127.0.0.1"))
+    frontend_port = int(os.environ.get("FRONTEND_PORT", "5590"))
+    backend_port = int(os.environ.get("BACKEND_PORT", "5591"))
+
+    frontend_config = uvicorn.Config(frontend_app, host=frontend_host, port=frontend_port, log_level="info")
+    backend_config = uvicorn.Config(backend_app, host=backend_host, port=backend_port, log_level="info")
+
+    frontend_server = uvicorn.Server(frontend_config)
+    backend_server = uvicorn.Server(backend_config)
+
+    # ``uvicorn.Server`` installs signal handlers on ``serve``; we manage them manually.
+    frontend_server.install_signal_handlers = lambda: None  # type: ignore[assignment]
+    backend_server.install_signal_handlers = lambda: None  # type: ignore[assignment]
+
+    loop = asyncio.get_running_loop()
+
+    def _request_shutdown() -> None:
+        frontend_server.should_exit = True
+        backend_server.should_exit = True
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, _request_shutdown)
+        except NotImplementedError:
+            # Fallback for event loops that do not support signal handlers
+            signal.signal(sig, lambda *_: _request_shutdown())
+
+    await asyncio.gather(frontend_server.serve(), backend_server.serve())
 
 
-app.include_router(vm_router, prefix="/api/vm", tags=["vm"])
-app.include_router(crud_router, prefix="/api", tags=["api"])
+def main() -> None:
+    try:
+        asyncio.run(_serve())
+    except KeyboardInterrupt:
+        # ``asyncio.run`` translates SIGINT into a KeyboardInterrupt if it fires
+        # while the event loop is being created; ignore to allow a clean exit.
+        pass
 
 
 if __name__ == "__main__":
-    host = os.environ.get("APP_HOST", "127.0.0.1")
-    port = int(os.environ.get("APP_PORT", "7600"))
-    uvicorn.run("run:app", host=host, port=port, reload=False)
+    main()
