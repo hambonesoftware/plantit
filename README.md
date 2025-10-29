@@ -16,6 +16,9 @@ The app serves [http://127.0.0.1:7600](http://127.0.0.1:7600) and hosts the stat
 
 Runtime configuration can be provided via environment variables or an `.env` file in the project root (`APP_HOST`, `APP_PORT`, `DB_PATH`).
 
+- Set `FRONTEND_MINIMAL=1` to serve a JavaScript-free diagnostic shell when you suspect the main bundle is wedged. The flag is
+  evaluated on every request, so you can flip it off without restarting once you are ready to restore the full SPA.
+
 ## Air-gapped install
 
 1. On a connected machine, run `python tools/fetch_wheels.py` once to populate `vendor/wheels/`.
