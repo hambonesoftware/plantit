@@ -109,6 +109,8 @@ const defaultState = {
   },
 };
 
+let isUpdatingHash = false;
+
 export const Store = {
   listeners: new Set(),
   state: clone(defaultState),
@@ -143,10 +145,20 @@ export const Store = {
 
       const expectedHash = formatRoute(initialRoute);
       if (window.location.hash !== expectedHash) {
+        isUpdatingHash = true;
         window.location.hash = expectedHash;
+        const release = () => { isUpdatingHash = false; };
+        if (typeof queueMicrotask === 'function') {
+          queueMicrotask(release);
+        } else {
+          Promise.resolve().then(release);
+        }
       }
 
       window.addEventListener('hashchange', () => {
+        if (isUpdatingHash) {
+          return;
+        }
         this.applyRoute(parseRoute(window.location.hash));
       });
     } else {

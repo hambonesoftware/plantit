@@ -1,8 +1,10 @@
+import { Store } from '../store.js';
+
 export function AppShell(){
   const el = document.createElement('header');
   el.className = 'app-shell';
   el.innerHTML = `
-    <a class="logo" href="/" aria-label="Plantit home">
+    <a class="logo" href="#/dashboard" aria-label="Plantit home">
       <span class="leaf" aria-hidden="true">🍃</span>
       <span>Plantit</span>
     </a>
@@ -17,5 +19,14 @@ export function AppShell(){
       <span class="avatar" aria-hidden="true"></span>
     </div>
   `;
+
+  const logo = el.querySelector('.logo');
+  logo.addEventListener('click', (event) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    event.preventDefault();
+    Store.navigateToDashboard();
+  });
   return el;
 }

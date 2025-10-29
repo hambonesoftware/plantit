@@ -138,6 +138,11 @@ def create_frontend_app() -> FastAPI:
         logger.debug("Serving frontend index.html to client.")
         return FileResponse(INDEX_FILE)
 
+    @app.get("/favicon.ico")
+    async def favicon() -> Response:
+        logger.debug("Received favicon request; returning empty response to prevent 404s.")
+        return Response(status_code=204)
+
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
     async def proxy_api(request: Request, path: str) -> Response:
         logger.debug("Proxying API request: %s %s", request.method, path)
