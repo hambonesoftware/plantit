@@ -6,6 +6,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Dict
 
+from dotenv import load_dotenv
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
@@ -46,6 +48,9 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         elif path == "/":
             response.headers.setdefault("Cache-Control", "no-cache")
         return response
+
+
+load_dotenv()
 
 
 app = FastAPI(title="Plantit", docs_url="/docs", redoc_url=None)

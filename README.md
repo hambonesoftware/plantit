@@ -14,6 +14,8 @@ python run.py
 
 The app serves [http://127.0.0.1:7600](http://127.0.0.1:7600) and hosts the static frontend from `/app/frontend`.
 
+Runtime configuration can be provided via environment variables or an `.env` file in the project root (`APP_HOST`, `APP_PORT`, `DB_PATH`).
+
 ## Air-gapped install
 
 1. On a connected machine, run `python tools/fetch_wheels.py` once to populate `vendor/wheels/`.
