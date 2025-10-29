@@ -60,6 +60,18 @@ load_dotenv()
 def _backend_origin() -> str:
     backend_host = os.environ.get("BACKEND_HOST", os.environ.get("APP_HOST", "127.0.0.1"))
     backend_port = os.environ.get("BACKEND_PORT", "5591")
+
+    # ``0.0.0.0`` (or ``::``) is a special "all interfaces" address that is valid for
+    # binding servers but not for making HTTP client requests.  When we launch the
+    # app with ``APP_HOST=0.0.0.0`` to expose it externally (e.g., for Playwright),
+    # the proxy client would previously attempt to reach ``http://0.0.0.0:5591``.  In
+    # sandboxed environments this is rejected with ``403 Domain forbidden`` by the
+    # networking layer, which surfaced in the browser console as repeated
+    # ``/api/vm/dashboard`` 403 errors.  Map wildcard hosts back to loopback so the
+    # proxy can always reach the backend.
+    if backend_host in {"0.0.0.0", "::"}:
+        backend_host = "127.0.0.1"
+
     return os.environ.get("BACKEND_ORIGIN", f"http://{backend_host}:{backend_port}")
 
 
