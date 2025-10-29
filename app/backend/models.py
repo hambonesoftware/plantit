@@ -1,14 +1,17 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Date, CheckConstraint
-from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
+
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .db import Base
+from .utils import utc_now
 
 class Village(Base):
     __tablename__ = "villages"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     note: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     plants: Mapped[list["Plant"]] = relationship("Plant", back_populates="village", cascade="all, delete-orphan")
 
@@ -18,7 +21,7 @@ class Plant(Base):
     village_id: Mapped[int] = mapped_column(ForeignKey("villages.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     species: Mapped[str | None] = mapped_column(String, nullable=True)
-    last_watered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_watered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     frequency_days: Mapped[int] = mapped_column(Integer, default=3)
     photo_path: Mapped[str | None] = mapped_column(String, nullable=True)
 
@@ -31,8 +34,8 @@ class Task(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     plant_id: Mapped[int] = mapped_column(ForeignKey("plants.id"), nullable=False)
     kind: Mapped[str] = mapped_column(String, nullable=False)  # 'water' | 'fertilize' | 'repot'
-    due_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    done_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    due_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     plant: Mapped["Plant"] = relationship("Plant", back_populates="tasks")
 
@@ -42,7 +45,7 @@ class Log(Base):
     __tablename__ = "logs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     plant_id: Mapped[int] = mapped_column(ForeignKey("plants.id"), nullable=False)
-    ts: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     kind: Mapped[str] = mapped_column(String, nullable=False)
     note: Mapped[str | None] = mapped_column(String, nullable=True)
 

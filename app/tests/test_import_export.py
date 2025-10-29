@@ -86,7 +86,7 @@ def test_import_apply_merges_and_creates_records(session_factory):
     next_task_id = max(task['id'] for task in export_payload['tasks']) + 100
     next_log_id = max(log['id'] for log in export_payload['logs']) + 100
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
     new_plant = {
         'id': next_plant_id,
         'village_id': target_village['id'],

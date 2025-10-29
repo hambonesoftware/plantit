@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from ..models import Log, Plant, Task, Village
+from ..utils import ensure_utc, utc_now
 
 
 class VillagePayload(BaseModel):
@@ -104,16 +105,18 @@ def import_bundle(session: Session, request: ImportRequest) -> ImportReport:
             if existing:
                 existing.name = payload.name
                 existing.note = payload.note
-                if payload.created_at:
-                    existing.created_at = payload.created_at
+                incoming_created_at = ensure_utc(payload.created_at)
+                if incoming_created_at:
+                    existing.created_at = incoming_created_at
                 counts_updated["villages"] += 1
                 village_id_map[payload.id] = existing.id
             else:
+                incoming_created_at = ensure_utc(payload.created_at)
                 village = Village(
                     id=payload.id,
                     name=payload.name,
                     note=payload.note,
-                    created_at=payload.created_at or datetime.utcnow(),
+                    created_at=incoming_created_at or utc_now(),
                 )
                 session.add(village)
                 session.flush()
@@ -135,10 +138,11 @@ def import_bundle(session: Session, request: ImportRequest) -> ImportReport:
                 existing.species = payload.species
                 existing.frequency_days = payload.frequency_days
                 existing.photo_path = payload.photo_path
-                existing.last_watered_at = payload.last_watered_at
+                existing.last_watered_at = ensure_utc(payload.last_watered_at)
                 counts_updated["plants"] += 1
                 plant_id_map[payload.id] = existing.id
             else:
+                incoming_last_watered = ensure_utc(payload.last_watered_at)
                 plant = Plant(
                     id=payload.id,
                     village_id=resolved_village_id,
@@ -146,7 +150,7 @@ def import_bundle(session: Session, request: ImportRequest) -> ImportReport:
                     species=payload.species,
                     frequency_days=payload.frequency_days,
                     photo_path=payload.photo_path,
-                    last_watered_at=payload.last_watered_at,
+                    last_watered_at=incoming_last_watered,
                 )
                 session.add(plant)
                 session.flush()
@@ -165,16 +169,17 @@ def import_bundle(session: Session, request: ImportRequest) -> ImportReport:
             if existing:
                 existing.plant_id = resolved_plant_id
                 existing.kind = payload.kind
-                existing.due_date = payload.due_date
-                existing.done_at = payload.done_at
+                existing.due_date = ensure_utc(payload.due_date)
+                existing.done_at = ensure_utc(payload.done_at)
                 counts_updated["tasks"] += 1
             else:
+                incoming_due_date = ensure_utc(payload.due_date)
                 task = Task(
                     id=payload.id,
                     plant_id=resolved_plant_id,
                     kind=payload.kind,
-                    due_date=payload.due_date,
-                    done_at=payload.done_at,
+                    due_date=incoming_due_date,
+                    done_at=ensure_utc(payload.done_at),
                 )
                 session.add(task)
                 session.flush()
@@ -191,7 +196,7 @@ def import_bundle(session: Session, request: ImportRequest) -> ImportReport:
             existing = session.get(Log, payload.id)
             if existing:
                 existing.plant_id = resolved_plant_id
-                existing.ts = payload.ts
+                existing.ts = ensure_utc(payload.ts)
                 existing.kind = payload.kind
                 existing.note = payload.note
                 counts_updated["logs"] += 1
@@ -199,7 +204,7 @@ def import_bundle(session: Session, request: ImportRequest) -> ImportReport:
                 log = Log(
                     id=payload.id,
                     plant_id=resolved_plant_id,
-                    ts=payload.ts,
+                    ts=ensure_utc(payload.ts),
                     kind=payload.kind,
                     note=payload.note,
                 )

@@ -1,17 +1,39 @@
-from datetime import datetime, timedelta
-from sqlalchemy import func, extract
+"""Utilities for building view models consumed by the frontend."""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Iterable
+
+from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
-from ..models import Village, Plant, Task, Log
-from ..viewmodels.common import VillageCardVM, TaskVM, CalendarVM, CalendarDot
+
+from ..models import Log, Plant, Task, Village
+from ..utils import ensure_utc, utc_now
+from ..viewmodels.common import CalendarDot, CalendarVM, TaskVM, VillageCardVM
 from ..viewmodels.dashboard import DashboardVM
-from ..viewmodels.village import VillageVM, PlantBrief
-from ..viewmodels.plant import PlantVM, LogItem
+from ..viewmodels.plant import LogItem, PlantVM
 from ..viewmodels.today import TodayVM
+from ..viewmodels.village import PlantBrief, VillageVM
+
+
+def _resolve_latest(datetimes: Iterable[datetime | None]) -> datetime | None:
+    """Return the most recent timestamp, handling ``None`` values gracefully."""
+
+    latest: datetime | None = None
+    for value in datetimes:
+        if value is None:
+            continue
+        candidate = ensure_utc(value)
+        if latest is None or candidate > latest:
+            latest = candidate
+    return latest
+
 
 def human_since(dt: datetime | None) -> str:
-    if not dt:
+    if dt is None:
         return "—"
-    delta = datetime.utcnow() - dt
+    baseline = ensure_utc(dt)
+    delta = utc_now() - baseline
     days = delta.days
     if days <= 0:
         return "today"
@@ -19,80 +41,126 @@ def human_since(dt: datetime | None) -> str:
         return "1 day ago"
     return f"{days} days ago"
 
-def build_village_card(session: Session, v: Village) -> VillageCardVM:
-    today = datetime.utcnow()
-    due_today = session.query(Task).join(Plant).filter(Plant.village_id==v.id, Task.done_at==None, func.date(Task.due_date) <= func.date(today)).count()
-    overdue = session.query(Task).join(Plant).filter(Plant.village_id==v.id, Task.done_at==None, func.date(Task.due_date) < func.date(today)).count()
-    # last watered among plants
-    last = None
-    for p in v.plants:
-        if p.last_watered_at and (last is None or p.last_watered_at > last):
-            last = p.last_watered_at
-    return VillageCardVM(id=v.id, name=v.name, due_today=due_today, overdue=overdue, last_watered_human=human_since(last))
+
+def build_village_card(session: Session, village: Village) -> VillageCardVM:
+    today = utc_now()
+    due_today = (
+        session.query(Task)
+        .join(Plant)
+        .filter(
+            Plant.village_id == village.id,
+            Task.done_at == None,  # noqa: E711 - SQLAlchemy comparison
+            func.date(Task.due_date) <= func.date(today),
+        )
+        .count()
+    )
+    overdue = (
+        session.query(Task)
+        .join(Plant)
+        .filter(
+            Plant.village_id == village.id,
+            Task.done_at == None,  # noqa: E711 - SQLAlchemy comparison
+            func.date(Task.due_date) < func.date(today),
+        )
+        .count()
+    )
+    last_watered = _resolve_latest(p.last_watered_at for p in village.plants)
+    return VillageCardVM(
+        id=village.id,
+        name=village.name,
+        due_today=due_today,
+        overdue=overdue,
+        last_watered_human=human_since(last_watered),
+    )
+
 
 def build_today_list(session: Session) -> list[TaskVM]:
-    today = datetime.utcnow()
-    q = (session.query(Task, Plant, Village)
-        .join(Plant, Task.plant_id==Plant.id)
-        .join(Village, Plant.village_id==Village.id)
-        .filter(Task.done_at==None, func.date(Task.due_date) <= func.date(today))
-        .order_by(Task.due_date.asc()))
-    out: list[TaskVM] = []
-    for t, p, v in q:
-        overdue_days = max(0, (today.date() - t.due_date.date()).days)
-        out.append(TaskVM(
-            id=t.id,
-            plant_id=p.id,
-            village_id=v.id,
-            kind=t.kind,
-            due_date=t.due_date,
-            overdue_days=overdue_days,
-            plant_name=p.name,
-            village_name=v.name,
-        ))
-    return out
+    today = utc_now()
+    query = (
+        session.query(Task, Plant, Village)
+        .join(Plant, Task.plant_id == Plant.id)
+        .join(Village, Plant.village_id == Village.id)
+        .filter(Task.done_at == None, func.date(Task.due_date) <= func.date(today))  # noqa: E711
+        .order_by(Task.due_date.asc())
+    )
+
+    items: list[TaskVM] = []
+    for task, plant, village in query:
+        due_date = ensure_utc(task.due_date)
+        overdue_days = max(0, (today.date() - due_date.date()).days)
+        items.append(
+            TaskVM(
+                id=task.id,
+                plant_id=plant.id,
+                village_id=village.id,
+                kind=task.kind,
+                due_date=due_date,
+                overdue_days=overdue_days,
+                plant_name=plant.name,
+                village_name=village.name,
+            )
+        )
+    return items
+
 
 def build_calendar(session: Session) -> CalendarVM:
-    now = datetime.utcnow()
-    # count tasks per day for current month
-    q = (session.query(func.date(Task.due_date), func.count())
-         .filter(extract('month', Task.due_date)==now.month, extract('year', Task.due_date)==now.year)
-         .group_by(func.date(Task.due_date)))
+    now = utc_now()
+    query = (
+        session.query(func.date(Task.due_date), func.count())
+        .filter(extract("month", Task.due_date) == now.month, extract("year", Task.due_date) == now.year)
+        .group_by(func.date(Task.due_date))
+    )
     dots = []
-    for day_str, cnt in q:
-        # day_str may be 'YYYY-MM-DD' str for sqlite
-        day = int(str(day_str).split('-')[-1])
-        dots.append(CalendarDot(day=day, count=cnt))
+    for day_str, count in query:
+        day = int(str(day_str).split("-")[-1])
+        dots.append(CalendarDot(day=day, count=count))
     return CalendarVM(year=now.year, month=now.month, dots=dots)
+
 
 def build_dashboard(session: Session) -> DashboardVM:
     villages = session.query(Village).order_by(Village.name.asc()).all()
-    cards = [build_village_card(session, v) for v in villages]
+    cards = [build_village_card(session, village) for village in villages]
     today_list = build_today_list(session)
     calendar = build_calendar(session)
     return DashboardVM(villages=cards, today=today_list, calendar=calendar)
 
+
 def build_village(session: Session, village_id: int) -> VillageVM:
-    v = session.get(Village, village_id)
-    if not v:
+    village = session.get(Village, village_id)
+    if not village:
         raise ValueError("Village not found")
-    plants = []
-    for p in v.plants:
-        plants.append(PlantBrief(id=p.id, name=p.name, species=p.species, last_watered_human=human_since(p.last_watered_at)))
-    card = build_village_card(session, v)
-    return VillageVM(id=v.id, name=v.name, plants=plants, due_today=card.due_today, overdue=card.overdue)
+
+    plants = [
+        PlantBrief(
+            id=plant.id,
+            name=plant.name,
+            species=plant.species,
+            last_watered_human=human_since(plant.last_watered_at),
+        )
+        for plant in village.plants
+    ]
+    card = build_village_card(session, village)
+    return VillageVM(id=village.id, name=village.name, plants=plants, due_today=card.due_today, overdue=card.overdue)
+
 
 def build_plant(session: Session, plant_id: int) -> PlantVM:
-    p = session.get(Plant, plant_id)
-    if not p:
+    plant = session.get(Plant, plant_id)
+    if not plant:
         raise ValueError("Plant not found")
-    v = session.get(Village, p.village_id)
-    logs = [LogItem(ts=l.ts, kind=l.kind, note=l.note) for l in p.logs]
+
+    village = session.get(Village, plant.village_id)
+    logs = [LogItem(ts=ensure_utc(log.ts), kind=log.kind, note=log.note) for log in plant.logs]
     return PlantVM(
-        id=p.id, village_id=p.village_id, village_name=v.name if v else "",
-        name=p.name, species=p.species, last_watered_human=human_since(p.last_watered_at),
-        frequency_days=p.frequency_days, logs=logs
+        id=plant.id,
+        village_id=plant.village_id,
+        village_name=village.name if village else "",
+        name=plant.name,
+        species=plant.species,
+        last_watered_human=human_since(plant.last_watered_at),
+        frequency_days=plant.frequency_days,
+        logs=logs,
     )
+
 
 def build_today(session: Session) -> TodayVM:
     return TodayVM(today=build_today_list(session))

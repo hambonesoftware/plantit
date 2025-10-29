@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import timedelta
 from typing import Iterable, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -23,13 +23,14 @@ from ..schemas import (
     VillageRead,
     VillageUpdate,
 )
+from ..services.import_export import ImportRequest, export_bundle, import_bundle
 from ..services.vm_builders import (
     build_dashboard,
     build_plant,
     build_today,
     build_village,
 )
-from ..services.import_export import ImportRequest, export_bundle, import_bundle
+from ..utils import ensure_utc, utc_now
 
 router = APIRouter()
 
@@ -120,12 +121,12 @@ def create_plant(payload: PlantCreate, session: Session = Depends(get_session)) 
         species=payload.species,
         frequency_days=payload.frequency_days,
         photo_path=payload.photo_path,
-        last_watered_at=payload.last_watered_at or datetime.utcnow(),
+        last_watered_at=ensure_utc(payload.last_watered_at) or utc_now(),
     )
     session.add(plant)
     session.flush()
     # create default watering task aligned with frequency
-    due_date = datetime.utcnow() + timedelta(days=plant.frequency_days)
+    due_date = utc_now() + timedelta(days=plant.frequency_days)
     session.add(Task(plant_id=plant.id, kind="water", due_date=due_date))
     session.commit()
     session.refresh(plant)
@@ -144,6 +145,8 @@ def update_plant(plant_id: int, payload: PlantUpdate, session: Session = Depends
     if payload.village_id is not None:
         _get_or_404(session, Village, payload.village_id, "Village")
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "last_watered_at":
+            value = ensure_utc(value)
         setattr(plant, field, value)
     session.commit()
     session.refresh(plant)
@@ -182,7 +185,7 @@ def list_tasks(
     query = session.query(Task)
     if plant_id is not None:
         query = query.filter(Task.plant_id == plant_id)
-    today = date.today()
+    today = utc_now().date()
     if due == 'today':
         query = query.filter(Task.done_at.is_(None), func.date(Task.due_date) <= today)
     elif due == 'overdue':
@@ -197,8 +200,8 @@ def create_task(payload: TaskCreate, session: Session = Depends(get_session)) ->
     task = Task(
         plant_id=payload.plant_id,
         kind=payload.kind,
-        due_date=payload.due_date,
-        done_at=payload.done_at,
+        due_date=ensure_utc(payload.due_date),
+        done_at=ensure_utc(payload.done_at),
     )
     session.add(task)
     session.commit()
@@ -218,6 +221,8 @@ def update_task(task_id: int, payload: TaskUpdate, session: Session = Depends(ge
     if payload.plant_id is not None:
         _get_or_404(session, Plant, payload.plant_id, "Plant")
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if field in {"due_date", "done_at"}:
+            value = ensure_utc(value)
         setattr(task, field, value)
     session.commit()
     session.refresh(task)
@@ -240,7 +245,7 @@ def delete_task(task_id: int, session: Session = Depends(get_session)) -> Respon
 @router.post("/tasks/{task_id}/complete")
 def complete_task(task_id: int, session: Session = Depends(get_session)) -> dict[str, object]:
     task = _get_or_404(session, Task, task_id, "Task")
-    task.done_at = datetime.utcnow()
+    task.done_at = utc_now()
     session.commit()
     session.refresh(task)
     return {"ok": True, "task": TaskRead.model_validate(task).model_dump()}
@@ -254,7 +259,7 @@ def water_plant(
 ) -> dict[str, object]:
     plant = _get_or_404(session, Plant, plant_id, "Plant")
     note = payload.note if payload else None
-    now = datetime.utcnow()
+    now = utc_now()
     plant.last_watered_at = now
     session.add(
         Log(
@@ -273,7 +278,8 @@ def water_plant(
     )
     next_task = None
     for task in pending:
-        if task.due_date <= now:
+        task_due = ensure_utc(task.due_date)
+        if task_due <= now:
             task.done_at = now
         elif not next_task:
             next_task = task
@@ -326,7 +332,7 @@ def create_log(payload: LogCreate, session: Session = Depends(get_session)) -> L
         plant_id=payload.plant_id,
         kind=payload.kind,
         note=payload.note,
-        ts=payload.ts,
+        ts=ensure_utc(payload.ts),
     )
     session.add(log)
     session.commit()

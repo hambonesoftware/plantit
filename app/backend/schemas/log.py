@@ -5,12 +5,14 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..utils import utc_now
+
 
 class LogBase(BaseModel):
     plant_id: int
     kind: str
     note: Optional[str] = None
-    ts: datetime = Field(default_factory=datetime.utcnow)
+    ts: datetime = Field(default_factory=utc_now)
 
 
 class LogCreate(LogBase):
