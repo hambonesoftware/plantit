@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Iterable, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -83,7 +83,9 @@ def update_village(village_id: int, payload: VillageUpdate, session: Session = D
     return VillageRead.model_validate(village)
 
 
-@router.delete("/villages/{village_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/villages/{village_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+)
 def delete_village(village_id: int, session: Session = Depends(get_session)) -> None:
     village = _get_or_404(session, Village, village_id, "Village")
     session.delete(village)
@@ -144,7 +146,9 @@ def update_plant(plant_id: int, payload: PlantUpdate, session: Session = Depends
     return PlantRead.model_validate(plant)
 
 
-@router.delete("/plants/{plant_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/plants/{plant_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+)
 def delete_plant(plant_id: int, session: Session = Depends(get_session)) -> None:
     plant = _get_or_404(session, Plant, plant_id, "Plant")
     session.delete(plant)
@@ -212,7 +216,9 @@ def update_task(task_id: int, payload: TaskUpdate, session: Session = Depends(ge
     return TaskRead.model_validate(task)
 
 
-@router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+)
 def delete_task(task_id: int, session: Session = Depends(get_session)) -> None:
     task = _get_or_404(session, Task, task_id, "Task")
     session.delete(task)
@@ -322,7 +328,9 @@ def get_log(log_id: int, session: Session = Depends(get_session)) -> LogRead:
     return LogRead.model_validate(log)
 
 
-@router.delete("/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+)
 def delete_log(log_id: int, session: Session = Depends(get_session)) -> None:
     log = _get_or_404(session, Log, log_id, "Log")
     session.delete(log)
