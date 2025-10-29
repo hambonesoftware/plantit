@@ -1,5 +1,49 @@
 const PREF_KEY = 'plantit:prefs';
 
+function hasWindow() {
+  return typeof window !== 'undefined';
+}
+
+function formatRoute(route) {
+  if (route.view === 'village' && route.villageId) {
+    let hash = `#/villages/${route.villageId}`;
+    if (route.plantId) {
+      hash += `/plants/${route.plantId}`;
+    }
+    return hash;
+  }
+  return '#/dashboard';
+}
+
+function parseRoute(hash) {
+  if (!hash) {
+    return { view: 'dashboard' };
+  }
+  const trimmed = hash.replace(/^#\/?/, '');
+  if (!trimmed) {
+    return { view: 'dashboard' };
+  }
+  const parts = trimmed.split('/').filter(Boolean);
+  if (!parts.length) {
+    return { view: 'dashboard' };
+  }
+  if (parts[0] === 'dashboard') {
+    return { view: 'dashboard' };
+  }
+  if (parts[0] === 'villages') {
+    const villageId = Number.parseInt(parts[1], 10);
+    if (!Number.isFinite(villageId)) {
+      return { view: 'dashboard' };
+    }
+    if (parts[2] === 'plants' && parts[3]) {
+      const plantId = Number.parseInt(parts[3], 10);
+      return { view: 'village', villageId, plantId: Number.isFinite(plantId) ? plantId : null };
+    }
+    return { view: 'village', villageId, plantId: null };
+  }
+  return { view: 'dashboard' };
+}
+
 function hasLocalStorage() {
   try {
     return typeof window !== 'undefined' && 'localStorage' in window;
@@ -75,7 +119,30 @@ export const Store = {
       }
     }
 
-    this.emit();
+    if (hasWindow()) {
+      const hash = window.location.hash;
+      let initialRoute;
+      if (hash) {
+        initialRoute = parseRoute(hash);
+      } else if (this.state.view === 'village' && this.state.selectedVillageId) {
+        initialRoute = { view: 'village', villageId: this.state.selectedVillageId, plantId: this.state.selectedPlantId };
+      } else {
+        initialRoute = { view: 'dashboard' };
+      }
+
+      this.applyRoute(initialRoute);
+
+      const expectedHash = formatRoute(initialRoute);
+      if (window.location.hash !== expectedHash) {
+        window.location.hash = expectedHash;
+      }
+
+      window.addEventListener('hashchange', () => {
+        this.applyRoute(parseRoute(window.location.hash));
+      });
+    } else {
+      this.emit();
+    }
   },
 
   subscribe(listener) {
@@ -97,6 +164,24 @@ export const Store = {
     }
     writePrefs(this.state.prefs);
     this.emit();
+  },
+
+  applyRoute(route) {
+    this.mutate((state) => {
+      if (route.view === 'village' && route.villageId) {
+        state.view = 'village';
+        state.selectedVillageId = route.villageId;
+        state.selectedPlantId = route.plantId ?? null;
+        state.prefs.lastView = 'village';
+        state.prefs.lastVillageId = route.villageId;
+      } else {
+        state.view = 'dashboard';
+        state.selectedVillageId = null;
+        state.selectedPlantId = null;
+        state.prefs.lastView = 'dashboard';
+      }
+      return state;
+    });
   },
 
   setLoading(key, value) {
@@ -145,36 +230,68 @@ export const Store = {
   },
 
   navigateToDashboard() {
-    this.mutate((state) => {
-      state.view = 'dashboard';
-      state.selectedVillageId = null;
-      state.prefs.lastView = 'dashboard';
-      return state;
-    });
+    const route = { view: 'dashboard' };
+    if (hasWindow()) {
+      const target = formatRoute(route);
+      if (window.location.hash === target) {
+        this.applyRoute(route);
+      } else {
+        window.location.hash = target;
+      }
+    } else {
+      this.applyRoute(route);
+    }
   },
 
   navigateToVillage(villageId) {
-    this.mutate((state) => {
-      state.view = 'village';
-      state.selectedVillageId = villageId;
-      state.prefs.lastView = 'village';
-      state.prefs.lastVillageId = villageId;
-      return state;
-    });
+    const route = { view: 'village', villageId, plantId: null };
+    if (hasWindow()) {
+      const target = formatRoute(route);
+      if (window.location.hash === target) {
+        this.applyRoute(route);
+      } else {
+        window.location.hash = target;
+      }
+    } else {
+      this.applyRoute(route);
+    }
   },
 
-  openPlant(plantId) {
-    this.mutate((state) => {
-      state.selectedPlantId = plantId;
-      return state;
-    });
+  openPlant(plantId, villageId) {
+    const resolvedVillage = villageId
+      || this.state.selectedVillageId
+      || this.state.cache.plants[plantId]?.village_id
+      || this.state.prefs.lastVillageId;
+    const route = resolvedVillage
+      ? { view: 'village', villageId: resolvedVillage, plantId }
+      : { view: 'dashboard' };
+    if (hasWindow()) {
+      const target = formatRoute(route);
+      if (window.location.hash === target) {
+        this.applyRoute(route);
+      } else {
+        window.location.hash = target;
+      }
+    } else {
+      this.applyRoute(route);
+    }
   },
 
   closePlant() {
-    this.mutate((state) => {
-      state.selectedPlantId = null;
-      return state;
-    });
+    const villageId = this.state.selectedVillageId;
+    const route = villageId
+      ? { view: 'village', villageId, plantId: null }
+      : { view: 'dashboard' };
+    if (hasWindow()) {
+      const target = formatRoute(route);
+      if (window.location.hash === target) {
+        this.applyRoute(route);
+      } else {
+        window.location.hash = target;
+      }
+    } else {
+      this.applyRoute(route);
+    }
   },
 
   setTodayCollapsed(collapsed) {

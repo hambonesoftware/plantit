@@ -1,5 +1,6 @@
 import {api} from '../apiClient.js';
 import {Store} from '../store.js';
+import {PlantCard} from '../components/PlantCard.js';
 import {performWaterAction} from '../services/plantActions.js';
 import {refreshDashboard} from '../vm/dashboard.vm.js';
 import {refreshVillage} from '../vm/village.vm.js';
@@ -82,54 +83,49 @@ function renderQuickAdd(villageId) {
 }
 
 function renderPlants(village) {
-  const list = document.createElement('section');
-  list.className = 'plant-list';
+  const section = document.createElement('section');
+  section.className = 'plant-section';
 
   if (!village.plants.length) {
     const empty = document.createElement('p');
     empty.className = 'empty-state';
     empty.textContent = 'No plants in this village yet.';
-    list.appendChild(empty);
-    return list;
+    section.appendChild(empty);
+    return section;
   }
+
+  const grid = document.createElement('div');
+  grid.className = 'plant-grid';
 
   for (const plant of village.plants) {
-    const row = document.createElement('article');
-    row.className = 'plant-row';
-    row.innerHTML = `
-      <div class="plant-meta">
-        <h4>${plant.name}</h4>
-        ${plant.species ? `<p class="meta">${plant.species}</p>` : ''}
-        <p class="meta">Last watered ${plant.last_watered_human}</p>
-      </div>
-      <div class="plant-actions">
-        <button class="btn" type="button" data-action="open">View</button>
-        <button class="link-btn" type="button" data-action="water">Log water</button>
-      </div>
-    `;
-
-    row.querySelector('[data-action="open"]').addEventListener('click', () => {
-      Store.openPlant(plant.id);
+    const card = PlantCard(plant, {
+      href: `#/villages/${village.id}/plants/${plant.id}`,
+      onOpen: () => {
+        Store.openPlant(plant.id, village.id);
+      },
+      onWater: async (_, controls) => {
+        const btn = controls?.button;
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Logging…';
+        }
+        try {
+          await performWaterAction(plant.id, village.id, {});
+        } catch (error) {
+          alert(error instanceof Error ? error.message : 'Unable to log watering.');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Log water';
+          }
+        }
+      },
     });
-
-    row.querySelector('[data-action="water"]').addEventListener('click', async (event) => {
-      const btn = event.currentTarget;
-      btn.disabled = true;
-      btn.textContent = 'Logging…';
-      try {
-        await performWaterAction(plant.id, village.id, {});
-      } catch (error) {
-        alert(error instanceof Error ? error.message : 'Unable to log watering.');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Log water';
-      }
-    });
-
-    list.appendChild(row);
+    grid.appendChild(card);
   }
 
-  return list;
+  section.appendChild(grid);
+  return section;
 }
 
 function render(state) {

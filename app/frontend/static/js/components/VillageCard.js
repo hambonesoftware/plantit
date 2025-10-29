@@ -1,6 +1,8 @@
 export function VillageCard(vm, handlers = {}) {
   const card = document.createElement('div');
   card.className = 'card village-card';
+  card.tabIndex = 0;
+  card.setAttribute('role', 'link');
   card.innerHTML = `
     <div class="img" aria-hidden="true"></div>
     <div class="body">
@@ -11,17 +13,59 @@ export function VillageCard(vm, handlers = {}) {
       </div>
       <div class="meta">Last watered ${vm.last_watered_human}</div>
       <div class="actions">
-        <button class="btn" type="button" data-action="open">Open</button>
+        <a class="btn" data-action="open" href="#/villages/${vm.id}">Open</a>
         <button class="btn" type="button" data-action="quick">Quick add plant</button>
       </div>
     </div>
   `;
 
   const openBtn = card.querySelector('[data-action="open"]');
-  openBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-    if (handlers.onOpen) {
+  if (openBtn) {
+    openBtn.addEventListener('click', (event) => {
+      if (!handlers.onOpen) {
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+      event.preventDefault();
       handlers.onOpen(vm);
+    });
+  }
+
+  card.addEventListener('click', (event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    if (event.target.closest('.actions') || event.target.closest('form')) {
+      return;
+    }
+    if (openBtn) {
+      openBtn.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      }));
+    } else if (handlers.onOpen) {
+      handlers.onOpen(vm);
+    }
+  });
+
+  card.addEventListener('keydown', (event) => {
+    if (event.target !== card) {
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (openBtn) {
+        openBtn.dispatchEvent(new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        }));
+      } else if (handlers.onOpen) {
+        handlers.onOpen(vm);
+      }
     }
   });
 
