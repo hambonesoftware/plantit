@@ -29,6 +29,7 @@ from ..services.vm_builders import (
     build_today,
     build_village,
 )
+from ..services.import_export import ImportRequest, export_bundle, import_bundle
 
 router = APIRouter()
 
@@ -326,3 +327,15 @@ def delete_log(log_id: int, session: Session = Depends(get_session)) -> None:
     log = _get_or_404(session, Log, log_id, "Log")
     session.delete(log)
     session.commit()
+
+
+@router.get("/export")
+def export_data(session: Session = Depends(get_session)) -> dict[str, object]:
+    bundle = export_bundle(session)
+    return bundle.model_dump(mode="json")
+
+
+@router.post("/import")
+def import_data(payload: ImportRequest, session: Session = Depends(get_session)) -> dict[str, object]:
+    report = import_bundle(session, payload)
+    return report.model_dump(mode="json")
