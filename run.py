@@ -90,12 +90,38 @@ configure_logging()
 LOGGER = logging.getLogger("plantit.dev")
 
 
+class SPARequestHandler(SimpleHTTPRequestHandler):
+    """Serve static assets with an SPA-friendly history fallback."""
+
+    fallback_filename = "index.html"
+
+    def send_error(self, code, message=None, explain=None):  # noqa: D401 - inherited doc
+        if (
+            code == 404
+            and self.command in {"GET", "HEAD"}
+            and not self.path.startswith("/service-worker")
+        ):
+            index_path = Path(self.directory or ".") / self.fallback_filename
+            if index_path.exists():
+                self.log_message("SPA fallback for %s", self.path)
+                self.send_response(200)
+                self.send_header("Content-type", self.guess_type(str(index_path)))
+                self.send_header("Content-Length", str(index_path.stat().st_size))
+                self.end_headers()
+                if self.command != "HEAD":
+                    with index_path.open("rb") as file_obj:
+                        self.copyfile(file_obj, self.wfile)
+                return
+
+        super().send_error(code, message, explain)
+
+
 def _serve_static(stop_event: threading.Event) -> None:
     directory = Path(__file__).parent / "frontend"
     if not directory.exists():
         raise FileNotFoundError("frontend directory is required")
 
-    handler_class = partial(SimpleHTTPRequestHandler, directory=str(directory))
+    handler_class = partial(SPARequestHandler, directory=str(directory))
 
     with ThreadingHTTPServer(("0.0.0.0", STATIC_PORT), handler_class) as httpd:
         httpd.timeout = 0.5
