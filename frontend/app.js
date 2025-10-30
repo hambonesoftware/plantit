@@ -1,7 +1,74 @@
 const searchParams = new URLSearchParams(window.location.search);
 const disableServiceWorkers = searchParams.get("no-sw") === "1";
 const explicitSafeBoot = searchParams.get("safe") === "1";
+const resumeSession = searchParams.get("resume") === "1";
 const safeBoot = explicitSafeBoot || disableServiceWorkers;
+
+const LAST_ROUTE_KEY = "plantit:lastRoute";
+const MAX_ROUTE_LENGTH = 512;
+
+const safeReadLocalStorage = (key, { maxLength = MAX_ROUTE_LENGTH, validator } = {}) => {
+  if (!("localStorage" in window)) {
+    return null;
+  }
+
+  try {
+    const value = window.localStorage.getItem(key);
+    if (typeof value !== "string") {
+      return null;
+    }
+
+    if (value.length > maxLength) {
+      console.warn(`Boot: ignoring oversized localStorage value for ${key}`);
+      window.localStorage.removeItem(key);
+      return null;
+    }
+
+    if (validator && !validator(value)) {
+      return null;
+    }
+
+    return value;
+  } catch (error) {
+    console.warn(`Boot: failed to read localStorage key ${key}`, error);
+    return null;
+  }
+};
+
+const safeWriteLocalStorage = (key, value) => {
+  if (!("localStorage" in window)) {
+    return;
+  }
+
+  if (typeof value !== "string" || value.length > MAX_ROUTE_LENGTH) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`Boot: failed to write localStorage key ${key}`, error);
+  }
+};
+
+const lastRoute = safeReadLocalStorage(LAST_ROUTE_KEY, {
+  validator: (value) => value === "" || value.startsWith("#"),
+});
+
+if (!resumeSession && window.location.hash !== "") {
+  console.info("Boot: forcing startup route to home");
+  window.location.hash = "";
+} else if (resumeSession && lastRoute && window.location.hash === "") {
+  console.info("Boot: resuming last known route");
+  window.location.hash = lastRoute;
+}
+
+const persistRoute = () => {
+  safeWriteLocalStorage(LAST_ROUTE_KEY, window.location.hash);
+};
+
+window.addEventListener("hashchange", persistRoute, { passive: true });
+persistRoute();
 
 const unregisterServiceWorkers = async () => {
   if (!disableServiceWorkers || !("serviceWorker" in navigator)) {
