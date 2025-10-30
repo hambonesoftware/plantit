@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import logging
 import signal
 import sys
 import threading
@@ -11,17 +13,81 @@ from pathlib import Path
 from typing import NoReturn
 
 import uvicorn
-from fastapi import FastAPI
+
+from backend.app import app as backend_app
 
 STATIC_PORT = 5580
 API_PORT = 5581
 
-app = FastAPI()
+
+class JsonMessageFormatter(logging.Formatter):
+    """Formatter that renders log records as JSON strings."""
+
+    default_time_format = "%Y-%m-%d %H:%M:%S"
+
+    def format(self, record: logging.LogRecord) -> str:  # noqa: D401 - short description inherited
+        record_dict = {
+            "timestamp": self.formatTime(record, self.default_time_format),
+            "level": record.levelname,
+            "name": record.name,
+            "message": record.getMessage(),
+        }
+        return json.dumps(record_dict, ensure_ascii=False, separators=(",", ":"))
 
 
-@app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+class AccessJsonFormatter(JsonMessageFormatter):
+    """Formatter that captures HTTP access metadata when available."""
+
+    def format(self, record: logging.LogRecord) -> str:  # noqa: D401
+        payload = {
+            "timestamp": self.formatTime(record, self.default_time_format),
+            "level": record.levelname,
+            "name": "uvicorn.access",
+        }
+        client = getattr(record, "client_addr", None)
+        method = getattr(record, "request_method", None)
+        path = getattr(record, "request_path", None)
+        status = getattr(record, "status_code", None)
+
+        if client is not None:
+            payload["client"] = client
+        if method is not None:
+            payload["method"] = method
+        if path is not None:
+            payload["path"] = path
+        if status is not None:
+            payload["status"] = status
+
+        payload["message"] = record.getMessage()
+        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def configure_logging() -> None:
+    """Configure JSON logging for Plantit development services."""
+    handler = logging.StreamHandler()
+    handler.setFormatter(JsonMessageFormatter())
+
+    access_handler = logging.StreamHandler()
+    access_handler.setFormatter(AccessJsonFormatter())
+
+    root_logger = logging.getLogger()
+    root_logger.handlers = [handler]
+    root_logger.setLevel(logging.INFO)
+
+    for name in ("plantit", "uvicorn", "uvicorn.error"):
+        logger = logging.getLogger(name)
+        logger.handlers = [handler]
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+
+    access_logger = logging.getLogger("uvicorn.access")
+    access_logger.handlers = [access_handler]
+    access_logger.setLevel(logging.INFO)
+    access_logger.propagate = False
+
+
+configure_logging()
+LOGGER = logging.getLogger("plantit.dev")
 
 
 def _serve_static(stop_event: threading.Event) -> None:
@@ -33,13 +99,23 @@ def _serve_static(stop_event: threading.Event) -> None:
 
     with ThreadingHTTPServer(("0.0.0.0", STATIC_PORT), handler_class) as httpd:
         httpd.timeout = 0.5
-        print(f"[static] Serving {directory} on http://127.0.0.1:{STATIC_PORT}")
+        LOGGER.info(
+            "event=static-server-start port=%s directory=%s", STATIC_PORT, directory
+        )
         while not stop_event.is_set():
             httpd.handle_request()
+    LOGGER.info("event=static-server-stop")
 
 
 def _serve_api(stop_event: threading.Event) -> None:
-    config = uvicorn.Config(app, host="0.0.0.0", port=API_PORT, log_level="info")
+    config = uvicorn.Config(
+        backend_app,
+        host="0.0.0.0",
+        port=API_PORT,
+        log_config=None,
+        log_level="info",
+        access_log=True,
+    )
     server = uvicorn.Server(config)
 
     def watch_for_stop() -> None:
@@ -48,8 +124,9 @@ def _serve_api(stop_event: threading.Event) -> None:
 
     watcher = threading.Thread(target=watch_for_stop, name="uvicorn-stop", daemon=True)
     watcher.start()
-    print(f"[api] FastAPI listening on http://127.0.0.1:{API_PORT}")
+    LOGGER.info("event=api-server-start port=%s", API_PORT)
     server.run()
+    LOGGER.info("event=api-server-stop")
 
 
 def main(argv: list[str] | None = None) -> NoReturn:
@@ -63,16 +140,13 @@ def main(argv: list[str] | None = None) -> NoReturn:
         threading.Thread(target=_serve_api, name="api-server", args=(stop_event,), daemon=True),
     ]
 
-    print("=== Plantit Dev Orchestrator ===")
-    print("Static: http://127.0.0.1:5580/ (add ?safe=1 for safe boot)")
-    print("API:    http://127.0.0.1:5581/health")
-    print("Press Ctrl+C to stop both servers.\n")
+    LOGGER.info("event=orchestrator-start static_port=%s api_port=%s", STATIC_PORT, API_PORT)
 
     for thread in threads:
         thread.start()
 
     def handle_signal(signum, _frame) -> None:
-        print(f"\nReceived signal {signum}, shutting down...")
+        LOGGER.info("event=signal-received signum=%s", signum)
         stop_event.set()
 
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -84,10 +158,10 @@ def main(argv: list[str] | None = None) -> NoReturn:
             for thread in threads:
                 thread.join(timeout=0.5)
     except KeyboardInterrupt:
-        print("\nKeyboard interrupt received, exiting...")
+        LOGGER.info("event=keyboard-interrupt")
         stop_event.set()
     finally:
-        print("Servers stopped. Bye!")
+        LOGGER.info("event=orchestrator-stop")
         sys.exit(0)
 
 
