@@ -1,0 +1,260 @@
+import { formatDate, formatHealthScore } from './shared.js';
+
+const STAGE_LABELS = {
+  seedling: 'Seedling',
+  vegetative: 'Vegetative',
+  flowering: 'Flowering',
+  mature: 'Mature',
+};
+
+/**
+ * Render the list of plants within a selected village.
+ */
+export class PlantListView {
+  /**
+   * @param {HTMLElement} root
+   * @param {import('./viewModels.js').VillagePlantListViewModel} viewModel
+   */
+  constructor(root, viewModel) {
+    this.root = root;
+    this.viewModel = viewModel;
+
+    this.placeholder = root.querySelector('[data-role="plant-placeholder"]');
+    this.loading = root.querySelector('[data-role="plant-loading"]');
+    this.errorPanel = root.querySelector('[data-role="plant-error"]');
+    this.errorMessage = root.querySelector('[data-role="plant-error-message"]');
+    this.retryButton = root.querySelector('[data-action="plant-retry"]');
+    this.refreshButton = root.querySelector('[data-action="plant-refresh"]');
+    this.updated = root.querySelector('[data-role="plant-updated"]');
+    this.header = root.querySelector('[data-role="plant-header"]');
+    this.villageName = root.querySelector('[data-role="plant-village-name"]');
+    this.content = root.querySelector('[data-role="plant-content"]');
+    this.listElement = root.querySelector('[data-role="plant-list"]');
+    this.emptyMessage = root.querySelector('[data-role="plant-empty"]');
+
+    if (this.refreshButton) {
+      this.refreshButton.addEventListener('click', () => {
+        this.viewModel.refresh();
+      });
+    }
+
+    if (this.retryButton) {
+      this.retryButton.addEventListener('click', () => {
+        this.viewModel.retry();
+      });
+    }
+
+    this.unsubscribe = this.viewModel.subscribe((state) => {
+      this.render(state);
+    });
+  }
+
+  /**
+   * @param {import('./viewModels.js').VillagePlantListState} state
+   */
+  render(state) {
+    this.root.dataset.status = state.status;
+    this.updateHeader(state);
+
+    switch (state.status) {
+      case 'idle':
+        this.renderIdle();
+        break;
+      case 'loading':
+        this.renderLoading();
+        break;
+      case 'ready':
+        this.renderReady(state);
+        break;
+      case 'error':
+        this.renderError(state);
+        break;
+      default:
+        break;
+    }
+  }
+
+  /**
+   * @param {import('./viewModels.js').VillagePlantListState} state
+   */
+  updateHeader(state) {
+    if (this.villageName) {
+      this.villageName.textContent = state.village?.name ?? 'Select a village';
+    }
+    if (this.refreshButton) {
+      this.refreshButton.disabled = state.status === 'loading' || !state.village;
+    }
+    if (this.updated) {
+      if (state.lastUpdated) {
+        this.updated.textContent = formatUpdated(state.lastUpdated);
+      } else if (state.status === 'loading' && state.village) {
+        this.updated.textContent = 'Refreshing…';
+      } else {
+        this.updated.textContent = 'No data loaded yet';
+      }
+    }
+    if (this.header) {
+      this.header.hidden = !state.village;
+    }
+  }
+
+  renderIdle() {
+    if (this.placeholder) {
+      this.placeholder.hidden = false;
+    }
+    if (this.loading) {
+      this.loading.hidden = true;
+    }
+    if (this.errorPanel) {
+      this.errorPanel.hidden = true;
+    }
+    if (this.content) {
+      this.content.hidden = true;
+    }
+  }
+
+  renderLoading() {
+    if (this.placeholder) {
+      this.placeholder.hidden = true;
+    }
+    if (this.loading) {
+      this.loading.hidden = false;
+    }
+    if (this.errorPanel) {
+      this.errorPanel.hidden = true;
+    }
+    if (this.content) {
+      this.content.hidden = true;
+    }
+  }
+
+  /**
+   * @param {import('./viewModels.js').VillagePlantListState} state
+   */
+  renderReady(state) {
+    if (!state.village) {
+      this.renderIdle();
+      return;
+    }
+
+    if (this.placeholder) {
+      this.placeholder.hidden = true;
+    }
+    if (this.loading) {
+      this.loading.hidden = true;
+    }
+    if (this.errorPanel) {
+      this.errorPanel.hidden = true;
+    }
+    if (this.content) {
+      this.content.hidden = false;
+    }
+
+    if (!this.listElement || !this.emptyMessage) {
+      return;
+    }
+
+    const plants = Array.isArray(state.plants) ? state.plants : [];
+    if (plants.length === 0) {
+      this.listElement.hidden = true;
+      this.listElement.replaceChildren();
+      this.emptyMessage.hidden = false;
+      return;
+    }
+
+    const items = plants.map((plant) => createPlantListItem(plant));
+    this.listElement.hidden = false;
+    this.emptyMessage.hidden = true;
+    this.listElement.replaceChildren(...items);
+  }
+
+  /**
+   * @param {import('./viewModels.js').VillagePlantListState} state
+   */
+  renderError(state) {
+    if (this.loading) {
+      this.loading.hidden = true;
+    }
+    if (this.placeholder) {
+      this.placeholder.hidden = Boolean(state.village);
+    }
+    if (this.content) {
+      this.content.hidden = !state.village || !state.plants || state.plants.length === 0;
+    }
+    if (this.errorPanel) {
+      this.errorPanel.hidden = false;
+    }
+    if (this.errorMessage) {
+      this.errorMessage.textContent = state.error?.message ?? 'Unable to load plants.';
+    }
+  }
+}
+
+function formatUpdated(timestamp) {
+  try {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return 'Updated just now';
+    }
+    return `Updated ${date.toLocaleString()}`;
+  } catch (error) {
+    console.warn('Unable to format plant list timestamp', timestamp, error);
+    return 'Updated just now';
+  }
+}
+
+/**
+ * @param {import('../services/api.js').PlantListItem} plant
+ */
+function createPlantListItem(plant) {
+  const item = document.createElement('li');
+  item.className = 'village-plants-item';
+  item.dataset.plantId = plant.id;
+
+  const header = document.createElement('div');
+  header.className = 'village-plants-item-header';
+
+  const name = document.createElement('span');
+  name.className = 'village-plants-item-name';
+  name.textContent = plant.displayName;
+
+  const stage = document.createElement('span');
+  stage.className = `village-plants-item-stage stage-${sanitizeStage(plant.stage)}`;
+  stage.textContent = STAGE_LABELS[sanitizeStage(plant.stage)] ?? 'Unknown';
+
+  header.append(name, stage);
+
+  const species = document.createElement('p');
+  species.className = 'village-plants-item-species';
+  species.textContent = plant.species;
+
+  const meta = document.createElement('p');
+  meta.className = 'village-plants-item-meta';
+  meta.textContent = `Last watered ${formatDateTime(plant.lastWateredAt)} • Health ${formatHealthScore(plant.healthScore)}`;
+
+  item.append(header, species, meta);
+  return item;
+}
+
+function sanitizeStage(stage) {
+  if (stage === 'seedling' || stage === 'vegetative' || stage === 'flowering' || stage === 'mature') {
+    return stage;
+  }
+  return 'vegetative';
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return formatDate(value);
+  }
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return formatDate(value);
+    }
+    return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch (error) {
+    console.warn('Unable to format plant timestamp', value, error);
+    return formatDate(value);
+  }
+}
