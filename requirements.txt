@@ -6,3 +6,4 @@ prance==23.6.21.0
 pytest==8.3.3
 httpx==0.27.2
 openapi-spec-validator==0.7.1
+SQLAlchemy==2.0.35
