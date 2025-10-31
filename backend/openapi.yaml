@@ -74,6 +74,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VillageListResponse'
+    post:
+      tags: [Villages]
+      summary: Create a new village.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VillageWriteRequest'
+      responses:
+        '201':
+          description: Created village payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VillageMutationResponse'
+        '400':
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/villages/{villageId}:
     get:
       tags: [Villages]
@@ -93,6 +115,74 @@ paths:
                 $ref: '#/components/schemas/VillageDetailResponse'
         '404':
           description: The requested village does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Villages]
+      summary: Update an existing village.
+      parameters:
+        - in: path
+          name: villageId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VillageUpdateRequest'
+      responses:
+        '200':
+          description: Updated village payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VillageMutationResponse'
+        '404':
+          description: The requested village does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The village has been modified since the provided version token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Villages]
+      summary: Delete a village using optimistic concurrency.
+      parameters:
+        - in: path
+          name: villageId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VillageDeleteRequest'
+      responses:
+        '200':
+          description: Deletion acknowledgement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VillageDeleteResponse'
+        '404':
+          description: The requested village does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The village has been modified since the provided version token.
           content:
             application/json:
               schema:
@@ -120,6 +210,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/plants:
+    post:
+      tags: [Plants]
+      summary: Create a plant within a village.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlantCreateRequest'
+      responses:
+        '201':
+          description: Created plant payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantMutationResponse'
+        '400':
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The referenced village does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/plants/{plantId}:
     get:
       tags: [Plants]
@@ -139,6 +258,74 @@ paths:
                 $ref: '#/components/schemas/PlantDetailResponse'
         '404':
           description: The requested plant does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Plants]
+      summary: Update an existing plant.
+      parameters:
+        - in: path
+          name: plantId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlantUpdateRequest'
+      responses:
+        '200':
+          description: Updated plant payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantMutationResponse'
+        '404':
+          description: The requested plant does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The plant has been modified since the provided version token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Plants]
+      summary: Delete a plant using optimistic concurrency.
+      parameters:
+        - in: path
+          name: plantId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlantDeleteRequest'
+      responses:
+        '200':
+          description: Deletion acknowledgement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantDeleteResponse'
+        '404':
+          description: The requested plant does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The plant has been modified since the provided version token.
           content:
             application/json:
               schema:
@@ -260,7 +447,7 @@ components:
           $ref: '#/components/schemas/VillageFilterState'
     VillageSummary:
       type: object
-      required: [id, name, climate, plantCount, healthScore]
+      required: [id, name, climate, plantCount, healthScore, updatedAt]
       properties:
         id:
           type: string
@@ -275,6 +462,9 @@ components:
           type: number
           minimum: 0
           maximum: 1
+        updatedAt:
+          type: string
+          format: date-time
     VillageFilterState:
       type: object
       required: [searchTerm, climateZones]
@@ -304,12 +494,15 @@ components:
           properties:
             description:
               type: string
+              nullable: true
             establishedAt:
               type: string
               format: date
+              nullable: true
             irrigationType:
               type: string
               enum: [drip, spray, manual]
+              nullable: true
     VillagePlantListResponse:
       type: object
       required: [village, plants]
@@ -322,7 +515,7 @@ components:
             $ref: '#/components/schemas/PlantListItem'
     PlantListItem:
       type: object
-      required: [id, displayName, species, stage, lastWateredAt, healthScore]
+      required: [id, displayName, species, stage, healthScore, updatedAt]
       properties:
         id:
           type: string
@@ -336,10 +529,17 @@ components:
         lastWateredAt:
           type: string
           format: date-time
+          nullable: true
         healthScore:
           type: number
           minimum: 0
           maximum: 1
+        updatedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
     PlantDetailResponse:
       type: object
       required: [plant, timeline]
@@ -350,9 +550,135 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PlantEvent'
+    VillageWriteRequest:
+      type: object
+      required: [name, climate, healthScore]
+      properties:
+        name:
+          type: string
+        climate:
+          type: string
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        description:
+          type: string
+          nullable: true
+        establishedAt:
+          type: string
+          format: date
+          nullable: true
+        irrigationType:
+          type: string
+          nullable: true
+    VillageUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/VillageWriteRequest'
+        - type: object
+          required: [updatedAt]
+          properties:
+            updatedAt:
+              type: string
+              format: date-time
+    VillageDeleteRequest:
+      type: object
+      required: [updatedAt]
+      properties:
+        updatedAt:
+          type: string
+          format: date-time
+    VillageMutationResponse:
+      type: object
+      required: [village]
+      properties:
+        village:
+          $ref: '#/components/schemas/VillageDetail'
+    VillageDeleteResponse:
+      type: object
+      required: [status, villageId, updatedAt]
+      properties:
+        status:
+          type: string
+          enum: [deleted]
+        villageId:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    PlantWriteRequest:
+      type: object
+      required: [displayName, species, stage, healthScore]
+      properties:
+        displayName:
+          type: string
+        species:
+          type: string
+        stage:
+          type: string
+          enum: [seedling, vegetative, flowering, mature]
+        lastWateredAt:
+          type: string
+          format: date-time
+          nullable: true
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        notes:
+          type: string
+          nullable: true
+    PlantCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/PlantWriteRequest'
+        - type: object
+          required: [villageId]
+          properties:
+            villageId:
+              type: string
+    PlantUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/PlantWriteRequest'
+        - type: object
+          required: [updatedAt]
+          properties:
+            updatedAt:
+              type: string
+              format: date-time
+    PlantDeleteRequest:
+      type: object
+      required: [updatedAt]
+      properties:
+        updatedAt:
+          type: string
+          format: date-time
+    PlantMutationResponse:
+      type: object
+      required: [plant]
+      properties:
+        plant:
+          $ref: '#/components/schemas/PlantDetail'
+        village:
+          $ref: '#/components/schemas/VillageSummary'
+          nullable: true
+    PlantDeleteResponse:
+      type: object
+      required: [status, plantId, updatedAt]
+      properties:
+        status:
+          type: string
+          enum: [deleted]
+        plantId:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        village:
+          $ref: '#/components/schemas/VillageSummary'
+          nullable: true
     PlantDetail:
       type: object
-      required: [id, displayName, species, villageName, lastWateredAt, healthScore, notes]
+      required: [id, displayName, species, villageId, villageName, healthScore, notes, updatedAt]
       properties:
         id:
           type: string
@@ -360,17 +686,24 @@ components:
           type: string
         species:
           type: string
+        villageId:
+          type: string
         villageName:
           type: string
         lastWateredAt:
           type: string
           format: date-time
+          nullable: true
         healthScore:
           type: number
           minimum: 0
           maximum: 1
         notes:
           type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
     PlantEvent:
       type: object
       required: [id, occurredAt, type, summary]

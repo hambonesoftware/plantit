@@ -180,6 +180,7 @@ function resolveUrl(path) {
  *  @property {string} climate
  *  @property {number} plantCount
  *  @property {number} healthScore
+ *  @property {string} updatedAt
  */
 
 /** @typedef {Object} VillageDetail
@@ -191,6 +192,7 @@ function resolveUrl(path) {
  *  @property {string | null} description
  *  @property {string | null} establishedAt
  *  @property {string | null} irrigationType
+ *  @property {string} updatedAt
  */
 
 /** @typedef {Object} VillageFilterState
@@ -214,8 +216,10 @@ function resolveUrl(path) {
  *  @property {string} displayName
  *  @property {string} species
  *  @property {'seedling'|'vegetative'|'flowering'|'mature'} stage
- *  @property {string} lastWateredAt
+ *  @property {string | null} lastWateredAt
  *  @property {number} healthScore
+ *  @property {string} updatedAt
+ *  @property {string} [notes]
  */
 
 /** @typedef {Object} PlantDetail
@@ -223,9 +227,11 @@ function resolveUrl(path) {
  *  @property {string} displayName
  *  @property {string} species
  *  @property {string} villageName
- *  @property {string} lastWateredAt
+ *  @property {string | null} lastWateredAt
  *  @property {number} healthScore
  *  @property {string} notes
+ *  @property {string} updatedAt
+ *  @property {string} villageId
  */
 
 /** @typedef {Object} PlantEvent
@@ -316,4 +322,118 @@ export function fetchTodayTasks(correlationId) {
  */
 export function fetchPlantDetail(plantId, correlationId) {
   return request(`/plants/${plantId}`, { correlationId });
+}
+
+/**
+ * @typedef {Object} VillageWritePayload
+ * @property {string} name
+ * @property {string} climate
+ * @property {string | null} [description]
+ * @property {string | null} [establishedAt]
+ * @property {string | null} [irrigationType]
+ * @property {number} healthScore
+ */
+
+/**
+ * @typedef {VillageWritePayload & { updatedAt: string }} VillageUpdatePayload
+ */
+
+/**
+ * @param {VillageWritePayload} payload
+ * @param {string} [correlationId]
+ * @returns {Promise<{ village: VillageDetail }>}
+ */
+export function createVillage(payload, correlationId) {
+  return request('/villages', {
+    method: 'POST',
+    body: payload,
+    correlationId,
+  });
+}
+
+/**
+ * @param {string} villageId
+ * @param {VillageUpdatePayload} payload
+ * @param {string} [correlationId]
+ * @returns {Promise<{ village: VillageDetail }>}
+ */
+export function updateVillage(villageId, payload, correlationId) {
+  return request(`/villages/${encodeURIComponent(villageId)}`, {
+    method: 'PUT',
+    body: payload,
+    correlationId,
+  });
+}
+
+/**
+ * @param {string} villageId
+ * @param {{ updatedAt: string }} payload
+ * @param {string} [correlationId]
+ * @returns {Promise<{ status: string, villageId: string, updatedAt: string }>}
+ */
+export function deleteVillage(villageId, payload, correlationId) {
+  return request(`/villages/${encodeURIComponent(villageId)}`, {
+    method: 'DELETE',
+    body: payload,
+    correlationId,
+  });
+}
+
+/**
+ * @typedef {Object} PlantWritePayload
+ * @property {string} displayName
+ * @property {string} species
+ * @property {'seedling'|'vegetative'|'flowering'|'mature'} stage
+ * @property {string | null} [lastWateredAt]
+ * @property {number} healthScore
+ * @property {string | null} [notes]
+ */
+
+/**
+ * @typedef {PlantWritePayload & { villageId: string }} PlantCreatePayload
+ */
+
+/**
+ * @typedef {PlantWritePayload & { updatedAt: string }} PlantUpdatePayload
+ */
+
+/**
+ * @param {PlantCreatePayload} payload
+ * @param {string} [correlationId]
+ * @returns {Promise<{ plant: PlantDetail, village: VillageSummary }>}
+ */
+export function createPlant(payload, correlationId) {
+  return request('/plants', {
+    method: 'POST',
+    body: payload,
+    correlationId,
+  });
+}
+
+/**
+ * @param {string} plantId
+ * @param {PlantUpdatePayload} payload
+ * @param {string} [correlationId]
+ * @returns {Promise<{ plant: PlantDetail, village?: VillageSummary }>}
+ */
+export function updatePlant(plantId, payload, correlationId) {
+  return request(`/plants/${encodeURIComponent(plantId)}`, {
+    method: 'PUT',
+    body: payload,
+    correlationId,
+  });
+}
+
+/**
+ * @param {string} plantId
+ * @param {{ updatedAt: string }} payload
+ * @param {string} [correlationId]
+ * @returns {Promise<{ status: string, plantId: string, updatedAt: string, village?: VillageSummary }>}
+ */
+export function deletePlant(plantId, payload, correlationId) {
+  return request(`/plants/${encodeURIComponent(plantId)}`, {
+    method: 'DELETE',
+    body: payload,
+    correlationId,
+  });
 }

@@ -1,10 +1,16 @@
 """SQLAlchemy models for the Plantit domain."""
 from __future__ import annotations
 
-from datetime import datetime, date
+from datetime import date, datetime, timezone
 
 from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+def _utcnow() -> datetime:
+    """Return a timezone-aware ``datetime`` in UTC."""
+
+    return datetime.now(timezone.utc)
 
 
 class Base(DeclarativeBase):
@@ -23,6 +29,12 @@ class Village(Base):
     established_at: Mapped[date | None] = mapped_column(Date)
     irrigation_type: Mapped[str | None] = mapped_column(String)
     health_score: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        onupdate=_utcnow,
+    )
 
     plants: Mapped[list["Plant"]] = relationship(
         "Plant", back_populates="village", cascade="all, delete-orphan"
@@ -42,6 +54,12 @@ class Plant(Base):
     last_watered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     health_score: Mapped[float] = mapped_column(Float, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        onupdate=_utcnow,
+    )
 
     village: Mapped[Village] = relationship("Village", back_populates="plants")
     tasks: Mapped[list["Task"]] = relationship("Task", back_populates="plant")

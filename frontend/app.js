@@ -9,6 +9,8 @@ import {
 } from './villages/viewModels.js';
 import { VillageListView } from './villages/listView.js';
 import { PlantListView } from './villages/plantListView.js';
+import { createToastHost, registerToastHost, showToast } from './services/toast.js';
+import { HttpError, NetworkError } from './services/api.js';
 
 const searchParams = new URLSearchParams(window.location.search);
 const disableServiceWorkers = searchParams.get("no-sw") === "1";
@@ -163,6 +165,14 @@ function mountShell(root, { statusText, safeMode }) {
   status.textContent = statusText;
   root.append(status);
 
+  const existingHost = document.querySelector('.toast-host');
+  if (existingHost) {
+    existingHost.remove();
+  }
+  const toastHost = createToastHost();
+  document.body.appendChild(toastHost);
+  registerToastHost(toastHost);
+
   if (!safeMode) {
     const navigation = buildMainNavigation();
     root.append(navigation);
@@ -195,9 +205,28 @@ function mountShell(root, { statusText, safeMode }) {
     const listRoot = villagesSection.querySelector('[data-role="village-list-root"]');
     const detailRoot = villagesSection.querySelector('[data-role="village-detail-root"]');
     const plantListRoot = villagesSection.querySelector('[data-role="plant-list-root"]');
-    const villageListViewModel = new VillageListViewModel();
     const villageDetailViewModel = new VillageDetailViewModel();
-    const villagePlantListViewModel = new VillagePlantListViewModel();
+    let villagePlantListViewModel;
+    const villageListViewModel = new VillageListViewModel({
+      onVillageUpdate: (village) => {
+        villageDetailViewModel.applyExternalVillage(village);
+        if (villagePlantListViewModel) {
+          villagePlantListViewModel.applyExternalVillage(village);
+        }
+      },
+      onVillageDelete: (villageId) => {
+        villageDetailViewModel.handleVillageDeleted(villageId);
+        if (villagePlantListViewModel) {
+          villagePlantListViewModel.handleVillageDeleted(villageId);
+        }
+      },
+    });
+    villagePlantListViewModel = new VillagePlantListViewModel({
+      onVillageUpdate: (village) => {
+        villageListViewModel.applyExternalVillage(village);
+        villageDetailViewModel.applyExternalVillage(village);
+      },
+    });
 
     if (!listRoot || !detailRoot || !plantListRoot) {
       console.warn("Boot: villages panel missing expected subtrees");
@@ -229,6 +258,20 @@ function mountShell(root, { statusText, safeMode }) {
     if (plantListRoot) {
       new PlantListView(plantListRoot, villagePlantListViewModel);
     }
+
+    setupVillageCreateForm(villagesSection, {
+      listViewModel: villageListViewModel,
+      detailViewModel: villageDetailViewModel,
+      plantListViewModel: villagePlantListViewModel,
+    });
+    setupVillageDetailEditor(detailRoot, {
+      listViewModel: villageListViewModel,
+      detailViewModel: villageDetailViewModel,
+      plantListViewModel: villagePlantListViewModel,
+    });
+    setupPlantForm(plantListRoot, {
+      plantListViewModel: villagePlantListViewModel,
+    });
 
     const router = new HashRouter((route) => {
       handleRoute({
@@ -282,12 +325,41 @@ function buildVillagesSection() {
           <button type="submit">Search</button>
         </form>
         <button type="button" class="villages-refresh" data-action="refresh">Refresh</button>
+        <button type="button" class="villages-create-toggle" data-action="village-create-toggle">New Village</button>
       </div>
     </div>
     <div class="villages-body">
       <div class="villages-list-root" data-role="village-list-root">
         <p class="villages-loading" data-role="village-loading" role="status" aria-live="polite">Loading villages…</p>
         <p class="villages-empty" data-role="village-empty">No villages match the current filters.</p>
+        <form class="village-create-form" data-role="village-create-form" hidden>
+          <fieldset>
+            <legend>Create Village</legend>
+            <label> Name
+              <input type="text" name="village-name" data-role="village-name" required />
+            </label>
+            <label> Climate
+              <input type="text" name="village-climate" data-role="village-climate" required />
+            </label>
+            <label> Health Score
+              <input type="number" name="village-health" data-role="village-health" min="0" max="1" step="0.01" value="0.5" required />
+            </label>
+            <label> Established
+              <input type="date" name="village-established" data-role="village-established" />
+            </label>
+            <label> Irrigation
+              <input type="text" name="village-irrigation" data-role="village-irrigation" />
+            </label>
+            <label> Description
+              <textarea name="village-description" data-role="village-description"></textarea>
+            </label>
+          </fieldset>
+          <p class="form-error" data-role="village-create-error" hidden></p>
+          <div class="form-actions">
+            <button type="submit">Save Village</button>
+            <button type="button" data-action="village-create-cancel">Cancel</button>
+          </div>
+        </form>
         <ul class="villages-list" data-role="village-list" role="listbox" aria-label="Villages"></ul>
         <div class="villages-error" data-role="village-error" role="alert" hidden>
           <p class="villages-error-message" data-role="village-error-message">Unable to load villages.</p>
@@ -308,12 +380,42 @@ function buildVillagesSection() {
               <h3 data-role="detail-name"></h3>
               <p class="village-detail-description" data-role="detail-description"></p>
             </header>
+            <div class="village-detail-actions">
+              <button type="button" class="village-detail-edit" data-action="detail-edit">Edit</button>
+              <button type="button" class="village-detail-delete" data-action="detail-delete">Delete</button>
+            </div>
             <dl class="village-detail-stats">
               <div><dt>Established</dt><dd data-role="detail-established"></dd></div>
               <div><dt>Plants</dt><dd data-role="detail-plants"></dd></div>
               <div><dt>Health</dt><dd data-role="detail-health"></dd></div>
               <div><dt>Irrigation</dt><dd data-role="detail-irrigation"></dd></div>
             </dl>
+            <form class="village-detail-form" data-role="detail-form" hidden>
+              <input type="hidden" data-role="detail-updated-at" />
+              <label> Name
+                <input type="text" data-role="detail-name-input" required />
+              </label>
+              <label> Climate
+                <input type="text" data-role="detail-climate-input" required />
+              </label>
+              <label> Health Score
+                <input type="number" min="0" max="1" step="0.01" data-role="detail-health-input" required />
+              </label>
+              <label> Established
+                <input type="date" data-role="detail-established-input" />
+              </label>
+              <label> Irrigation
+                <input type="text" data-role="detail-irrigation-input" />
+              </label>
+              <label> Description
+                <textarea data-role="detail-description-input"></textarea>
+              </label>
+              <p class="form-error" data-role="detail-form-error" hidden></p>
+              <div class="form-actions">
+                <button type="submit">Save Changes</button>
+                <button type="button" data-action="detail-cancel">Cancel</button>
+              </div>
+            </form>
             <button type="button" class="village-detail-back" data-action="detail-back">Back to list</button>
           </article>
         </div>
@@ -324,7 +426,10 @@ function buildVillagesSection() {
               <p class="village-plants-subtitle" data-role="plant-village-name"></p>
               <p class="village-plants-updated" data-role="plant-updated" role="status" aria-live="polite">No data loaded yet</p>
             </div>
-            <button type="button" class="village-plants-refresh" data-action="plant-refresh">Refresh</button>
+            <div class="village-plants-actions">
+              <button type="button" class="village-plants-add" data-action="plant-create-toggle">Add Plant</button>
+              <button type="button" class="village-plants-refresh" data-action="plant-refresh">Refresh</button>
+            </div>
           </div>
           <p class="village-plants-placeholder" data-role="plant-placeholder">Select a village to see its plants.</p>
           <p class="village-plants-loading" data-role="plant-loading" role="status" aria-live="polite" hidden>Loading plants…</p>
@@ -333,6 +438,40 @@ function buildVillagesSection() {
             <button type="button" class="village-plants-retry" data-action="plant-retry">Retry</button>
           </div>
           <div class="village-plants-content" data-role="plant-content" hidden>
+            <form class="plant-edit-form" data-role="plant-form" hidden>
+              <h4 data-role="plant-form-title">Add Plant</h4>
+              <input type="hidden" data-role="plant-id" />
+              <input type="hidden" data-role="plant-updated-at" />
+              <label> Name
+                <input type="text" data-role="plant-name" required />
+              </label>
+              <label> Species
+                <input type="text" data-role="plant-species" required />
+              </label>
+              <label> Stage
+                <select data-role="plant-stage">
+                  <option value="seedling">Seedling</option>
+                  <option value="vegetative">Vegetative</option>
+                  <option value="flowering">Flowering</option>
+                  <option value="mature">Mature</option>
+                </select>
+              </label>
+              <label> Last Watered
+                <input type="datetime-local" data-role="plant-last-watered" />
+              </label>
+              <label> Health Score
+                <input type="number" min="0" max="1" step="0.01" data-role="plant-health" required />
+              </label>
+              <label> Notes
+                <textarea data-role="plant-notes"></textarea>
+              </label>
+              <p class="form-error" data-role="plant-form-error" hidden></p>
+              <div class="form-actions">
+                <button type="submit">Save Plant</button>
+                <button type="button" data-action="plant-delete" hidden>Delete</button>
+                <button type="button" data-action="plant-cancel">Cancel</button>
+              </div>
+            </form>
             <ul class="village-plants-list" data-role="plant-list"></ul>
             <p class="village-plants-empty" data-role="plant-empty">No plants recorded for this village yet.</p>
           </div>
@@ -341,6 +480,504 @@ function buildVillagesSection() {
     </div>
   `;
   return section;
+}
+
+function setupVillageCreateForm(section, { listViewModel, detailViewModel, plantListViewModel }) {
+  if (!section || !listViewModel) {
+    return;
+  }
+  const form = section.querySelector('[data-role="village-create-form"]');
+  const toggleButton = section.querySelector('[data-action="village-create-toggle"]');
+  if (!form || !toggleButton) {
+    return;
+  }
+
+  const nameInput = form.querySelector('[data-role="village-name"]');
+  const climateInput = form.querySelector('[data-role="village-climate"]');
+  const healthInput = form.querySelector('[data-role="village-health"]');
+  const establishedInput = form.querySelector('[data-role="village-established"]');
+  const irrigationInput = form.querySelector('[data-role="village-irrigation"]');
+  const descriptionInput = form.querySelector('[data-role="village-description"]');
+  const errorMessage = form.querySelector('[data-role="village-create-error"]');
+  const cancelButton = form.querySelector('[data-action="village-create-cancel"]');
+
+  const hideForm = () => {
+    form.hidden = true;
+    form.reset();
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+  };
+
+  const showForm = () => {
+    form.hidden = false;
+    form.reset();
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+    if (healthInput) {
+      healthInput.value = '0.5';
+    }
+    if (nameInput instanceof HTMLElement) {
+      nameInput.focus();
+    }
+  };
+
+  toggleButton.addEventListener('click', () => {
+    if (form.hidden) {
+      showForm();
+    } else {
+      hideForm();
+    }
+  });
+
+  if (cancelButton) {
+    cancelButton.addEventListener('click', hideForm);
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) {
+      return;
+    }
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+    setFormDisabled(form, true);
+
+    try {
+      const detail = await listViewModel.createVillage({
+        name: nameInput ? nameInput.value : '',
+        climate: climateInput ? climateInput.value : '',
+        healthScore: healthInput ? healthInput.value : '',
+        establishedAt: establishedInput ? establishedInput.value : null,
+        irrigationType: irrigationInput ? irrigationInput.value : null,
+        description: descriptionInput ? descriptionInput.value : null,
+      });
+      detailViewModel.applyExternalVillage(detail);
+      plantListViewModel.applyExternalVillage(detail);
+      showToast({ message: `Created village “${detail.name}”`, tone: 'success' });
+      window.location.hash = `#villages/${encodeURIComponent(detail.id)}`;
+      hideForm();
+    } catch (error) {
+      const message = mutationErrorMessage(error, 'Failed to create village.');
+      if (errorMessage) {
+        errorMessage.textContent = message;
+        errorMessage.hidden = false;
+      }
+      showMutationFailure(error, 'Failed to create village.');
+    } finally {
+      setFormDisabled(form, false);
+    }
+  });
+}
+
+function setupVillageDetailEditor(detailRoot, { listViewModel, detailViewModel, plantListViewModel }) {
+  if (!detailRoot || !listViewModel || !detailViewModel) {
+    return;
+  }
+  const form = detailRoot.querySelector('[data-role="detail-form"]');
+  const editButton = detailRoot.querySelector('[data-action="detail-edit"]');
+  const deleteButton = detailRoot.querySelector('[data-action="detail-delete"]');
+  if (!form || !editButton) {
+    return;
+  }
+
+  const nameInput = form.querySelector('[data-role="detail-name-input"]');
+  const climateInput = form.querySelector('[data-role="detail-climate-input"]');
+  const healthInput = form.querySelector('[data-role="detail-health-input"]');
+  const establishedInput = form.querySelector('[data-role="detail-established-input"]');
+  const irrigationInput = form.querySelector('[data-role="detail-irrigation-input"]');
+  const descriptionInput = form.querySelector('[data-role="detail-description-input"]');
+  const updatedAtInput = form.querySelector('[data-role="detail-updated-at"]');
+  const cancelButton = form.querySelector('[data-action="detail-cancel"]');
+  const errorMessage = form.querySelector('[data-role="detail-form-error"]');
+
+  let currentVillage = null;
+
+  const populateForm = (village) => {
+    if (!village) {
+      return;
+    }
+    if (nameInput) {
+      nameInput.value = village.name ?? '';
+    }
+    if (climateInput) {
+      climateInput.value = village.climate ?? '';
+    }
+    if (healthInput) {
+      healthInput.value = `${village.healthScore ?? ''}`;
+    }
+    if (establishedInput) {
+      establishedInput.value = village.establishedAt ?? '';
+    }
+    if (irrigationInput) {
+      irrigationInput.value = village.irrigationType ?? '';
+    }
+    if (descriptionInput) {
+      descriptionInput.value = village.description ?? '';
+    }
+    if (updatedAtInput) {
+      updatedAtInput.value = village.updatedAt ?? '';
+    }
+  };
+
+  const hideForm = () => {
+    form.hidden = true;
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+  };
+
+  editButton.addEventListener('click', () => {
+    if (!currentVillage) {
+      return;
+    }
+    populateForm(currentVillage);
+    form.hidden = false;
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+    if (nameInput instanceof HTMLElement) {
+      nameInput.focus();
+    }
+  });
+
+  if (cancelButton) {
+    cancelButton.addEventListener('click', hideForm);
+  }
+
+  if (deleteButton) {
+    deleteButton.addEventListener('click', async () => {
+      if (!currentVillage) {
+        return;
+      }
+      if (!window.confirm(`Delete ${currentVillage.name}? This cannot be undone.`)) {
+        return;
+      }
+      try {
+        await listViewModel.deleteVillage(currentVillage.id, currentVillage.updatedAt);
+        showToast({ message: `Deleted village “${currentVillage.name}”`, tone: 'success' });
+        window.location.hash = '#villages';
+      } catch (error) {
+        showMutationFailure(error, 'Failed to delete village.');
+      }
+    });
+  }
+
+  detailViewModel.subscribe((state) => {
+    currentVillage = state.village;
+    if (!state.village) {
+      hideForm();
+      return;
+    }
+    if (!form.hidden) {
+      populateForm(state.village);
+    } else if (updatedAtInput) {
+      updatedAtInput.value = state.village.updatedAt ?? '';
+    }
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!currentVillage) {
+      return;
+    }
+    if (!form.reportValidity()) {
+      return;
+    }
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+    setFormDisabled(form, true);
+
+    try {
+      const detail = await listViewModel.updateVillage(currentVillage.id, {
+        name: nameInput ? nameInput.value : '',
+        climate: climateInput ? climateInput.value : '',
+        healthScore: healthInput ? healthInput.value : currentVillage.healthScore,
+        establishedAt: establishedInput ? establishedInput.value : currentVillage.establishedAt,
+        irrigationType: irrigationInput ? irrigationInput.value : currentVillage.irrigationType,
+        description: descriptionInput ? descriptionInput.value : currentVillage.description,
+        updatedAt: updatedAtInput ? updatedAtInput.value : currentVillage.updatedAt,
+      });
+      detailViewModel.applyExternalVillage(detail);
+      plantListViewModel.applyExternalVillage(detail);
+      showToast({ message: `Updated village “${detail.name}”`, tone: 'success' });
+      hideForm();
+    } catch (error) {
+      const message = mutationErrorMessage(error, 'Failed to update village.');
+      if (errorMessage) {
+        errorMessage.textContent = message;
+        errorMessage.hidden = false;
+      }
+      showMutationFailure(error, 'Failed to update village.');
+    } finally {
+      setFormDisabled(form, false);
+    }
+  });
+}
+
+function setupPlantForm(root, { plantListViewModel }) {
+  if (!root || !plantListViewModel) {
+    return;
+  }
+  const form = root.querySelector('[data-role="plant-form"]');
+  const toggleButton = root.querySelector('[data-action="plant-create-toggle"]');
+  if (!form || !toggleButton) {
+    return;
+  }
+
+  const title = form.querySelector('[data-role="plant-form-title"]');
+  const idInput = form.querySelector('[data-role="plant-id"]');
+  const updatedAtInput = form.querySelector('[data-role="plant-updated-at"]');
+  const nameInput = form.querySelector('[data-role="plant-name"]');
+  const speciesInput = form.querySelector('[data-role="plant-species"]');
+  const stageInput = form.querySelector('[data-role="plant-stage"]');
+  const lastWateredInput = form.querySelector('[data-role="plant-last-watered"]');
+  const healthInput = form.querySelector('[data-role="plant-health"]');
+  const notesInput = form.querySelector('[data-role="plant-notes"]');
+  const errorMessage = form.querySelector('[data-role="plant-form-error"]');
+  const cancelButton = form.querySelector('[data-action="plant-cancel"]');
+  const deleteButton = form.querySelector('[data-action="plant-delete"]');
+
+  let currentVillage = null;
+
+  const hideForm = () => {
+    form.hidden = true;
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+    if (deleteButton) {
+      deleteButton.hidden = true;
+    }
+    form.reset();
+  };
+
+  const showCreateForm = () => {
+    if (!currentVillage) {
+      return;
+    }
+    form.hidden = false;
+    form.reset();
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+    if (title) {
+      title.textContent = 'Add Plant';
+    }
+    if (deleteButton) {
+      deleteButton.hidden = true;
+    }
+    if (healthInput) {
+      healthInput.value = '0.5';
+    }
+    if (stageInput) {
+      stageInput.value = 'seedling';
+    }
+    if (idInput) {
+      idInput.value = '';
+    }
+    if (updatedAtInput) {
+      updatedAtInput.value = '';
+    }
+    if (nameInput instanceof HTMLElement) {
+      nameInput.focus();
+    }
+  };
+
+  const showEditForm = (item) => {
+    if (!item || !idInput || !updatedAtInput) {
+      return;
+    }
+    form.hidden = false;
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+    if (title) {
+      title.textContent = 'Edit Plant';
+    }
+    if (deleteButton) {
+      deleteButton.hidden = false;
+    }
+    idInput.value = item.dataset.plantId ?? '';
+    updatedAtInput.value = item.dataset.updatedAt ?? '';
+    if (nameInput) {
+      nameInput.value = item.dataset.displayName ?? '';
+    }
+    if (speciesInput) {
+      speciesInput.value = item.dataset.species ?? '';
+    }
+    if (stageInput) {
+      stageInput.value = item.dataset.stage ?? 'seedling';
+    }
+    if (lastWateredInput) {
+      lastWateredInput.value = toDateTimeLocal(item.dataset.lastWateredAt);
+    }
+    if (healthInput) {
+      healthInput.value = item.dataset.healthScore ?? '0.5';
+    }
+    if (notesInput) {
+      notesInput.value = item.dataset.notes ?? '';
+    }
+  };
+
+  toggleButton.addEventListener('click', () => {
+    if (form.hidden) {
+      showCreateForm();
+    } else {
+      hideForm();
+    }
+  });
+
+  if (cancelButton) {
+    cancelButton.addEventListener('click', hideForm);
+  }
+
+  if (deleteButton) {
+    deleteButton.addEventListener('click', async () => {
+      if (!idInput || !updatedAtInput || !idInput.value) {
+        return;
+      }
+      try {
+        await plantListViewModel.deletePlant(idInput.value, updatedAtInput.value);
+        showToast({ message: 'Deleted plant', tone: 'success' });
+        hideForm();
+      } catch (error) {
+        showMutationFailure(error, 'Failed to delete plant.');
+      }
+    });
+  }
+
+  plantListViewModel.subscribe((state) => {
+    currentVillage = state.village;
+    if (!state.village) {
+      hideForm();
+    }
+  });
+
+  root.addEventListener('click', (event) => {
+    const button = event.target instanceof HTMLElement ? event.target.closest('[data-action="plant-edit"]') : null;
+    if (!button) {
+      return;
+    }
+    const item = button.closest('.village-plants-item');
+    if (!item) {
+      return;
+    }
+    showEditForm(item);
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) {
+      return;
+    }
+    if (errorMessage) {
+      errorMessage.hidden = true;
+    }
+    setFormDisabled(form, true);
+
+    const payload = {
+      displayName: nameInput ? nameInput.value : '',
+      species: speciesInput ? speciesInput.value : '',
+      stage: stageInput ? stageInput.value : 'seedling',
+      lastWateredAt: lastWateredInput ? fromDateTimeLocal(lastWateredInput.value) : null,
+      healthScore: healthInput ? healthInput.value : '0.5',
+      notes: notesInput ? notesInput.value : null,
+    };
+
+    const plantId = idInput ? idInput.value : '';
+
+    try {
+      if (plantId) {
+        await plantListViewModel.updatePlant(plantId, {
+          ...payload,
+          updatedAt: updatedAtInput ? updatedAtInput.value : '',
+        });
+        showToast({ message: 'Updated plant', tone: 'success' });
+      } else {
+        await plantListViewModel.createPlant(payload);
+        showToast({ message: 'Added plant', tone: 'success' });
+      }
+      hideForm();
+    } catch (error) {
+      const message = mutationErrorMessage(error, plantId ? 'Failed to update plant.' : 'Failed to create plant.');
+      if (errorMessage) {
+        errorMessage.textContent = message;
+        errorMessage.hidden = false;
+      }
+      showMutationFailure(error, plantId ? 'Failed to update plant.' : 'Failed to create plant.');
+    } finally {
+      setFormDisabled(form, false);
+    }
+  });
+}
+
+function mutationErrorMessage(error, fallback) {
+  if (error instanceof HttpError) {
+    if (error.status === 409) {
+      return 'The data was updated elsewhere. Refresh and try again.';
+    }
+    if (error.status >= 500) {
+      return 'Plantit is experiencing issues. Please try again shortly.';
+    }
+    return `Request failed with status ${error.status}.`;
+  }
+  if (error instanceof NetworkError) {
+    return 'Unable to reach Plantit. Check your connection and retry.';
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
+
+function showMutationFailure(error, fallback) {
+  const message = mutationErrorMessage(error, fallback);
+  showToast({ message, tone: 'error', correlationId: error?.correlationId });
+}
+
+function setFormDisabled(form, disabled) {
+  const elements = Array.from(form.elements || []);
+  for (const element of elements) {
+    if (element instanceof HTMLButtonElement || element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
+      element.disabled = disabled;
+    }
+  }
+}
+
+function toDateTimeLocal(value) {
+  if (!value) {
+    return '';
+  }
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const pad = (input) => String(input).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  } catch (error) {
+    console.warn('Unable to convert timestamp to datetime-local', value, error);
+    return '';
+  }
+}
+
+function fromDateTimeLocal(value) {
+  if (!value) {
+    return null;
+  }
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString();
+  } catch (error) {
+    console.warn('Unable to parse datetime-local value', value, error);
+    return null;
+  }
 }
 
 function toggleSection(section, isVisible) {
