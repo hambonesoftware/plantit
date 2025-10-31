@@ -12,6 +12,7 @@ import { PlantListView } from './villages/plantListView.js';
 import { copyDiagnosticsToClipboard } from './services/diagnostics.js';
 import { createToastHost, registerToastHost, showToast } from './services/toast.js';
 import { HttpError, NetworkError } from './services/api.js';
+import { fetchAuthStatus, login as loginRequest, logout as logoutRequest } from './services/auth.js';
 
 const searchParams = new URLSearchParams(window.location.search);
 const disableServiceWorkers = searchParams.get("no-sw") === "1";
@@ -22,6 +23,8 @@ const safeBoot = explicitSafeBoot || disableServiceWorkers;
 const LAST_ROUTE_KEY = "plantit:lastRoute";
 const MAX_ROUTE_LENGTH = 512;
 const DEFAULT_ROUTE = "#dashboard";
+
+const authController = createAuthController();
 
 const safeReadLocalStorage = (key, { maxLength = MAX_ROUTE_LENGTH, validator } = {}) => {
   if (!("localStorage" in window)) {
@@ -131,12 +134,286 @@ const createSafeModeBanner = () => {
   return banner;
 };
 
+function createAuthController() {
+  const state = {
+    enabled: false,
+    authenticated: true,
+    username: null,
+  };
+
+  let initialized = false;
+  let overlay = null;
+  let form = null;
+  let usernameInput = null;
+  let passwordInput = null;
+  let errorMessage = null;
+  let submitButton = null;
+  let navButton = null;
+  let submitting = false;
+  let navBusy = false;
+
+  function initialize() {
+    if (initialized) {
+      return;
+    }
+    initialized = true;
+    overlay = document.createElement('div');
+    overlay.id = 'auth-overlay';
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <h2 id="auth-title">Sign in to manage plants</h2>
+        <p class="auth-subtitle">Read access stays open; sign in to create or edit data.</p>
+        <form novalidate>
+          <label>
+            Username
+            <input type="text" name="username" autocomplete="username" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <p class="auth-error" data-role="auth-error" hidden></p>
+          <div class="form-actions">
+            <button type="submit">Sign in</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    form = overlay.querySelector('form');
+    usernameInput = overlay.querySelector('input[name="username"]');
+    passwordInput = overlay.querySelector('input[name="password"]');
+    errorMessage = overlay.querySelector('[data-role="auth-error"]');
+    submitButton = form?.querySelector('button[type="submit"]') ?? null;
+
+    if (form) {
+      form.addEventListener('submit', handleSubmit);
+    }
+
+    window.addEventListener('plantit:auth-required', handleAuthRequired);
+  }
+
+  function attachNavigation(nav) {
+    initialize();
+    if (navButton) {
+      navButton.remove();
+    }
+
+    navButton = document.createElement('button');
+    navButton.type = 'button';
+    navButton.id = 'account-button';
+    navButton.textContent = 'Sign in';
+    navButton.addEventListener('click', () => {
+      if (!state.enabled) {
+        showToast({ message: 'Sign-in is disabled in this mode.', tone: 'info' });
+        return;
+      }
+      if (state.authenticated) {
+        void handleLogout();
+      } else {
+        showOverlay();
+      }
+    });
+    nav.append(navButton);
+    updateUi();
+  }
+
+  function showOverlay() {
+    if (!overlay) {
+      return;
+    }
+    overlay.hidden = false;
+    clearError();
+    requestAnimationFrame(() => {
+      usernameInput?.focus();
+    });
+  }
+
+  async function refreshStatus() {
+    initialize();
+    try {
+      const status = await fetchAuthStatus();
+      applyStatus(status);
+    } catch (error) {
+      console.warn('Auth: status check failed', error);
+      if (state.enabled) {
+        showToast({
+          message: 'Unable to verify sign-in status. Actions may be restricted.',
+          tone: 'warning',
+        });
+      }
+    }
+  }
+
+  function applyStatus(status) {
+    const enabled = Boolean(status?.authEnabled);
+    state.enabled = enabled;
+    const authenticated = !enabled || Boolean(status?.authenticated);
+    state.authenticated = authenticated;
+    const username =
+      authenticated && typeof status?.username === 'string' && status.username.trim()
+        ? status.username.trim()
+        : null;
+    state.username = username;
+    updateUi();
+  }
+
+  function updateUi() {
+    const requireLogin = state.enabled && !state.authenticated;
+    if (overlay) {
+      overlay.hidden = !requireLogin;
+      if (!requireLogin && form) {
+        form.reset();
+        clearError();
+      } else if (requireLogin) {
+        requestAnimationFrame(() => {
+          usernameInput?.focus();
+        });
+      }
+    }
+    if (navButton) {
+      navButton.hidden = !state.enabled;
+      navButton.dataset.state = state.authenticated ? 'authenticated' : 'unauthenticated';
+      navButton.disabled = navBusy;
+      navButton.textContent = state.authenticated
+        ? state.username
+          ? `Sign out (${state.username})`
+          : 'Sign out'
+        : 'Sign in';
+    }
+    if (!requireLogin) {
+      submitting = false;
+      setFormDisabled(false);
+    }
+  }
+
+  function setFormDisabled(disabled) {
+    usernameInput?.setAttribute('aria-busy', String(disabled));
+    passwordInput?.setAttribute('aria-busy', String(disabled));
+    if (usernameInput) {
+      usernameInput.disabled = disabled;
+    }
+    if (passwordInput) {
+      passwordInput.disabled = disabled;
+    }
+    if (submitButton) {
+      submitButton.disabled = disabled;
+    }
+  }
+
+  function clearError() {
+    if (errorMessage) {
+      errorMessage.textContent = '';
+      errorMessage.hidden = true;
+    }
+  }
+
+  function showError(message) {
+    if (!errorMessage) {
+      return;
+    }
+    errorMessage.textContent = message;
+    errorMessage.hidden = false;
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (submitting) {
+      return;
+    }
+    if (!state.enabled) {
+      overlay?.setAttribute('hidden', 'hidden');
+      return;
+    }
+    const username = usernameInput?.value.trim() ?? '';
+    const password = passwordInput?.value ?? '';
+    if (!username || !password) {
+      showError('Username and password are required.');
+      return;
+    }
+    submitting = true;
+    clearError();
+    setFormDisabled(true);
+    try {
+      const status = await loginRequest({ username, password });
+      applyStatus(status);
+      if (state.authenticated) {
+        showToast({
+          message: state.username ? `Signed in as ${state.username}.` : 'Signed in.',
+          tone: 'success',
+        });
+      } else {
+        showError('Sign-in failed. Please try again.');
+      }
+    } catch (error) {
+      console.warn('Auth: login failed', error);
+      if (error instanceof HttpError && error.status === 401) {
+        showError('Invalid username or password.');
+      } else if (error instanceof NetworkError) {
+        showError('Unable to reach Plantit. Check your connection and try again.');
+      } else {
+        showError('Sign-in failed. Please try again.');
+      }
+    } finally {
+      submitting = false;
+      setFormDisabled(false);
+      if (!state.authenticated && passwordInput) {
+        passwordInput.value = '';
+        passwordInput.focus();
+      } else if (state.authenticated && form) {
+        form.reset();
+      }
+    }
+  }
+
+  async function handleLogout() {
+    if (navBusy) {
+      return;
+    }
+    navBusy = true;
+    updateUi();
+    try {
+      const status = await logoutRequest();
+      applyStatus(status);
+      showToast({ message: 'Signed out.', tone: 'info' });
+    } catch (error) {
+      console.warn('Auth: logout failed', error);
+      showToast({ message: 'Sign-out failed. Please try again.', tone: 'warning' });
+    } finally {
+      navBusy = false;
+      updateUi();
+    }
+  }
+
+  function handleAuthRequired() {
+    if (!state.enabled) {
+      void refreshStatus();
+      return;
+    }
+    if (state.authenticated) {
+      showToast({ message: 'Please sign in to continue.', tone: 'info' });
+    }
+    state.authenticated = false;
+    updateUi();
+    void refreshStatus();
+  }
+
+  return {
+    initialize,
+    attachNavigation,
+    refreshStatus,
+  };
+}
+
 console.info("Boot: pre-init");
 
 unregisterServiceWorkers();
 
 const onReady = () => {
   console.info("Boot: DOM ready");
+  authController.initialize();
   const root = document.getElementById("app");
   if (!root) {
     console.warn("Boot: missing #app root");
@@ -151,6 +428,7 @@ const onReady = () => {
     mountShell(root, { statusText: "Plantit — Shell Ready", safeMode: false });
   }
   console.info("Boot: shell mounted");
+  authController.refreshStatus();
 };
 
 if (document.readyState === "loading") {
@@ -177,6 +455,7 @@ function mountShell(root, { statusText, safeMode }) {
   if (!safeMode) {
     const navigation = buildMainNavigation();
     root.append(navigation);
+    authController.attachNavigation(navigation);
 
     const contentHost = document.createElement("div");
     contentHost.id = "shell-content";

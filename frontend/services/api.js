@@ -135,6 +135,11 @@ export async function request(path, options = {}) {
 
   if (!response.ok) {
     const errorBody = await readErrorBody(response);
+    if (typeof window !== 'undefined' && response.status === 401) {
+      window.dispatchEvent(
+        new CustomEvent('plantit:auth-required', { detail: { correlationId } })
+      );
+    }
     throw new HttpError(response.status, response, { correlationId, body: errorBody });
   }
 

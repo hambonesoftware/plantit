@@ -30,6 +30,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HelloResponse'
+  /api/auth/status:
+    get:
+      tags: [Auth]
+      summary: Retrieve the current authentication status.
+      responses:
+        '200':
+          description: Authentication toggle and session state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatusResponse'
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate the operator when auth is enabled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: Session status after attempting to sign in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatusResponse'
+        '401':
+          description: Credentials were invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Clear the current authentication session.
+      responses:
+        '200':
+          description: Session status after logging out.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatusResponse'
   /api/dashboard:
     get:
       tags: [Dashboard]
@@ -90,6 +135,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VillageMutationResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '400':
           description: Validation failed.
           content:
@@ -141,6 +192,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VillageMutationResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: The requested village does not exist.
           content:
@@ -175,6 +232,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VillageDeleteResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: The requested village does not exist.
           content:
@@ -227,6 +290,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlantMutationResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '400':
           description: Validation failed.
           content:
@@ -284,6 +353,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlantMutationResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: The requested plant does not exist.
           content:
@@ -318,6 +393,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlantDeleteResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: The requested plant does not exist.
           content:
@@ -358,6 +439,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ImportPreviewResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/export:
     get:
       tags: [Import/Export]
@@ -758,6 +845,27 @@ components:
         priority:
           type: string
           enum: [low, medium, high]
+    AuthStatusResponse:
+      type: object
+      required: [authEnabled, authenticated]
+      properties:
+        authEnabled:
+          type: boolean
+        authenticated:
+          type: boolean
+        username:
+          type: string
+          nullable: true
+    AuthLoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
     ImportPreviewRequest:
       type: object
       required: [schemaVersion, summary]
