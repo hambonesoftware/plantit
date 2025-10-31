@@ -22,6 +22,7 @@ from backend.db import models
 from backend.db.migrate import ensure_migrations, get_migration_state
 from backend.db.seed import seed_demo_data
 from backend.db.session import engine, get_session, session_scope
+from plantit import __version__
 
 LOGGER = logging.getLogger("plantit.backend")
 
@@ -69,7 +70,7 @@ def _env_int(name: str, default: int) -> int:
     return parsed if parsed >= 0 else default
 
 
-APP_VERSION = os.getenv("PLANTIT_APP_VERSION", "0.0.0-dev")
+APP_VERSION = os.getenv("PLANTIT_APP_VERSION", __version__)
 BUILD_HASH = os.getenv("PLANTIT_BUILD_HASH", "unknown")
 
 AUTH_ENABLED = _env_flag("PLANTIT_AUTH_ENABLED")
