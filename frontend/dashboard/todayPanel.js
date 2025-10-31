@@ -1,3 +1,6 @@
+import { copyDiagnosticsToClipboard } from '../services/diagnostics.js';
+import { showToast } from '../services/toast.js';
+
 const TASK_TYPE_LABELS = {
   water: 'Water',
   fertilize: 'Fertilize',
@@ -31,8 +34,10 @@ export class TodayPanel {
     this.errorPanel = root.querySelector('[data-role="today-error"]');
     this.errorMessage = root.querySelector('[data-role="today-error-message"]');
     this.retryButton = root.querySelector('[data-action="today-retry"]');
+    this.copyButton = root.querySelector('[data-action="today-copy-error"]');
     this.refreshButton = root.querySelector('[data-action="today-refresh"]');
     this.updated = root.querySelector('[data-role="today-updated"]');
+    this._currentErrorDetail = '';
 
     if (this.refreshButton) {
       this.refreshButton.addEventListener('click', () => {
@@ -43,6 +48,17 @@ export class TodayPanel {
     if (this.retryButton) {
       this.retryButton.addEventListener('click', () => {
         this.viewModel.retry();
+      });
+    }
+
+    if (this.copyButton) {
+      this.copyButton.addEventListener('click', async () => {
+        const success = await copyDiagnosticsToClipboard(this._currentErrorDetail);
+        if (success) {
+          showToast({ message: 'Error details copied to clipboard.', tone: 'success' });
+        } else {
+          showToast({ message: 'Unable to copy error details. Copy manually if needed.', tone: 'warning' });
+        }
       });
     }
 
@@ -108,6 +124,7 @@ export class TodayPanel {
     if (this.errorPanel) {
       this.errorPanel.hidden = true;
     }
+    this._updateErrorContext(null, null);
   }
 
   /**
@@ -127,6 +144,7 @@ export class TodayPanel {
     if (this.content) {
       this.content.hidden = !hasTasks;
     }
+    this._updateErrorContext(null, null);
   }
 
   /**
@@ -145,6 +163,7 @@ export class TodayPanel {
     if (this.content) {
       this.content.hidden = false;
     }
+    this._updateErrorContext(null, null);
 
     if (!this.listElement || !this.emptyMessage) {
       return;
@@ -184,6 +203,21 @@ export class TodayPanel {
     }
     if (this.errorMessage) {
       this.errorMessage.textContent = state.error?.message ?? 'Unable to load today\'s tasks.';
+    }
+    this._updateErrorContext(state.error?.detail ?? null, state.error?.category ?? null);
+  }
+
+  _updateErrorContext(detail, category) {
+    this._currentErrorDetail = typeof detail === 'string' ? detail : '';
+    if (this.copyButton) {
+      this.copyButton.disabled = !this._currentErrorDetail;
+    }
+    if (this.errorPanel) {
+      if (category) {
+        this.errorPanel.dataset.category = category;
+      } else {
+        delete this.errorPanel.dataset.category;
+      }
     }
   }
 }

@@ -1,3 +1,5 @@
+import { copyDiagnosticsToClipboard } from '../services/diagnostics.js';
+import { showToast } from '../services/toast.js';
 import { formatHealthScore } from './shared.js';
 
 /**
@@ -22,7 +24,9 @@ export class VillageListView {
     this.errorPanel = root.querySelector('[data-role="village-error"]');
     this.errorMessage = root.querySelector('[data-role="village-error-message"]');
     this.retryButton = root.querySelector('[data-action="retry"]');
+    this.copyButton = root.querySelector('[data-action="villages-copy-error"]');
     this.refreshButton = root.querySelector('[data-action="refresh"]');
+    this._currentErrorDetail = '';
 
     if (this.searchForm) {
       this.searchForm.addEventListener('submit', (event) => {
@@ -41,6 +45,17 @@ export class VillageListView {
     if (this.retryButton) {
       this.retryButton.addEventListener('click', () => {
         this.viewModel.retry();
+      });
+    }
+
+    if (this.copyButton) {
+      this.copyButton.addEventListener('click', async () => {
+        const success = await copyDiagnosticsToClipboard(this._currentErrorDetail);
+        if (success) {
+          showToast({ message: 'Error details copied to clipboard.', tone: 'success' });
+        } else {
+          showToast({ message: 'Unable to copy error details. Copy manually if needed.', tone: 'warning' });
+        }
       });
     }
 
@@ -88,6 +103,7 @@ export class VillageListView {
     if (this.errorPanel) {
       this.errorPanel.hidden = true;
     }
+    this._updateErrorContext(null, null);
   }
 
   /**
@@ -100,6 +116,7 @@ export class VillageListView {
     if (this.errorPanel) {
       this.errorPanel.hidden = true;
     }
+    this._updateErrorContext(null, null);
 
     const villages = Array.isArray(state.villages) ? state.villages : [];
     if (!this.listElement || !this.emptyMessage) {
@@ -176,6 +193,21 @@ export class VillageListView {
     }
     if (this.errorMessage) {
       this.errorMessage.textContent = state.error?.message ?? 'Unable to load villages.';
+    }
+    this._updateErrorContext(state.error?.detail ?? null, state.error?.category ?? null);
+  }
+
+  _updateErrorContext(detail, category) {
+    this._currentErrorDetail = typeof detail === 'string' ? detail : '';
+    if (this.copyButton) {
+      this.copyButton.disabled = !this._currentErrorDetail;
+    }
+    if (this.errorPanel) {
+      if (category) {
+        this.errorPanel.dataset.category = category;
+      } else {
+        delete this.errorPanel.dataset.category;
+      }
     }
   }
 }

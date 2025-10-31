@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import logging
+import os
+from contextvars import ContextVar
 from datetime import date, datetime, timezone
 from typing import Any, Dict, Sequence
 from uuid import uuid4
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Query, status
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -20,6 +23,20 @@ from backend.db.seed import seed_demo_data
 from backend.db.session import engine, get_session, session_scope
 
 LOGGER = logging.getLogger("plantit.backend")
+
+_CORRELATION_ID: ContextVar[str | None] = ContextVar("correlation_id", default=None)
+
+
+class _CorrelationIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - logging glue
+        record.correlation_id = _CORRELATION_ID.get()
+        return True
+
+
+LOGGER.addFilter(_CorrelationIdFilter())
+
+APP_VERSION = os.getenv("PLANTIT_APP_VERSION", "0.0.0-dev")
+BUILD_HASH = os.getenv("PLANTIT_BUILD_HASH", "unknown")
 
 app = FastAPI(title="Plantit Backend")
 
@@ -49,10 +66,83 @@ def _bootstrap_once() -> None:
 _bootstrap_once()
 
 
+@app.middleware("http")
+async def _inject_correlation_id(request: Request, call_next):
+    incoming = request.headers.get("X-Correlation-ID")
+    correlation_id = incoming if incoming else str(uuid4())
+    request.state.correlation_id = correlation_id
+    token = _CORRELATION_ID.set(correlation_id)
+    LOGGER.info(
+        "request-start",
+        extra={"path": request.url.path, "method": request.method},
+    )
+    try:
+        response = await call_next(request)
+    except Exception:
+        raise
+    else:
+        response.headers["X-Correlation-ID"] = correlation_id
+        LOGGER.info(
+            "request-complete",
+            extra={
+                "path": request.url.path,
+                "method": request.method,
+                "status_code": response.status_code,
+            },
+        )
+        return response
+    finally:
+        _CORRELATION_ID.reset(token)
+
+
 @app.on_event("startup")
 def _startup_event() -> None:
     LOGGER.info("backend-startup")
     _bootstrap_once()
+
+
+@app.exception_handler(HTTPException)
+async def _http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    correlation_id = getattr(request.state, "correlation_id", None) or str(uuid4())
+    request.state.correlation_id = correlation_id
+    token = _CORRELATION_ID.set(correlation_id)
+    log_level = logging.WARNING if exc.status_code < 500 else logging.ERROR
+    LOGGER.log(
+        log_level,
+        "request-failed",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "status_code": exc.status_code,
+        },
+    )
+    try:
+        response = JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=exc.headers or None,
+        )
+    finally:
+        _CORRELATION_ID.reset(token)
+    response.headers["X-Correlation-ID"] = correlation_id
+    return response
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    correlation_id = getattr(request.state, "correlation_id", None) or str(uuid4())
+    request.state.correlation_id = correlation_id
+    token = _CORRELATION_ID.set(correlation_id)
+    LOGGER.exception(
+        "request-error",
+        extra={"path": request.url.path, "method": request.method},
+    )
+    try:
+        response = JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+    finally:
+        _CORRELATION_ID.reset(token)
+    response.headers["X-Correlation-ID"] = correlation_id
+    return response
 
 
 def _serialize_timestamp(value: datetime | None) -> str | None:
@@ -249,7 +339,12 @@ def get_health() -> Dict[str, Any]:
         migration_state["pending"]
     )
     overall_status = "ok" if db_status == "ok" and not migration_state["pending"] else "degraded"
-    return {"status": overall_status, "checks": {"db": db_status, "migrations": migration_status}}
+    return {
+        "status": overall_status,
+        "checks": {"db": db_status, "migrations": migration_status},
+        "version": APP_VERSION,
+        "build": BUILD_HASH,
+    }
 
 
 @app.get("/api/hello", tags=["Greetings"])

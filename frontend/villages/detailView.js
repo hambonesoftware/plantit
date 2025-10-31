@@ -1,3 +1,5 @@
+import { copyDiagnosticsToClipboard } from '../services/diagnostics.js';
+import { showToast } from '../services/toast.js';
 import { formatDate, formatHealthScore } from './shared.js';
 
 /**
@@ -19,7 +21,9 @@ export class VillageDetailView {
     this.errorPanel = root.querySelector('[data-role="detail-error"]');
     this.errorMessage = root.querySelector('[data-role="detail-error-message"]');
     this.retryButton = root.querySelector('[data-action="detail-retry"]');
+    this.copyButton = root.querySelector('[data-action="detail-copy-error"]');
     this.backButton = root.querySelector('[data-action="detail-back"]');
+    this._currentErrorDetail = '';
 
     this.name = root.querySelector('[data-role="detail-name"]');
     this.climate = root.querySelector('[data-role="detail-climate"]');
@@ -33,6 +37,17 @@ export class VillageDetailView {
     if (this.retryButton) {
       this.retryButton.addEventListener('click', () => {
         this.viewModel.retry();
+      });
+    }
+
+    if (this.copyButton) {
+      this.copyButton.addEventListener('click', async () => {
+        const success = await copyDiagnosticsToClipboard(this._currentErrorDetail);
+        if (success) {
+          showToast({ message: 'Error details copied to clipboard.', tone: 'success' });
+        } else {
+          showToast({ message: 'Unable to copy error details. Copy manually if needed.', tone: 'warning' });
+        }
       });
     }
 
@@ -77,6 +92,7 @@ export class VillageDetailView {
       error: false,
       content: false,
     });
+    this._updateErrorContext(null, null);
   }
 
   renderLoading() {
@@ -86,6 +102,7 @@ export class VillageDetailView {
       error: false,
       content: false,
     });
+    this._updateErrorContext(null, null);
   }
 
   /**
@@ -126,6 +143,7 @@ export class VillageDetailView {
       error: false,
       content: true,
     });
+    this._updateErrorContext(null, null);
   }
 
   /**
@@ -141,6 +159,7 @@ export class VillageDetailView {
       error: true,
       content: false,
     });
+    this._updateErrorContext(state.error?.detail ?? null, state.error?.category ?? null);
   }
 
   toggleVisibility({ placeholder, loading, error, content }) {
@@ -155,6 +174,20 @@ export class VillageDetailView {
     }
     if (this.content) {
       this.content.hidden = !content;
+    }
+  }
+
+  _updateErrorContext(detail, category) {
+    this._currentErrorDetail = typeof detail === 'string' ? detail : '';
+    if (this.copyButton) {
+      this.copyButton.disabled = !this._currentErrorDetail;
+    }
+    if (this.errorPanel) {
+      if (category) {
+        this.errorPanel.dataset.category = category;
+      } else {
+        delete this.errorPanel.dataset.category;
+      }
     }
   }
 }

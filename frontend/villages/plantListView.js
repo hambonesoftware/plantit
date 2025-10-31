@@ -1,3 +1,5 @@
+import { copyDiagnosticsToClipboard } from '../services/diagnostics.js';
+import { showToast } from '../services/toast.js';
 import { formatDate, formatHealthScore } from './shared.js';
 
 const STAGE_LABELS = {
@@ -24,6 +26,7 @@ export class PlantListView {
     this.errorPanel = root.querySelector('[data-role="plant-error"]');
     this.errorMessage = root.querySelector('[data-role="plant-error-message"]');
     this.retryButton = root.querySelector('[data-action="plant-retry"]');
+    this.copyButton = root.querySelector('[data-action="plant-copy-error"]');
     this.refreshButton = root.querySelector('[data-action="plant-refresh"]');
     this.updated = root.querySelector('[data-role="plant-updated"]');
     this.header = root.querySelector('[data-role="plant-header"]');
@@ -31,6 +34,7 @@ export class PlantListView {
     this.content = root.querySelector('[data-role="plant-content"]');
     this.listElement = root.querySelector('[data-role="plant-list"]');
     this.emptyMessage = root.querySelector('[data-role="plant-empty"]');
+    this._currentErrorDetail = '';
 
     if (this.refreshButton) {
       this.refreshButton.addEventListener('click', () => {
@@ -41,6 +45,17 @@ export class PlantListView {
     if (this.retryButton) {
       this.retryButton.addEventListener('click', () => {
         this.viewModel.retry();
+      });
+    }
+
+    if (this.copyButton) {
+      this.copyButton.addEventListener('click', async () => {
+        const success = await copyDiagnosticsToClipboard(this._currentErrorDetail);
+        if (success) {
+          showToast({ message: 'Error details copied to clipboard.', tone: 'success' });
+        } else {
+          showToast({ message: 'Unable to copy error details. Copy manually if needed.', tone: 'warning' });
+        }
       });
     }
 
@@ -111,6 +126,7 @@ export class PlantListView {
     if (this.content) {
       this.content.hidden = true;
     }
+    this._updateErrorContext(null, null);
   }
 
   renderLoading() {
@@ -126,6 +142,7 @@ export class PlantListView {
     if (this.content) {
       this.content.hidden = true;
     }
+    this._updateErrorContext(null, null);
   }
 
   /**
@@ -149,6 +166,7 @@ export class PlantListView {
     if (this.content) {
       this.content.hidden = false;
     }
+    this._updateErrorContext(null, null);
 
     if (!this.listElement || !this.emptyMessage) {
       return;
@@ -186,6 +204,21 @@ export class PlantListView {
     }
     if (this.errorMessage) {
       this.errorMessage.textContent = state.error?.message ?? 'Unable to load plants.';
+    }
+    this._updateErrorContext(state.error?.detail ?? null, state.error?.category ?? null);
+  }
+
+  _updateErrorContext(detail, category) {
+    this._currentErrorDetail = typeof detail === 'string' ? detail : '';
+    if (this.copyButton) {
+      this.copyButton.disabled = !this._currentErrorDetail;
+    }
+    if (this.errorPanel) {
+      if (category) {
+        this.errorPanel.dataset.category = category;
+      } else {
+        delete this.errorPanel.dataset.category;
+      }
     }
   }
 }

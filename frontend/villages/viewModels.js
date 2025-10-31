@@ -6,8 +6,7 @@ import {
   fetchVillageDetail,
   fetchVillagePlants,
   fetchVillages,
-  HttpError,
-  NetworkError,
+  describeApiError,
   updatePlant,
   updateVillage,
 } from '../services/api.js';
@@ -17,40 +16,19 @@ import {
  */
 
 /**
- * @typedef {Object} ListErrorState
- * @property {'network'|'http'|'unknown'} type
- * @property {string} message
- * @property {Error} [cause]
- */
-
-/**
  * @typedef {Object} VillageListState
  * @property {LoadStatus} status
  * @property {import('../services/api.js').VillageSummary[]} villages
  * @property {string | null} selectedVillageId
  * @property {import('../services/api.js').VillageFilterState} filters
- * @property {ListErrorState | null} error
- */
-
-/**
- * @typedef {Object} VillageDetailErrorState
- * @property {'network'|'http'|'unknown'} type
- * @property {string} message
- * @property {Error} [cause]
+ * @property {import('../services/api.js').ErrorDescriptor | null} error
  */
 
 /**
  * @typedef {Object} VillageDetailState
  * @property {LoadStatus} status
  * @property {import('../services/api.js').VillageDetail | null} village
- * @property {VillageDetailErrorState | null} error
- */
-
-/**
- * @typedef {Object} VillagePlantListErrorState
- * @property {'network'|'http'|'unknown'} type
- * @property {string} message
- * @property {Error} [cause]
+ * @property {import('../services/api.js').ErrorDescriptor | null} error
  */
 
 /**
@@ -58,7 +36,7 @@ import {
  * @property {LoadStatus} status
  * @property {import('../services/api.js').VillageSummary | null} village
  * @property {import('../services/api.js').PlantListItem[]} plants
- * @property {VillagePlantListErrorState | null} error
+ * @property {import('../services/api.js').ErrorDescriptor | null} error
  * @property {string | null} lastUpdated
  */
 
@@ -564,25 +542,10 @@ export class VillageListViewModel {
   }
 
   _normalizeError(error) {
-    if (error instanceof NetworkError) {
-      return {
-        type: 'network',
-        message: 'Unable to reach Plantit. Check your connection and retry.',
-        cause: error,
-      };
-    }
-    if (error instanceof HttpError) {
-      return {
-        type: 'http',
-        message: `Plantit responded with status ${error.status}. Please try again shortly.`,
-        cause: error,
-      };
-    }
-    return {
-      type: 'unknown',
-      message: 'Something went wrong while loading villages. Please retry.',
-      cause: error instanceof Error ? error : undefined,
-    };
+    return describeApiError(error, {
+      operation: 'Load village list',
+      userMessage: 'We could not load the villages. Refresh and try again.',
+    });
   }
 }
 
@@ -779,25 +742,10 @@ export class VillageDetailViewModel {
   }
 
   _normalizeError(error) {
-    if (error instanceof NetworkError) {
-      return {
-        type: 'network',
-        message: 'Unable to load village details due to a network issue. Please retry.',
-        cause: error,
-      };
-    }
-    if (error instanceof HttpError) {
-      return {
-        type: 'http',
-        message: `Village details returned HTTP ${error.status}. Try again soon.`,
-        cause: error,
-      };
-    }
-    return {
-      type: 'unknown',
-      message: 'Something went wrong while loading the village. Please try again.',
-      cause: error instanceof Error ? error : undefined,
-    };
+    return describeApiError(error, {
+      operation: 'Load village detail',
+      userMessage: 'We could not load this village. Refresh and try again.',
+    });
   }
 }
 
@@ -1189,24 +1137,9 @@ export class VillagePlantListViewModel {
   }
 
   _normalizeError(error) {
-    if (error instanceof NetworkError) {
-      return {
-        type: 'network',
-        message: 'Unable to reach Plantit. Check your connection and retry.',
-        cause: error,
-      };
-    }
-    if (error instanceof HttpError) {
-      return {
-        type: 'http',
-        message: `Plantit responded with status ${error.status}. Please try again shortly.`,
-        cause: error,
-      };
-    }
-    return {
-      type: 'unknown',
-      message: 'Something went wrong while loading plants. Please retry.',
-      cause: error instanceof Error ? error : undefined,
-    };
+    return describeApiError(error, {
+      operation: 'Load village plants',
+      userMessage: 'We could not load the plants for this village. Refresh and try again.',
+    });
   }
 }

@@ -9,6 +9,7 @@ import {
 } from './villages/viewModels.js';
 import { VillageListView } from './villages/listView.js';
 import { PlantListView } from './villages/plantListView.js';
+import { copyDiagnosticsToClipboard } from './services/diagnostics.js';
 import { createToastHost, registerToastHost, showToast } from './services/toast.js';
 import { HttpError, NetworkError } from './services/api.js';
 
@@ -364,6 +365,7 @@ function buildVillagesSection() {
         <div class="villages-error" data-role="village-error" role="alert" hidden>
           <p class="villages-error-message" data-role="village-error-message">Unable to load villages.</p>
           <button type="button" class="villages-retry" data-action="retry">Retry</button>
+          <button type="button" class="villages-copy" data-action="villages-copy-error">Copy details</button>
         </div>
       </div>
       <div class="villages-detail-root" data-role="village-detail-root">
@@ -372,7 +374,10 @@ function buildVillagesSection() {
           <p class="village-detail-loading" data-role="detail-loading" role="status" aria-live="polite">Loading village details…</p>
           <div class="village-detail-error" data-role="detail-error" role="alert" hidden>
             <p data-role="detail-error-message">Unable to load village details.</p>
-            <button type="button" class="village-detail-retry" data-action="detail-retry">Retry</button>
+            <div class="village-detail-error-actions">
+              <button type="button" class="village-detail-retry" data-action="detail-retry">Retry</button>
+              <button type="button" class="village-detail-copy" data-action="detail-copy-error">Copy details</button>
+            </div>
           </div>
           <article class="village-detail-card" data-role="detail-content" hidden>
             <header class="village-detail-header">
@@ -435,7 +440,10 @@ function buildVillagesSection() {
           <p class="village-plants-loading" data-role="plant-loading" role="status" aria-live="polite" hidden>Loading plants…</p>
           <div class="village-plants-error" data-role="plant-error" role="alert" hidden>
             <p data-role="plant-error-message">Unable to load plants.</p>
-            <button type="button" class="village-plants-retry" data-action="plant-retry">Retry</button>
+            <div class="village-plants-error-actions">
+              <button type="button" class="village-plants-retry" data-action="plant-retry">Retry</button>
+              <button type="button" class="village-plants-copy" data-action="plant-copy-error">Copy details</button>
+            </div>
           </div>
           <div class="village-plants-content" data-role="plant-content" hidden>
             <form class="plant-edit-form" data-role="plant-form" hidden>
@@ -1249,7 +1257,10 @@ function buildDashboardSection() {
     <p class="today-panel-loading" data-role="today-loading" role="status" aria-live="polite" hidden>Loading today's tasks…</p>
     <div class="today-panel-error" data-role="today-error" role="alert" hidden>
       <p data-role="today-error-message">Unable to load today's tasks.</p>
-      <button type="button" data-action="today-retry">Retry</button>
+      <div class="today-panel-error-actions">
+        <button type="button" data-action="today-retry">Retry</button>
+        <button type="button" data-action="today-copy-error">Copy details</button>
+      </div>
     </div>
     <div class="today-panel-content" data-role="today-content" hidden>
       <ul class="today-task-list" data-role="today-task-list"></ul>
@@ -1268,12 +1279,23 @@ function buildDashboardSection() {
   errorMessage.className = "dashboard-error-message";
   errorMessage.textContent = "Unable to load dashboard.";
 
+  const errorActions = document.createElement("div");
+  errorActions.className = "dashboard-error-actions";
+
   const retryButton = document.createElement("button");
   retryButton.className = "dashboard-retry-button";
   retryButton.type = "button";
+  retryButton.dataset.action = "dashboard-retry";
   retryButton.textContent = "Retry";
 
-  errorPanel.append(errorMessage, retryButton);
+  const copyButton = document.createElement("button");
+  copyButton.className = "dashboard-copy-button";
+  copyButton.type = "button";
+  copyButton.dataset.action = "dashboard-copy-error";
+  copyButton.textContent = "Copy details";
+
+  errorActions.append(retryButton, copyButton);
+  errorPanel.append(errorMessage, errorActions);
 
   section.append(header, content, errorPanel);
 
@@ -1300,11 +1322,24 @@ class DashboardView {
     this.alertEmpty = section.querySelector(".dashboard-alert-empty");
     this.errorPanel = section.querySelector(".dashboard-error");
     this.errorMessage = section.querySelector(".dashboard-error-message");
-    this.retryButton = section.querySelector(".dashboard-retry-button");
+    this.retryButton = section.querySelector('[data-action="dashboard-retry"]');
+    this.copyButton = section.querySelector('[data-action="dashboard-copy-error"]');
+    this._currentErrorDetail = '';
 
     if (this.retryButton) {
       this.retryButton.addEventListener("click", () => {
         this.viewModel.retry();
+      });
+    }
+
+    if (this.copyButton) {
+      this.copyButton.addEventListener("click", async () => {
+        const success = await copyDiagnosticsToClipboard(this._currentErrorDetail);
+        if (success) {
+          showToast({ message: "Error details copied to clipboard.", tone: "success" });
+        } else {
+          showToast({ message: "Unable to copy error details. Copy manually if needed.", tone: "warning" });
+        }
       });
     }
 
@@ -1338,6 +1373,7 @@ class DashboardView {
     if (this.content) {
       this.content.hidden = false;
     }
+    this._updateErrorContext(null, null);
     if (this.updated) {
       this.updated.textContent = "Loading dashboard…";
     }
@@ -1360,6 +1396,7 @@ class DashboardView {
     if (this.content) {
       this.content.hidden = false;
     }
+    this._updateErrorContext(null, null);
 
     const summary = state.summary;
 
@@ -1414,6 +1451,21 @@ class DashboardView {
     }
     if (this.errorMessage) {
       this.errorMessage.textContent = state.error?.message ?? "Unable to load dashboard.";
+    }
+    this._updateErrorContext(state.error?.detail ?? null, state.error?.category ?? null);
+  }
+
+  _updateErrorContext(detail, category) {
+    this._currentErrorDetail = typeof detail === 'string' ? detail : '';
+    if (this.copyButton) {
+      this.copyButton.disabled = !this._currentErrorDetail;
+    }
+    if (this.errorPanel) {
+      if (category) {
+        this.errorPanel.dataset.category = category;
+      } else {
+        delete this.errorPanel.dataset.category;
+      }
     }
   }
 }
