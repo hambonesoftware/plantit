@@ -1,3 +1,5 @@
+import { downloadExportBundle, importBundleFromFile } from './services/importExport.js';
+
 const searchParams = new URLSearchParams(window.location.search);
 const disableServiceWorkers = searchParams.get("no-sw") === "1";
 const explicitSafeBoot = searchParams.get("safe") === "1";
@@ -129,9 +131,9 @@ const onReady = () => {
       document.body.prepend(banner);
       root.style.marginTop = "1rem";
     }
-    root.textContent = "Plantit — Safe Shell";
+    mountShell(root, "Plantit — Safe Shell");
   } else {
-    root.textContent = "Plantit — Shell Ready";
+    mountShell(root, "Plantit — Shell Ready");
   }
   console.info("Boot: shell mounted");
 };
@@ -140,6 +142,85 @@ if (document.readyState === "loading") {
   window.addEventListener("DOMContentLoaded", onReady, { once: true });
 } else {
   onReady();
+}
+
+function mountShell(root, statusText) {
+  root.innerHTML = "";
+  const status = document.createElement("p");
+  status.id = "shell-status";
+  status.textContent = statusText;
+
+  const transferPanel = document.createElement("section");
+  transferPanel.id = "transfer-panel";
+
+  transferPanel.innerHTML = `
+    <h2>Data Transfer</h2>
+    <p class="panel-subtitle">Import bundles or download a backup.</p>
+    <div class="transfer-group">
+      <button id="import-button" type="button">Import Bundle</button>
+      <input id="import-file-input" type="file" accept="application/json" hidden />
+      <p id="import-status" class="status-text" role="status" aria-live="polite"></p>
+    </div>
+    <div class="transfer-group">
+      <button id="export-button" type="button">Download Export</button>
+      <p id="export-status" class="status-text" role="status" aria-live="polite"></p>
+    </div>
+  `;
+
+  root.append(status, transferPanel);
+  initializeImportExportControls(root);
+}
+
+function initializeImportExportControls(root) {
+  const importButton = root.querySelector("#import-button");
+  const importInput = root.querySelector("#import-file-input");
+  const importStatus = root.querySelector("#import-status");
+  const exportButton = root.querySelector("#export-button");
+  const exportStatus = root.querySelector("#export-status");
+
+  if (!importButton || !importInput || !importStatus || !exportButton || !exportStatus) {
+    console.warn("Boot: missing import/export controls");
+    return;
+  }
+
+  importButton.addEventListener("click", () => {
+    importStatus.textContent = "Choose a Plantit bundle (.json).";
+    importInput.click();
+  });
+
+  importInput.addEventListener("change", async () => {
+    if (!importInput.files || importInput.files.length === 0) {
+      importStatus.textContent = "No file selected.";
+      return;
+    }
+
+    const file = importInput.files[0];
+    importStatus.textContent = `Reading ${file.name}…`;
+
+    try {
+      await importBundleFromFile(file, (event) => {
+        importStatus.textContent = event.message;
+        console.info(`Import progress: ${event.stage}`, event);
+      });
+      importStatus.textContent = "Import preview complete. Ready for full app.";
+    } catch (error) {
+      console.error("Import bundle failed", error);
+      importStatus.textContent = error?.message || "Import failed.";
+    } finally {
+      importInput.value = "";
+    }
+  });
+
+  exportButton.addEventListener("click", async () => {
+    exportStatus.textContent = "Preparing export…";
+
+    try {
+      await downloadExportBundle(exportStatus);
+    } catch (error) {
+      console.error("Export bundle failed", error);
+      exportStatus.textContent = error?.message || "Export failed.";
+    }
+  });
 }
 
 export { safeBoot };

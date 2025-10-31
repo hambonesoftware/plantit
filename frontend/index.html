@@ -41,9 +41,80 @@
       }
       #app {
         margin-top: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        color: #1b3a57;
+      }
+
+      #shell-status {
+        margin: 0;
         font-weight: 600;
         font-size: 1.15rem;
-        color: #1b3a57;
+      }
+
+      #transfer-panel {
+        border-radius: 12px;
+        background: rgba(16, 44, 66, 0.08);
+        padding: 1.25rem;
+        text-align: left;
+      }
+
+      #transfer-panel h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.25rem;
+        color: #12324b;
+      }
+
+      .panel-subtitle {
+        margin: 0 0 1.25rem;
+        color: #3a5568;
+        font-weight: 500;
+      }
+
+      .transfer-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+
+      .transfer-group:last-of-type {
+        margin-bottom: 0;
+      }
+
+      button {
+        align-self: flex-start;
+        background: linear-gradient(135deg, #1e7a46, #2ba26f);
+        border: none;
+        border-radius: 999px;
+        color: #fff;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        padding: 0.6rem 1.35rem;
+        transition: transform 0.15s ease, box-shadow 0.2s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(31, 122, 70, 0.25);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      button:focus-visible {
+        outline: 3px solid rgba(43, 162, 111, 0.6);
+        outline-offset: 2px;
+      }
+
+      .status-text {
+        margin: 0;
+        min-height: 1.25rem;
+        font-size: 0.95rem;
+        color: #1c3d5a;
       }
     </style>
   </head>
