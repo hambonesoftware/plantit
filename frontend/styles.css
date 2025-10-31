@@ -32,6 +32,23 @@ p {
   color: #2f4858;
   font-size: 1.05rem;
 }
+
+img,
+picture,
+video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+img[data-loading='lazy'],
+picture[data-loading='lazy'] img {
+  filter: blur(0);
+  transition: filter 0.3s ease;
+}
+
 #app {
   margin-top: 1.5rem;
   display: flex;
