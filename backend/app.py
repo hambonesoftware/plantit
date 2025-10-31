@@ -11,6 +11,7 @@ from uuid import uuid4
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -35,8 +36,78 @@ class _CorrelationIdFilter(logging.Filter):
 
 LOGGER.addFilter(_CorrelationIdFilter())
 
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    """Return a boolean flag from environment variables."""
+
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in {"", "0", "false", "no", "off"}
+
+
+def _env_text(name: str, default: str) -> str:
+    """Return a sanitized string value from environment variables."""
+
+    value = os.getenv(name)
+    if value is None:
+        return default
+    cleaned = value.strip()
+    return cleaned or default
+
+
+def _env_int(name: str, default: int) -> int:
+    """Return an integer configuration value with fallback to default."""
+
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except ValueError:
+        return default
+    return parsed if parsed >= 0 else default
+
+
 APP_VERSION = os.getenv("PLANTIT_APP_VERSION", "0.0.0-dev")
 BUILD_HASH = os.getenv("PLANTIT_BUILD_HASH", "unknown")
+
+AUTH_ENABLED = _env_flag("PLANTIT_AUTH_ENABLED")
+AUTH_USERNAME = _env_text("PLANTIT_AUTH_USERNAME", "gardener")
+AUTH_PASSWORD = _env_text("PLANTIT_AUTH_PASSWORD", "sprout")
+SESSION_COOKIE_NAME = _env_text("PLANTIT_SESSION_COOKIE", "plantit_session")
+SESSION_COOKIE_MAX_AGE = _env_int("PLANTIT_SESSION_MAX_AGE", 60 * 60 * 24)
+SESSION_COOKIE_SECURE = _env_flag("PLANTIT_SESSION_COOKIE_SECURE")
+SECURITY_HEADERS_ENABLED = _env_flag("PLANTIT_ENABLE_CSP")
+
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": "".join(
+        [
+            "default-src 'self'; ",
+            "script-src 'self'; ",
+            "style-src 'self'; ",
+            "img-src 'self' data:; ",
+            "connect-src 'self'; ",
+            "font-src 'self'; ",
+            "object-src 'none'; ",
+            "base-uri 'self'; ",
+            "form-action 'self'; ",
+            "frame-ancestors 'none'",
+        ]
+    ),
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+}
+
+
+def _set_security_headers(response: Response) -> None:
+    """Apply security headers when the CSP toggle is enabled."""
+
+    if not SECURITY_HEADERS_ENABLED:
+        return
+    for header, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
 
 app = FastAPI(title="Plantit Backend")
 
@@ -66,6 +137,84 @@ def _bootstrap_once() -> None:
 _bootstrap_once()
 
 
+def _is_request_authenticated(request: Request) -> bool:
+    """Determine whether the incoming request holds a valid auth session."""
+
+    if not AUTH_ENABLED:
+        return True
+    cookie_value = request.cookies.get(SESSION_COOKIE_NAME)
+    return bool(cookie_value) and cookie_value == AUTH_USERNAME
+
+
+def require_authentication(request: Request) -> None:
+    """Dependency that enforces authentication for write paths."""
+
+    if not AUTH_ENABLED:
+        return
+    if not _is_request_authenticated(request):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
+        )
+
+
+def _auth_status_payload(
+    request: Request, *, authenticated: bool | None = None, username: str | None = None
+) -> Dict[str, Any]:
+    """Return the canonical authentication status payload."""
+
+    if not AUTH_ENABLED:
+        return {"authEnabled": False, "authenticated": True, "username": None}
+
+    if authenticated is None:
+        authenticated = _is_request_authenticated(request)
+        username = request.cookies.get(SESSION_COOKIE_NAME) if authenticated else None
+    elif authenticated:
+        username = username or request.cookies.get(SESSION_COOKIE_NAME)
+    else:
+        username = None
+
+    return {
+        "authEnabled": True,
+        "authenticated": authenticated,
+        "username": username,
+    }
+
+
+def _set_session_cookie(response: JSONResponse, username: str) -> None:
+    """Issue the dummy auth session cookie with secure defaults."""
+
+    if not AUTH_ENABLED:
+        return
+
+    cookie_value = username.strip()
+    if not cookie_value:
+        cookie_value = AUTH_USERNAME
+
+    cookie_options: Dict[str, Any] = {
+        "key": SESSION_COOKIE_NAME,
+        "value": cookie_value,
+        "max_age": SESSION_COOKIE_MAX_AGE or None,
+        "httponly": True,
+        "samesite": "lax",
+        "path": "/",
+    }
+    if SESSION_COOKIE_SECURE:
+        cookie_options["secure"] = True
+    response.set_cookie(**cookie_options)
+
+
+def _clear_session_cookie(response: JSONResponse) -> None:
+    """Expire the dummy auth session cookie."""
+
+    response.delete_cookie(
+        SESSION_COOKIE_NAME,
+        path="/",
+        samesite="lax",
+        secure=SESSION_COOKIE_SECURE,
+        httponly=True,
+    )
+
+
 @app.middleware("http")
 async def _inject_correlation_id(request: Request, call_next):
     incoming = request.headers.get("X-Correlation-ID")
@@ -93,6 +242,13 @@ async def _inject_correlation_id(request: Request, call_next):
         return response
     finally:
         _CORRELATION_ID.reset(token)
+
+
+@app.middleware("http")
+async def _apply_security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    _set_security_headers(response)
+    return response
 
 
 @app.on_event("startup")
@@ -125,6 +281,7 @@ async def _http_exception_handler(request: Request, exc: HTTPException) -> JSONR
     finally:
         _CORRELATION_ID.reset(token)
     response.headers["X-Correlation-ID"] = correlation_id
+    _set_security_headers(response)
     return response
 
 
@@ -142,6 +299,7 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
     finally:
         _CORRELATION_ID.reset(token)
     response.headers["X-Correlation-ID"] = correlation_id
+    _set_security_headers(response)
     return response
 
 
@@ -225,6 +383,24 @@ def _assert_plant_version(plant: models.Plant, expected: datetime) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="Plant has been modified. Refresh and retry.",
         )
+
+
+class AuthStatusResponse(BaseModel):
+    """Shape for authentication status responses returned to the SPA."""
+
+    authEnabled: bool = Field(..., description="Whether authentication is enforced")
+    authenticated: bool = Field(..., description="True when the active session is authenticated")
+    username: str | None = Field(
+        default=None,
+        description="Identifier for the authenticated user when available",
+    )
+
+
+class LoginRequest(BaseModel):
+    """Credential payload for the dummy login flow."""
+
+    username: str = Field(..., min_length=1, max_length=64)
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 class VillageBaseModel(BaseModel):
@@ -354,6 +530,56 @@ def get_hello() -> Dict[str, str]:
     return {"message": "Hello, Plantit"}
 
 
+@app.get("/api/auth/status", tags=["Auth"], response_model=AuthStatusResponse)
+async def get_auth_status(request: Request) -> AuthStatusResponse:
+    """Expose the current authentication status to the SPA."""
+
+    payload = _auth_status_payload(request)
+    return AuthStatusResponse(**payload)
+
+
+@app.post("/api/auth/login", tags=["Auth"], response_model=AuthStatusResponse)
+async def login(request: Request, credentials: LoginRequest) -> JSONResponse:
+    """Authenticate the dummy user and issue the session cookie."""
+
+    if not AUTH_ENABLED:
+        response = JSONResponse(content=_auth_status_payload(request, authenticated=True))
+        _set_security_headers(response)
+        return response
+
+    username = credentials.username.strip()
+    password = credentials.password
+
+    if username != AUTH_USERNAME or password != AUTH_PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
+
+    payload = _auth_status_payload(request, authenticated=True, username=username)
+    response = JSONResponse(content=payload)
+    _set_session_cookie(response, username)
+    _set_security_headers(response)
+    # TODO: Add CSRF protection when multi-user support is introduced.
+    return response
+
+
+@app.post("/api/auth/logout", tags=["Auth"], response_model=AuthStatusResponse)
+async def logout(request: Request) -> JSONResponse:
+    """Clear the dummy auth session and return the updated status."""
+
+    if not AUTH_ENABLED:
+        response = JSONResponse(content=_auth_status_payload(request, authenticated=True))
+        _set_security_headers(response)
+        return response
+
+    payload = _auth_status_payload(request, authenticated=False)
+    response = JSONResponse(content=payload)
+    _clear_session_cookie(response)
+    _set_security_headers(response)
+    return response
+
+
 @app.get("/api/dashboard", tags=["Dashboard"])
 def get_dashboard(session: Session = Depends(get_session)) -> Dict[str, Any]:
     """Return summary metrics and alerts for the dashboard cards."""
@@ -446,7 +672,9 @@ def list_village_plants(village_id: str, session: Session = Depends(get_session)
 
 @app.post("/api/villages", tags=["Villages"], status_code=status.HTTP_201_CREATED)
 def create_village(
-    payload: VillageCreateRequest, session: Session = Depends(get_session)
+    payload: VillageCreateRequest,
+    _: None = Depends(require_authentication),
+    session: Session = Depends(get_session),
 ) -> Dict[str, Any]:
     """Create a new village record."""
 
@@ -470,6 +698,7 @@ def create_village(
 def update_village(
     village_id: str,
     payload: VillageUpdateRequest,
+    _: None = Depends(require_authentication),
     session: Session = Depends(get_session),
 ) -> Dict[str, Any]:
     """Update an existing village with optimistic concurrency checking."""
@@ -501,6 +730,7 @@ def update_village(
 def delete_village(
     village_id: str,
     payload: VillageDeleteRequest = Body(...),
+    _: None = Depends(require_authentication),
     session: Session = Depends(get_session),
 ) -> Dict[str, Any]:
     """Delete a village when the client holds the latest version token."""
@@ -544,7 +774,9 @@ def get_plant(plant_id: str, session: Session = Depends(get_session)) -> Dict[st
 
 @app.post("/api/plants", tags=["Plants"], status_code=status.HTTP_201_CREATED)
 def create_plant(
-    payload: PlantCreateRequest, session: Session = Depends(get_session)
+    payload: PlantCreateRequest,
+    _: None = Depends(require_authentication),
+    session: Session = Depends(get_session),
 ) -> Dict[str, Any]:
     """Create a plant within the specified village."""
 
@@ -586,6 +818,7 @@ def create_plant(
 def update_plant(
     plant_id: str,
     payload: PlantUpdateRequest,
+    _: None = Depends(require_authentication),
     session: Session = Depends(get_session),
 ) -> Dict[str, Any]:
     """Update an existing plant with optimistic concurrency."""
@@ -629,6 +862,7 @@ def update_plant(
 def delete_plant(
     plant_id: str,
     payload: PlantDeleteRequest = Body(...),
+    _: None = Depends(require_authentication),
     session: Session = Depends(get_session),
 ) -> Dict[str, Any]:
     """Remove a plant, returning the updated village summary."""
@@ -690,7 +924,9 @@ def get_today_tasks(session: Session = Depends(get_session)) -> Dict[str, Any]:
 
 
 @app.post("/api/import", tags=["Import/Export"], status_code=status.HTTP_202_ACCEPTED)
-def post_import_bundle(bundle: Dict[str, Any]) -> Dict[str, Any]:
+def post_import_bundle(
+    bundle: Dict[str, Any], _: None = Depends(require_authentication)
+) -> Dict[str, Any]:
     """Accept an import preview payload for future processing."""
 
     schema_version = bundle.get("schemaVersion")
