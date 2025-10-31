@@ -1,3 +1,4 @@
+import { DashboardViewModel } from './dashboard/viewModel.js';
 import { downloadExportBundle, importBundleFromFile } from './services/importExport.js';
 
 const searchParams = new URLSearchParams(window.location.search);
@@ -131,9 +132,9 @@ const onReady = () => {
       document.body.prepend(banner);
       root.style.marginTop = "1rem";
     }
-    mountShell(root, "Plantit — Safe Shell");
+    mountShell(root, { statusText: "Plantit — Safe Shell", safeMode: true });
   } else {
-    mountShell(root, "Plantit — Shell Ready");
+    mountShell(root, { statusText: "Plantit — Shell Ready", safeMode: false });
   }
   console.info("Boot: shell mounted");
 };
@@ -144,30 +145,25 @@ if (document.readyState === "loading") {
   onReady();
 }
 
-function mountShell(root, statusText) {
+function mountShell(root, { statusText, safeMode }) {
   root.innerHTML = "";
   const status = document.createElement("p");
   status.id = "shell-status";
   status.textContent = statusText;
 
-  const transferPanel = document.createElement("section");
-  transferPanel.id = "transfer-panel";
+  root.append(status);
 
-  transferPanel.innerHTML = `
-    <h2>Data Transfer</h2>
-    <p class="panel-subtitle">Import bundles or download a backup.</p>
-    <div class="transfer-group">
-      <button id="import-button" type="button">Import Bundle</button>
-      <input id="import-file-input" type="file" accept="application/json" hidden />
-      <p id="import-status" class="status-text" role="status" aria-live="polite"></p>
-    </div>
-    <div class="transfer-group">
-      <button id="export-button" type="button">Download Export</button>
-      <p id="export-status" class="status-text" role="status" aria-live="polite"></p>
-    </div>
-  `;
+  if (!safeMode) {
+    const dashboardSection = buildDashboardSection();
+    root.append(dashboardSection);
+    const dashboardViewModel = new DashboardViewModel();
+    new DashboardView(dashboardSection, dashboardViewModel);
+    dashboardViewModel.load();
+  }
 
-  root.append(status, transferPanel);
+  const transferPanel = buildTransferPanel();
+  root.append(transferPanel);
+
   initializeImportExportControls(root);
 }
 
@@ -221,6 +217,319 @@ function initializeImportExportControls(root) {
       exportStatus.textContent = error?.message || "Export failed.";
     }
   });
+}
+
+function buildTransferPanel() {
+  const transferPanel = document.createElement("section");
+  transferPanel.id = "transfer-panel";
+  transferPanel.innerHTML = `
+    <h2>Data Transfer</h2>
+    <p class="panel-subtitle">Import bundles or download a backup.</p>
+    <div class="transfer-group">
+      <button id="import-button" type="button">Import Bundle</button>
+      <input id="import-file-input" type="file" accept="application/json" hidden />
+      <p id="import-status" class="status-text" role="status" aria-live="polite"></p>
+    </div>
+    <div class="transfer-group">
+      <button id="export-button" type="button">Download Export</button>
+      <p id="export-status" class="status-text" role="status" aria-live="polite"></p>
+    </div>
+  `;
+  return transferPanel;
+}
+
+const DASHBOARD_CARD_CONFIG = [
+  { key: "totalPlants", label: "Total Plants" },
+  { key: "activeVillages", label: "Active Villages" },
+  {
+    key: "successRate",
+    label: "Avg Health Score",
+    formatter: (value) => `${Math.round(Math.max(0, Math.min(1, value ?? 0)) * 100)}%`,
+  },
+  { key: "upcomingTasks", label: "Upcoming Tasks" },
+];
+
+function buildDashboardSection() {
+  const section = document.createElement("section");
+  section.id = "dashboard-panel";
+
+  const header = document.createElement("div");
+  header.className = "dashboard-header";
+
+  const heading = document.createElement("h2");
+  heading.textContent = "Dashboard";
+
+  const updated = document.createElement("p");
+  updated.className = "dashboard-updated";
+  updated.setAttribute("role", "status");
+  updated.setAttribute("aria-live", "polite");
+  updated.textContent = "Loading dashboard…";
+
+  header.append(heading, updated);
+
+  const content = document.createElement("div");
+  content.className = "dashboard-content";
+
+  const cards = document.createElement("div");
+  cards.className = "dashboard-cards";
+
+  for (const cardConfig of DASHBOARD_CARD_CONFIG) {
+    const card = document.createElement("article");
+    card.className = "dashboard-card";
+    card.dataset.cardKey = cardConfig.key;
+
+    const label = document.createElement("span");
+    label.className = "dashboard-card-label";
+    label.textContent = cardConfig.label;
+
+    const value = document.createElement("span");
+    value.className = "dashboard-card-value";
+    value.dataset.placeholder = "true";
+    value.textContent = "\u00A0";
+
+    card.append(label, value);
+    cards.append(card);
+  }
+
+  const alerts = document.createElement("div");
+  alerts.className = "dashboard-alerts";
+
+  const alertsHeading = document.createElement("h3");
+  alertsHeading.textContent = "Alerts";
+
+  const alertList = document.createElement("ul");
+  alertList.className = "dashboard-alert-list";
+  alertList.setAttribute("aria-live", "polite");
+
+  const emptyState = document.createElement("p");
+  emptyState.className = "dashboard-alert-empty";
+  emptyState.textContent = "All clear. No alerts right now.";
+  emptyState.hidden = true;
+
+  alerts.append(alertsHeading, alertList, emptyState);
+
+  content.append(cards, alerts);
+
+  const errorPanel = document.createElement("div");
+  errorPanel.className = "dashboard-error";
+  errorPanel.setAttribute("role", "alert");
+  errorPanel.hidden = true;
+
+  const errorMessage = document.createElement("p");
+  errorMessage.className = "dashboard-error-message";
+  errorMessage.textContent = "Unable to load dashboard.";
+
+  const retryButton = document.createElement("button");
+  retryButton.className = "dashboard-retry-button";
+  retryButton.type = "button";
+  retryButton.textContent = "Retry";
+
+  errorPanel.append(errorMessage, retryButton);
+
+  section.append(header, content, errorPanel);
+
+  return section;
+}
+
+class DashboardView {
+  constructor(section, viewModel) {
+    this.section = section;
+    this.viewModel = viewModel;
+    this.updated = section.querySelector(".dashboard-updated");
+    this.content = section.querySelector(".dashboard-content");
+    this.cards = new Map();
+
+    section.querySelectorAll(".dashboard-card").forEach((card) => {
+      const key = card.dataset.cardKey;
+      const value = card.querySelector(".dashboard-card-value");
+      if (key && value) {
+        this.cards.set(key, value);
+      }
+    });
+
+    this.alertList = section.querySelector(".dashboard-alert-list");
+    this.alertEmpty = section.querySelector(".dashboard-alert-empty");
+    this.errorPanel = section.querySelector(".dashboard-error");
+    this.errorMessage = section.querySelector(".dashboard-error-message");
+    this.retryButton = section.querySelector(".dashboard-retry-button");
+
+    if (this.retryButton) {
+      this.retryButton.addEventListener("click", () => {
+        this.viewModel.retry();
+      });
+    }
+
+    this.unsubscribe = this.viewModel.subscribe((state) => {
+      this.render(state);
+    });
+  }
+
+  render(state) {
+    this.section.dataset.status = state.status;
+    switch (state.status) {
+      case "idle":
+      case "loading":
+        this.renderLoading();
+        break;
+      case "ready":
+        this.renderReady(state);
+        break;
+      case "error":
+        this.renderError(state);
+        break;
+      default:
+        break;
+    }
+  }
+
+  renderLoading() {
+    if (this.errorPanel) {
+      this.errorPanel.hidden = true;
+    }
+    if (this.content) {
+      this.content.hidden = false;
+    }
+    if (this.updated) {
+      this.updated.textContent = "Loading dashboard…";
+    }
+    for (const value of this.cards.values()) {
+      value.dataset.placeholder = "true";
+      value.textContent = "\u00A0";
+    }
+    if (this.alertList) {
+      this.alertList.replaceChildren(...createAlertPlaceholders());
+    }
+    if (this.alertEmpty) {
+      this.alertEmpty.hidden = true;
+    }
+  }
+
+  renderReady(state) {
+    if (this.errorPanel) {
+      this.errorPanel.hidden = true;
+    }
+    if (this.content) {
+      this.content.hidden = false;
+    }
+
+    const summary = state.summary;
+
+    for (const [key, element] of this.cards.entries()) {
+      if (summary && key in summary && typeof summary[key] === "number") {
+        const formatter = DASHBOARD_CARD_CONFIG.find((item) => item.key === key)?.formatter;
+        element.textContent = formatter
+          ? formatter(summary[key])
+          : Number(summary[key]).toLocaleString();
+        delete element.dataset.placeholder;
+      } else {
+        element.dataset.placeholder = "true";
+        element.textContent = "\u00A0";
+      }
+    }
+
+    if (this.updated) {
+      this.updated.textContent = formatLastUpdated(state.lastUpdated);
+    }
+
+    if (this.alertList) {
+      if (state.alerts.length === 0) {
+        this.alertList.replaceChildren();
+        if (this.alertEmpty) {
+          this.alertEmpty.hidden = false;
+        }
+      } else {
+        const alertItems = state.alerts.map((alert) => createAlertListItem(alert));
+        this.alertList.replaceChildren(...alertItems);
+        if (this.alertEmpty) {
+          this.alertEmpty.hidden = true;
+        }
+      }
+    }
+  }
+
+  renderError(state) {
+    if (this.content) {
+      this.content.hidden = true;
+    }
+    if (this.errorPanel) {
+      this.errorPanel.hidden = false;
+    }
+    if (this.alertEmpty) {
+      this.alertEmpty.hidden = true;
+    }
+    if (this.alertList) {
+      this.alertList.replaceChildren();
+    }
+    if (this.updated) {
+      this.updated.textContent = "Dashboard unavailable";
+    }
+    if (this.errorMessage) {
+      this.errorMessage.textContent = state.error?.message ?? "Unable to load dashboard.";
+    }
+  }
+}
+
+function createAlertPlaceholders() {
+  return [1, 2].map(() => {
+    const item = document.createElement("li");
+    item.className = "dashboard-alert-item";
+
+    const badge = document.createElement("span");
+    badge.className = "dashboard-alert-badge";
+    badge.dataset.placeholder = "true";
+    badge.textContent = "\u00A0";
+
+    const message = document.createElement("p");
+    message.className = "dashboard-alert-message";
+    message.dataset.placeholder = "true";
+    message.textContent = "\u00A0";
+
+    item.append(badge, message);
+    return item;
+  });
+}
+
+function createAlertListItem(alert) {
+  const item = document.createElement("li");
+  item.className = "dashboard-alert-item";
+
+  const badge = document.createElement("span");
+  badge.className = `dashboard-alert-badge level-${sanitizeLevel(alert.level)}`;
+  badge.textContent = formatAlertLevel(alert.level);
+
+  const message = document.createElement("p");
+  message.className = "dashboard-alert-message";
+  message.textContent = alert.message;
+
+  if (alert.relatedPlantId) {
+    message.dataset.relatedPlantId = alert.relatedPlantId;
+  }
+
+  item.append(badge, message);
+  return item;
+}
+
+function sanitizeLevel(level) {
+  if (level === "critical" || level === "warning" || level === "info") {
+    return level;
+  }
+  return "info";
+}
+
+function formatAlertLevel(level) {
+  const normalized = sanitizeLevel(level);
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatLastUpdated(timestamp) {
+  if (!timestamp) {
+    return "Updated just now";
+  }
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Updated just now";
+  }
+  return `Updated ${parsed.toLocaleString()}`;
 }
 
 export { safeBoot };
