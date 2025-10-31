@@ -1,18 +1,58 @@
-import { DashboardViewModel, TodayPanelViewModel } from './dashboard/viewModel.js';
-import { TodayPanel } from './dashboard/todayPanel.js';
-import { downloadExportBundle, importBundleFromFile } from './services/importExport.js';
-import { VillageDetailView } from './villages/detailView.js';
-import {
-  VillageDetailViewModel,
-  VillageListViewModel,
-  VillagePlantListViewModel,
-} from './villages/viewModels.js';
-import { VillageListView } from './villages/listView.js';
-import { PlantListView } from './villages/plantListView.js';
-import { copyDiagnosticsToClipboard } from './services/diagnostics.js';
 import { createToastHost, registerToastHost, showToast } from './services/toast.js';
 import { HttpError, NetworkError } from './services/api.js';
 import { fetchAuthStatus, login as loginRequest, logout as logoutRequest } from './services/auth.js';
+
+let dashboardModulesPromise;
+let villagesModulesPromise;
+let importExportModulePromise;
+let diagnosticsModulePromise;
+
+function loadDashboardModules() {
+  if (!dashboardModulesPromise) {
+    dashboardModulesPromise = Promise.all([
+      import('./dashboard/viewModel.js'),
+      import('./dashboard/todayPanel.js'),
+    ]).then(([viewModels, todayPanelModule]) => ({
+      DashboardViewModel: viewModels.DashboardViewModel,
+      TodayPanelViewModel: viewModels.TodayPanelViewModel,
+      TodayPanel: todayPanelModule.TodayPanel,
+    }));
+  }
+  return dashboardModulesPromise;
+}
+
+function loadVillagesModules() {
+  if (!villagesModulesPromise) {
+    villagesModulesPromise = Promise.all([
+      import('./villages/detailView.js'),
+      import('./villages/listView.js'),
+      import('./villages/plantListView.js'),
+      import('./villages/viewModels.js'),
+    ]).then(([detailView, listView, plantListView, viewModels]) => ({
+      VillageDetailView: detailView.VillageDetailView,
+      VillageListView: listView.VillageListView,
+      PlantListView: plantListView.PlantListView,
+      VillageDetailViewModel: viewModels.VillageDetailViewModel,
+      VillageListViewModel: viewModels.VillageListViewModel,
+      VillagePlantListViewModel: viewModels.VillagePlantListViewModel,
+    }));
+  }
+  return villagesModulesPromise;
+}
+
+function loadImportExportModule() {
+  if (!importExportModulePromise) {
+    importExportModulePromise = import('./services/importExport.js');
+  }
+  return importExportModulePromise;
+}
+
+function loadDiagnosticsModule() {
+  if (!diagnosticsModulePromise) {
+    diagnosticsModulePromise = import('./services/diagnostics.js');
+  }
+  return diagnosticsModulePromise;
+}
 
 const searchParams = new URLSearchParams(window.location.search);
 const disableServiceWorkers = searchParams.get("no-sw") === "1";
@@ -471,6 +511,33 @@ function mountShell(root, { statusText, safeMode }) {
 
     contentHost.append(dashboardSection, villagesSection);
 
+    void hydrateMainPanels({
+      navigation,
+      dashboardSection,
+      villagesSection,
+    });
+  }
+
+  const transferPanel = buildTransferPanel();
+  root.append(transferPanel);
+
+  initializeImportExportControls(root);
+}
+
+async function hydrateMainPanels({ navigation, dashboardSection, villagesSection }) {
+  try {
+    const [{ DashboardViewModel, TodayPanelViewModel, TodayPanel }, villagesModules] =
+      await Promise.all([loadDashboardModules(), loadVillagesModules()]);
+
+    const {
+      VillageDetailView,
+      VillageListView,
+      PlantListView,
+      VillageDetailViewModel,
+      VillageListViewModel,
+      VillagePlantListViewModel,
+    } = villagesModules;
+
     const dashboardViewModel = new DashboardViewModel();
     new DashboardView(dashboardSection, dashboardViewModel);
     dashboardViewModel.load();
@@ -485,6 +552,7 @@ function mountShell(root, { statusText, safeMode }) {
     const listRoot = villagesSection.querySelector('[data-role="village-list-root"]');
     const detailRoot = villagesSection.querySelector('[data-role="village-detail-root"]');
     const plantListRoot = villagesSection.querySelector('[data-role="plant-list-root"]');
+
     const villageDetailViewModel = new VillageDetailViewModel();
     let villagePlantListViewModel;
     const villageListViewModel = new VillageListViewModel({
@@ -501,6 +569,7 @@ function mountShell(root, { statusText, safeMode }) {
         }
       },
     });
+
     villagePlantListViewModel = new VillagePlantListViewModel({
       onVillageUpdate: (village) => {
         villageListViewModel.applyExternalVillage(village);
@@ -509,13 +578,13 @@ function mountShell(root, { statusText, safeMode }) {
     });
 
     if (!listRoot || !detailRoot || !plantListRoot) {
-      console.warn("Boot: villages panel missing expected subtrees");
+      console.warn('Boot: villages panel missing expected subtrees');
     }
 
     if (listRoot) {
       new VillageListView(listRoot, villageListViewModel, {
         onSelect: (villageId) => {
-          const targetHash = villageId ? `#villages/${encodeURIComponent(villageId)}` : "#villages";
+          const targetHash = villageId ? `#villages/${encodeURIComponent(villageId)}` : '#villages';
           if (window.location.hash !== targetHash) {
             window.location.hash = targetHash;
           }
@@ -526,8 +595,8 @@ function mountShell(root, { statusText, safeMode }) {
     if (detailRoot) {
       new VillageDetailView(detailRoot, villageDetailViewModel, {
         onBack: () => {
-          if (window.location.hash !== "#villages") {
-            window.location.hash = "#villages";
+          if (window.location.hash !== '#villages') {
+            window.location.hash = '#villages';
           } else {
             villageDetailViewModel.clear();
           }
@@ -544,11 +613,13 @@ function mountShell(root, { statusText, safeMode }) {
       detailViewModel: villageDetailViewModel,
       plantListViewModel: villagePlantListViewModel,
     });
+
     setupVillageDetailEditor(detailRoot, {
       listViewModel: villageListViewModel,
       detailViewModel: villageDetailViewModel,
       plantListViewModel: villagePlantListViewModel,
     });
+
     setupPlantForm(plantListRoot, {
       plantListViewModel: villagePlantListViewModel,
     });
@@ -565,12 +636,10 @@ function mountShell(root, { statusText, safeMode }) {
       });
     });
     router.start();
+  } catch (error) {
+    console.error('Boot: failed to hydrate main panels', error);
+    showToast({ message: 'Interactive modules failed to load. Refresh to retry.', tone: 'warning' });
   }
-
-  const transferPanel = buildTransferPanel();
-  root.append(transferPanel);
-
-  initializeImportExportControls(root);
 }
 
 function buildMainNavigation() {
@@ -1407,6 +1476,7 @@ function initializeImportExportControls(root) {
     importStatus.textContent = `Reading ${file.name}…`;
 
     try {
+      const { importBundleFromFile } = await loadImportExportModule();
       await importBundleFromFile(file, (event) => {
         importStatus.textContent = event.message;
         console.info(`Import progress: ${event.stage}`, event);
@@ -1424,6 +1494,7 @@ function initializeImportExportControls(root) {
     exportStatus.textContent = "Preparing export…";
 
     try {
+      const { downloadExportBundle } = await loadImportExportModule();
       await downloadExportBundle(exportStatus);
     } catch (error) {
       console.error("Export bundle failed", error);
@@ -1613,11 +1684,17 @@ class DashboardView {
 
     if (this.copyButton) {
       this.copyButton.addEventListener("click", async () => {
-        const success = await copyDiagnosticsToClipboard(this._currentErrorDetail);
-        if (success) {
-          showToast({ message: "Error details copied to clipboard.", tone: "success" });
-        } else {
-          showToast({ message: "Unable to copy error details. Copy manually if needed.", tone: "warning" });
+        try {
+          const { copyDiagnosticsToClipboard } = await loadDiagnosticsModule();
+          const success = await copyDiagnosticsToClipboard(this._currentErrorDetail);
+          if (success) {
+            showToast({ message: "Error details copied to clipboard.", tone: "success" });
+          } else {
+            showToast({ message: "Unable to copy error details. Copy manually if needed.", tone: "warning" });
+          }
+        } catch (error) {
+          console.error('Dashboard: failed to load diagnostics helper', error);
+          showToast({ message: "Diagnostics helper unavailable. Copy manually if needed.", tone: "warning" });
         }
       });
     }
