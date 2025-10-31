@@ -26,6 +26,7 @@ def _summary_for_village(village: Dict[str, object], *, plant_count: int) -> Dic
         "climate": village["climate"],
         "plantCount": plant_count,
         "healthScore": village["health_score"],
+        "updatedAt": village.get("updated_at", "2024-04-12T08:30:00Z"),
     }
 
 
@@ -37,6 +38,8 @@ def _plant_payload(plant: Dict[str, object]) -> Dict[str, object]:
         "stage": plant["stage"],
         "lastWateredAt": plant["last_watered_at"],
         "healthScore": plant["health_score"],
+        "notes": plant.get("notes"),
+        "updatedAt": plant.get("updated_at", "2024-04-12T08:30:00Z"),
     }
 
 
@@ -76,10 +79,12 @@ PLANT_DETAIL_BY_ID: Dict[str, Dict[str, object]] = {
         "id": plant["id"],
         "displayName": plant["display_name"],
         "species": plant["species"],
+        "villageId": plant["village_id"],
         "villageName": _village_name_by_id[plant["village_id"]],
         "lastWateredAt": plant["last_watered_at"],
         "healthScore": plant["health_score"],
         "notes": plant["notes"],
+        "updatedAt": plant.get("updated_at", "2024-04-12T08:30:00Z"),
     }
     for plant in seed_content.PLANTS
 }
@@ -136,23 +141,17 @@ EXPORT_BUNDLE = {
     "payload": {
         "villages": [
             {
-                "id": village["id"],
-                "name": village["name"],
-                "climate": village["climate"],
-                "plantCount": len(_plants_by_village.get(village["id"], ())),
-                "healthScore": village["health_score"],
+                **_summary_for_village(
+                    village, plant_count=len(_plants_by_village.get(village["id"], ()))
+                ),
                 "establishedAt": village["established_at"],
             }
             for village in seed_content.VILLAGES
         ],
         "plants": [
             {
-                "id": plant["id"],
-                "displayName": plant["display_name"],
-                "species": plant["species"],
+                **_plant_payload(plant),
                 "villageId": plant["village_id"],
-                "lastWateredAt": plant["last_watered_at"],
-                "healthScore": plant["health_score"],
             }
             for plant in seed_content.PLANTS
         ],

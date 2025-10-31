@@ -210,6 +210,15 @@ function createPlantListItem(plant) {
   const item = document.createElement('li');
   item.className = 'village-plants-item';
   item.dataset.plantId = plant.id;
+  item.dataset.updatedAt = plant.updatedAt || '';
+  item.dataset.stage = plant.stage;
+  item.dataset.healthScore = String(plant.healthScore ?? '');
+  item.dataset.lastWateredAt = plant.lastWateredAt || '';
+  if ('notes' in plant) {
+    item.dataset.notes = plant.notes ?? '';
+  }
+  item.dataset.displayName = plant.displayName;
+  item.dataset.species = plant.species;
 
   const header = document.createElement('div');
   header.className = 'village-plants-item-header';
@@ -232,7 +241,18 @@ function createPlantListItem(plant) {
   meta.className = 'village-plants-item-meta';
   meta.textContent = `Last watered ${formatDateTime(plant.lastWateredAt)} • Health ${formatHealthScore(plant.healthScore)}`;
 
-  item.append(header, species, meta);
+  const actions = document.createElement('div');
+  actions.className = 'village-plants-item-actions';
+
+  const editButton = document.createElement('button');
+  editButton.type = 'button';
+  editButton.className = 'village-plants-item-edit';
+  editButton.dataset.action = 'plant-edit';
+  editButton.textContent = 'Edit';
+
+  actions.append(editButton);
+
+  item.append(header, species, meta, actions);
   return item;
 }
 
