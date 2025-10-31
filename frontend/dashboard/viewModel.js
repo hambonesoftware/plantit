@@ -1,14 +1,7 @@
-import { fetchDashboard, fetchTodayTasks, HttpError, NetworkError } from '../services/api.js';
+import { describeApiError, fetchDashboard, fetchTodayTasks } from '../services/api.js';
 
 /**
  * @typedef {'idle'|'loading'|'ready'|'error'} DashboardStatus
- */
-
-/**
- * @typedef {Object} DashboardErrorState
- * @property {string} message
- * @property {'network'|'http'|'unknown'} type
- * @property {Error} [cause]
  */
 
 /**
@@ -17,7 +10,7 @@ import { fetchDashboard, fetchTodayTasks, HttpError, NetworkError } from '../ser
  * @property {import('../services/api.js').DashboardSummary | null} summary
  * @property {import('../services/api.js').DashboardAlert[]} alerts
  * @property {string | null} lastUpdated
- * @property {DashboardErrorState | null} error
+ * @property {import('../services/api.js').ErrorDescriptor | null} error
  */
 
 /**
@@ -116,30 +109,12 @@ export class DashboardViewModel {
 
   /**
    * @param {unknown} error
-   * @returns {DashboardErrorState}
+   * @returns {import('../services/api.js').ErrorDescriptor}
    */
   _normalizeError(error) {
-    if (error instanceof NetworkError) {
-      return {
-        type: 'network',
-        message: 'Unable to reach Plantit right now. Check your connection and try again.',
-        cause: error,
-      };
-    }
-
-    if (error instanceof HttpError) {
-      return {
-        type: 'http',
-        message: `Plantit responded with an unexpected status (HTTP ${error.status}). Please retry shortly.`,
-        cause: error,
-      };
-    }
-
-    return {
-      type: 'unknown',
-      message: 'Something went wrong while loading the dashboard. Please try again.',
-      cause: error instanceof Error ? error : undefined,
-    };
+    return describeApiError(error, {
+      operation: 'Load dashboard summary',
+    });
   }
 }
 
@@ -148,19 +123,12 @@ export class DashboardViewModel {
  */
 
 /**
- * @typedef {Object} TodayPanelErrorState
- * @property {'network'|'http'|'unknown'} type
- * @property {string} message
- * @property {Error} [cause]
- */
-
-/**
  * @typedef {Object} TodayPanelState
  * @property {TodayPanelStatus} status
  * @property {import('../services/api.js').DailyTask[]} tasks
  * @property {string | null} emptyMessage
  * @property {string | null} lastUpdated
- * @property {TodayPanelErrorState | null} error
+ * @property {import('../services/api.js').ErrorDescriptor | null} error
  */
 
 export class TodayPanelViewModel {
@@ -271,24 +239,9 @@ export class TodayPanelViewModel {
   }
 
   _normalizeError(error) {
-    if (error instanceof NetworkError) {
-      return {
-        type: 'network',
-        message: 'Unable to reach Plantit. Check your connection and try again.',
-        cause: error,
-      };
-    }
-    if (error instanceof HttpError) {
-      return {
-        type: 'http',
-        message: `Plantit responded with HTTP ${error.status}. Please retry shortly.`,
-        cause: error,
-      };
-    }
-    return {
-      type: 'unknown',
-      message: 'Something went wrong while loading today\'s tasks. Please try again.',
-      cause: error instanceof Error ? error : undefined,
-    };
+    return describeApiError(error, {
+      operation: "Load today's tasks",
+      userMessage: "We couldn't load today's tasks. Refresh the page and try again.",
+    });
   }
 }

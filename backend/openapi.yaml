@@ -373,7 +373,7 @@ components:
   schemas:
     HealthResponse:
       type: object
-      required: [status, checks]
+      required: [status, checks, version, build]
       properties:
         status:
           type: string
@@ -384,6 +384,14 @@ components:
             type: string
           example:
             db: ok
+        version:
+          type: string
+          example: 0.0.0-dev
+          description: Application semantic version.
+        build:
+          type: string
+          example: abcdef123456
+          description: Source control hash for the deployed build.
     HelloResponse:
       type: object
       required: [message]

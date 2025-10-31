@@ -52,12 +52,14 @@ export class HttpError extends ApiError {
   /**
    * @param {number} status
    * @param {Response} response
-   * @param {{ correlationId?: string }} [options]
+   * @param {{ correlationId?: string, body?: any }} [options]
    */
   constructor(status, response, options = {}) {
-    super(`HTTP ${status}`, { ...options, cause: response });
+    const { correlationId, body } = options;
+    super(`HTTP ${status}`, { correlationId, cause: response });
     this.status = status;
     this.response = response;
+    this.body = body;
   }
 }
 
@@ -132,7 +134,8 @@ export async function request(path, options = {}) {
   clearTimeout(timeoutId);
 
   if (!response.ok) {
-    throw new HttpError(response.status, response, { correlationId });
+    const errorBody = await readErrorBody(response);
+    throw new HttpError(response.status, response, { correlationId, body: errorBody });
   }
 
   try {
@@ -158,6 +161,219 @@ function resolveUrl(path) {
     return path;
   }
   return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+async function readErrorBody(response) {
+  try {
+    const clone = response.clone();
+    const text = await clone.text();
+    if (!text) {
+      return null;
+    }
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      return text;
+    }
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * @typedef {'UserError'|'NetworkError'|'ServerError'} ErrorCategory
+ */
+
+/**
+ * @typedef {Object} ErrorDescriptor
+ * @property {ErrorCategory} category
+ * @property {string} message
+ * @property {string} detail
+ * @property {string | null} correlationId
+ * @property {number | null} status
+ * @property {Error | undefined} cause
+ */
+
+/**
+ * Normalize thrown errors into user-facing descriptors with diagnostic text.
+ *
+ * @param {unknown} error
+ * @param {{
+ *   operation?: string,
+ *   userMessage?: string,
+ *   serverMessage?: string,
+ *   networkMessage?: string,
+ *   defaultMessage?: string,
+ * }} [options]
+ * @returns {ErrorDescriptor}
+ */
+export function describeApiError(error, options = {}) {
+  const {
+    operation = 'Plantit request',
+    userMessage,
+    serverMessage,
+    networkMessage,
+    defaultMessage,
+  } = options ?? {};
+  const correlationId =
+    error instanceof ApiError && typeof error.correlationId === 'string' ? error.correlationId : null;
+  const cause = error instanceof Error ? error : undefined;
+
+  if (error instanceof NetworkError) {
+    const message =
+      networkMessage ??
+      'We cannot reach Plantit right now. Check your internet connection and try again.';
+    return {
+      category: 'NetworkError',
+      message,
+      detail: _buildDiagnosticDetail({
+        operation,
+        category: 'NetworkError',
+        message,
+        correlationId,
+        status: null,
+        body: null,
+        cause,
+      }),
+      correlationId,
+      status: null,
+      cause,
+    };
+  }
+
+  if (error instanceof HttpError) {
+    const status = error.status;
+    const category = status >= 500 ? 'ServerError' : 'UserError';
+    const serverDetail = _extractBodyMessage(error.body);
+    const message =
+      category === 'UserError'
+        ? userMessage ??
+          serverDetail ??
+          'The request could not be completed. Refresh the view and try again.'
+        : serverMessage ??
+          'Plantit encountered an unexpected issue. Please try again shortly.';
+    return {
+      category,
+      message,
+      detail: _buildDiagnosticDetail({
+        operation,
+        category,
+        message,
+        correlationId,
+        status,
+        body: error.body,
+        cause,
+        serverDetail,
+      }),
+      correlationId,
+      status,
+      cause,
+    };
+  }
+
+  const message =
+    defaultMessage ??
+    'An unexpected error occurred. Please try again or contact support if the issue persists.';
+  return {
+    category: 'ServerError',
+    message,
+    detail: _buildDiagnosticDetail({
+      operation,
+      category: 'ServerError',
+      message,
+      correlationId,
+      status: null,
+      body: null,
+      cause,
+    }),
+    correlationId,
+    status: null,
+    cause,
+  };
+}
+
+function _buildDiagnosticDetail({
+  operation,
+  category,
+  message,
+  correlationId,
+  status,
+  body,
+  cause,
+  serverDetail,
+}) {
+  const lines = [
+    `Operation: ${operation}`,
+    `Category: ${category}`,
+    `Message: ${message}`,
+  ];
+  if (correlationId) {
+    lines.push(`Correlation ID: ${correlationId}`);
+  }
+  if (typeof status === 'number') {
+    lines.push(`HTTP Status: ${status}`);
+  }
+  if (serverDetail && serverDetail !== message) {
+    lines.push(`Server Detail: ${serverDetail}`);
+  }
+  const bodyText = _stringifyForDiagnostics(body);
+  if (bodyText && bodyText !== serverDetail) {
+    lines.push(`Response Payload: ${bodyText}`);
+  }
+  if (cause && cause.message && cause.message !== message) {
+    lines.push(`Error: ${cause.message}`);
+  }
+  lines.push(`Timestamp: ${new Date().toISOString()}`);
+  return lines.join('\n');
+}
+
+function _extractBodyMessage(body) {
+  if (!body) {
+    return null;
+  }
+  if (typeof body === 'string') {
+    return body;
+  }
+  if (Array.isArray(body)) {
+    return body
+      .map((item) => (typeof item === 'string' ? item : _stringifyForDiagnostics(item) ?? ''))
+      .filter(Boolean)
+      .join('; ');
+  }
+  if (typeof body === 'object') {
+    if (typeof body.detail === 'string') {
+      return body.detail;
+    }
+    if (Array.isArray(body.detail)) {
+      return body.detail
+        .map((item) => (typeof item === 'string' ? item : _stringifyForDiagnostics(item) ?? ''))
+        .filter(Boolean)
+        .join('; ');
+    }
+    if (typeof body.message === 'string') {
+      return body.message;
+    }
+  }
+  return null;
+}
+
+function _stringifyForDiagnostics(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    return value.length > 2048 ? `${value.slice(0, 2045)}...` : value;
+  }
+  try {
+    const json = JSON.stringify(value, null, 2);
+    if (!json) {
+      return null;
+    }
+    return json.length > 2048 ? `${json.slice(0, 2045)}...` : json;
+  } catch (error) {
+    const text = String(value);
+    return text.length > 2048 ? `${text.slice(0, 2045)}...` : text;
+  }
 }
 
 /** @typedef {Object} DashboardSummary
