@@ -182,6 +182,17 @@ function resolveUrl(path) {
  *  @property {number} healthScore
  */
 
+/** @typedef {Object} VillageDetail
+ *  @property {string} id
+ *  @property {string} name
+ *  @property {string} climate
+ *  @property {number} plantCount
+ *  @property {number} healthScore
+ *  @property {string | null} description
+ *  @property {string | null} establishedAt
+ *  @property {string | null} irrigationType
+ */
+
 /** @typedef {Object} VillageFilterState
  *  @property {string} searchTerm
  *  @property {string[]} climateZones
@@ -234,11 +245,39 @@ export function fetchDashboard(correlationId) {
  * @returns {Promise<{ villages: VillageSummary[] }>}
  */
 export function fetchVillages(filters = {}, correlationId) {
-  return request('/villages', {
-    method: 'POST',
-    body: filters,
-    correlationId,
-  });
+  const params = new URLSearchParams();
+  const searchTerm = typeof filters.searchTerm === 'string' ? filters.searchTerm.trim() : '';
+  if (searchTerm) {
+    params.set('searchTerm', searchTerm);
+  }
+
+  const climateZones = Array.isArray(filters.climateZones)
+    ? filters.climateZones.filter((zone) => typeof zone === 'string' && zone.trim() !== '')
+    : [];
+  for (const zone of climateZones) {
+    params.append('climateZones', zone.trim());
+  }
+
+  const minHealth = filters.minHealth;
+  if (typeof minHealth === 'number' && Number.isFinite(minHealth)) {
+    params.set('minHealth', String(minHealth));
+  }
+
+  const query = params.toString();
+  const path = query ? `/villages?${query}` : '/villages';
+  return request(path, { correlationId });
+}
+
+/**
+ * @param {string} villageId
+ * @param {string} [correlationId]
+ * @returns {Promise<{ village: VillageDetail }>}
+ */
+export function fetchVillageDetail(villageId, correlationId) {
+  if (!villageId) {
+    return Promise.reject(new Error('villageId is required'));
+  }
+  return request(`/villages/${encodeURIComponent(villageId)}`, { correlationId });
 }
 
 /**

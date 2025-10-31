@@ -19,7 +19,7 @@
         background: radial-gradient(circle at top, #f0f4f8, #d9e2ec);
       }
       main {
-        max-width: 480px;
+        max-width: 960px;
         width: 100%;
         background: rgba(255, 255, 255, 0.85);
         border-radius: 16px;
@@ -45,12 +45,50 @@
         flex-direction: column;
         gap: 1.5rem;
         color: #1b3a57;
+        text-align: left;
       }
 
       #shell-status {
         margin: 0;
         font-weight: 600;
         font-size: 1.15rem;
+      }
+
+      #main-nav {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin: 0.75rem 0 0.5rem;
+      }
+
+      #main-nav a {
+        align-items: center;
+        background: rgba(18, 50, 75, 0.1);
+        border-radius: 999px;
+        color: #12324b;
+        display: inline-flex;
+        font-weight: 600;
+        padding: 0.45rem 1.1rem;
+        text-decoration: none;
+        transition: background 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      #main-nav a:hover {
+        background: rgba(18, 50, 75, 0.18);
+        box-shadow: 0 6px 14px rgba(18, 50, 75, 0.15);
+      }
+
+      #main-nav a[aria-current='page'] {
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.35);
+      }
+
+      #shell-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
       }
 
       #transfer-panel {
@@ -66,7 +104,7 @@
         box-shadow: 0 18px 36px rgba(15, 37, 51, 0.16);
         padding: 1.5rem;
         text-align: left;
-        margin-bottom: 1rem;
+        margin-bottom: 0;
       }
 
       .dashboard-header {
@@ -201,6 +239,274 @@
         font-size: 0.95rem;
       }
 
+      .sr-only {
+        border: 0;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        padding: 0;
+        position: absolute;
+        width: 1px;
+        white-space: nowrap;
+      }
+
+      #villages-panel {
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 18px 36px rgba(15, 37, 51, 0.16);
+        padding: 1.5rem;
+      }
+
+      .villages-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.25rem;
+      }
+
+      .villages-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        color: #12324b;
+      }
+
+      .villages-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+
+      .villages-search {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .villages-search input {
+        border-radius: 999px;
+        border: 1px solid rgba(18, 50, 75, 0.2);
+        padding: 0.45rem 1rem;
+        font-size: 0.95rem;
+        min-width: 200px;
+        color: #12324b;
+        background: rgba(255, 255, 255, 0.95);
+      }
+
+      .villages-search input:focus-visible {
+        outline: 3px solid rgba(37, 99, 235, 0.45);
+        outline-offset: 2px;
+      }
+
+      .villages-search button {
+        padding: 0.45rem 1.1rem;
+      }
+
+      .villages-refresh {
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+      }
+
+      .villages-refresh:hover {
+        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.3);
+      }
+
+      .villages-body {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        align-items: start;
+      }
+
+      .villages-list-root,
+      .villages-detail-root {
+        background: rgba(18, 50, 75, 0.05);
+        border-radius: 14px;
+        padding: 1rem;
+      }
+
+      .villages-loading,
+      .villages-empty {
+        margin: 0;
+        color: #2f4858;
+        font-size: 0.95rem;
+      }
+
+      .villages-loading {
+        font-style: italic;
+      }
+
+      .villages-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .villages-list-item {
+        margin: 0;
+      }
+
+      .villages-list-button {
+        align-self: stretch;
+        background: rgba(255, 255, 255, 0.94);
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 8px 18px rgba(18, 50, 75, 0.16);
+        color: #12324b;
+        cursor: pointer;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        row-gap: 0.35rem;
+        column-gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .villages-list-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(18, 50, 75, 0.2);
+      }
+
+      .villages-list-button[data-selected='true'] {
+        background: linear-gradient(135deg, #2563eb, #1e3a8a);
+        color: #ffffff;
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
+      }
+
+      .villages-list-name {
+        font-weight: 600;
+        font-size: 1.05rem;
+      }
+
+      .villages-list-meta {
+        font-size: 0.85rem;
+        color: inherit;
+        opacity: 0.85;
+      }
+
+      .villages-list-health {
+        grid-row: 1 / span 2;
+        align-self: center;
+        font-weight: 600;
+      }
+
+      .villages-error {
+        margin-top: 0.75rem;
+        background: rgba(199, 56, 79, 0.12);
+        border: 1px solid rgba(199, 56, 79, 0.35);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+      }
+
+      .villages-error-message {
+        margin: 0 0 0.5rem;
+        color: #7f1d1d;
+        font-weight: 600;
+      }
+
+      .village-detail {
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .village-detail-placeholder,
+      .village-detail-loading {
+        margin: 0;
+        font-size: 0.95rem;
+        color: #2f4858;
+      }
+
+      .village-detail-loading {
+        font-style: italic;
+      }
+
+      .village-detail-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 14px;
+        padding: 1rem 1.25rem;
+        box-shadow: 0 12px 28px rgba(18, 50, 75, 0.18);
+      }
+
+      .village-detail-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+
+      .village-detail-climate {
+        font-size: 0.85rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #2563eb;
+      }
+
+      .village-detail-header h3 {
+        margin: 0;
+        font-size: 1.35rem;
+        color: #0f2940;
+      }
+
+      .village-detail-description {
+        margin: 0;
+        color: #1c3d5a;
+        line-height: 1.5;
+      }
+
+      .village-detail-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem 1rem;
+        margin: 0 0 1rem;
+      }
+
+      .village-detail-stats div {
+        background: rgba(18, 50, 75, 0.08);
+        border-radius: 10px;
+        padding: 0.75rem;
+      }
+
+      .village-detail-stats dt {
+        margin: 0;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(17, 39, 60, 0.7);
+      }
+
+      .village-detail-stats dd {
+        margin: 0.35rem 0 0;
+        font-weight: 600;
+        color: #0f2940;
+      }
+
+      .village-detail-error {
+        background: rgba(199, 56, 79, 0.12);
+        border: 1px solid rgba(199, 56, 79, 0.35);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+      }
+
+      .village-detail-error p {
+        margin: 0 0 0.5rem;
+        color: #7f1d1d;
+        font-weight: 600;
+      }
+
+      .village-detail-back {
+        background: linear-gradient(135deg, #1e7a46, #2ba26f);
+      }
+
       .dashboard-error {
         border-radius: 14px;
         margin-top: 1rem;
@@ -304,6 +610,25 @@
       button:focus-visible {
         outline: 3px solid rgba(43, 162, 111, 0.6);
         outline-offset: 2px;
+      }
+
+      button.villages-list-button {
+        align-self: stretch;
+        background: rgba(255, 255, 255, 0.94);
+        border-radius: 12px;
+        box-shadow: 0 8px 18px rgba(18, 50, 75, 0.16);
+        color: #12324b;
+        padding: 0.75rem 1rem;
+      }
+
+      button.villages-list-button:hover {
+        box-shadow: 0 10px 20px rgba(18, 50, 75, 0.2);
+      }
+
+      button.villages-list-button[data-selected='true'] {
+        background: linear-gradient(135deg, #2563eb, #1e3a8a);
+        color: #ffffff;
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
       }
 
       .status-text {

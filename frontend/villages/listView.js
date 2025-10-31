@@ -1,0 +1,181 @@
+import { formatHealthScore } from './shared.js';
+
+/**
+ * Render and manage the villages list panel.
+ */
+export class VillageListView {
+  /**
+   * @param {HTMLElement} root
+   * @param {import('./viewModels.js').VillageListViewModel} viewModel
+   * @param {{ onSelect?: (villageId: string | null) => void }} [options]
+   */
+  constructor(root, viewModel, options = {}) {
+    this.root = root;
+    this.viewModel = viewModel;
+    this.onSelect = options.onSelect ?? (() => {});
+
+    this.searchForm = root.querySelector('[data-role="village-search-form"]');
+    this.searchInput = root.querySelector('[data-role="village-search"]');
+    this.listElement = root.querySelector('[data-role="village-list"]');
+    this.loadingMessage = root.querySelector('[data-role="village-loading"]');
+    this.emptyMessage = root.querySelector('[data-role="village-empty"]');
+    this.errorPanel = root.querySelector('[data-role="village-error"]');
+    this.errorMessage = root.querySelector('[data-role="village-error-message"]');
+    this.retryButton = root.querySelector('[data-action="retry"]');
+    this.refreshButton = root.querySelector('[data-action="refresh"]');
+
+    if (this.searchForm) {
+      this.searchForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const term = this.searchInput ? this.searchInput.value.trim() : '';
+        this.viewModel.applyFilters({ searchTerm: term });
+      });
+    }
+
+    if (this.refreshButton) {
+      this.refreshButton.addEventListener('click', () => {
+        this.viewModel.retry();
+      });
+    }
+
+    if (this.retryButton) {
+      this.retryButton.addEventListener('click', () => {
+        this.viewModel.retry();
+      });
+    }
+
+    this.unsubscribe = this.viewModel.subscribe((state) => {
+      this.render(state);
+    });
+  }
+
+  /**
+   * @param {import('./viewModels.js').VillageListState} state
+   */
+  render(state) {
+    this.root.dataset.status = state.status;
+    if (this.searchInput && state.filters) {
+      this.searchInput.value = state.filters.searchTerm ?? '';
+    }
+
+    switch (state.status) {
+      case 'idle':
+      case 'loading':
+        this.renderLoading();
+        break;
+      case 'ready':
+        this.renderReady(state);
+        break;
+      case 'error':
+        this.renderError(state);
+        break;
+      default:
+        break;
+    }
+  }
+
+  renderLoading() {
+    if (this.loadingMessage) {
+      this.loadingMessage.hidden = false;
+    }
+    if (this.listElement) {
+      this.listElement.hidden = true;
+      this.listElement.replaceChildren();
+    }
+    if (this.emptyMessage) {
+      this.emptyMessage.hidden = true;
+    }
+    if (this.errorPanel) {
+      this.errorPanel.hidden = true;
+    }
+  }
+
+  /**
+   * @param {import('./viewModels.js').VillageListState} state
+   */
+  renderReady(state) {
+    if (this.loadingMessage) {
+      this.loadingMessage.hidden = true;
+    }
+    if (this.errorPanel) {
+      this.errorPanel.hidden = true;
+    }
+
+    const villages = Array.isArray(state.villages) ? state.villages : [];
+    if (!this.listElement || !this.emptyMessage) {
+      return;
+    }
+
+    if (villages.length === 0) {
+      this.listElement.hidden = true;
+      this.listElement.replaceChildren();
+      this.emptyMessage.hidden = false;
+      return;
+    }
+
+    this.emptyMessage.hidden = true;
+    this.listElement.hidden = false;
+
+    const items = villages.map((village) => {
+      const item = document.createElement('li');
+      item.className = 'villages-list-item';
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'villages-list-button';
+      button.dataset.villageId = village.id;
+      button.setAttribute('role', 'option');
+      button.addEventListener('click', () => {
+        this.onSelect(village.id);
+      });
+
+      const name = document.createElement('span');
+      name.className = 'villages-list-name';
+      name.textContent = village.name;
+
+      const meta = document.createElement('span');
+      meta.className = 'villages-list-meta';
+      meta.textContent = `${village.plantCount} plants • ${village.climate}`;
+
+      const health = document.createElement('span');
+      health.className = 'villages-list-health';
+      health.textContent = formatHealthScore(village.healthScore);
+
+      if (village.id === state.selectedVillageId) {
+        button.dataset.selected = 'true';
+        button.setAttribute('aria-current', 'true');
+      } else {
+        button.dataset.selected = 'false';
+        button.removeAttribute('aria-current');
+      }
+
+      button.append(name, meta, health);
+      item.append(button);
+      return item;
+    });
+
+    this.listElement.replaceChildren(...items);
+  }
+
+  /**
+   * @param {import('./viewModels.js').VillageListState} state
+   */
+  renderError(state) {
+    if (this.loadingMessage) {
+      this.loadingMessage.hidden = true;
+    }
+    if (this.emptyMessage) {
+      this.emptyMessage.hidden = true;
+    }
+    if (this.listElement) {
+      this.listElement.hidden = true;
+      this.listElement.replaceChildren();
+    }
+    if (this.errorPanel) {
+      this.errorPanel.hidden = false;
+    }
+    if (this.errorMessage) {
+      this.errorMessage.textContent = state.error?.message ?? 'Unable to load villages.';
+    }
+  }
+}

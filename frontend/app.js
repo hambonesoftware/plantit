@@ -1,5 +1,8 @@
 import { DashboardViewModel } from './dashboard/viewModel.js';
 import { downloadExportBundle, importBundleFromFile } from './services/importExport.js';
+import { VillageDetailView } from './villages/detailView.js';
+import { VillageDetailViewModel, VillageListViewModel } from './villages/viewModels.js';
+import { VillageListView } from './villages/listView.js';
 
 const searchParams = new URLSearchParams(window.location.search);
 const disableServiceWorkers = searchParams.get("no-sw") === "1";
@@ -9,6 +12,7 @@ const safeBoot = explicitSafeBoot || disableServiceWorkers;
 
 const LAST_ROUTE_KEY = "plantit:lastRoute";
 const MAX_ROUTE_LENGTH = 512;
+const DEFAULT_ROUTE = "#dashboard";
 
 const safeReadLocalStorage = (key, { maxLength = MAX_ROUTE_LENGTH, validator } = {}) => {
   if (!("localStorage" in window)) {
@@ -58,16 +62,17 @@ const lastRoute = safeReadLocalStorage(LAST_ROUTE_KEY, {
   validator: (value) => value === "" || value.startsWith("#"),
 });
 
-if (!resumeSession && window.location.hash !== "") {
-  console.info("Boot: forcing startup route to home");
-  window.location.hash = "";
-} else if (resumeSession && lastRoute && window.location.hash === "") {
+if (resumeSession && lastRoute && lastRoute.startsWith("#") && window.location.hash === "") {
   console.info("Boot: resuming last known route");
   window.location.hash = lastRoute;
+} else if (!resumeSession && window.location.hash === "") {
+  console.info("Boot: applying default route");
+  window.location.hash = DEFAULT_ROUTE;
 }
 
 const persistRoute = () => {
-  safeWriteLocalStorage(LAST_ROUTE_KEY, window.location.hash);
+  const route = window.location.hash || DEFAULT_ROUTE;
+  safeWriteLocalStorage(LAST_ROUTE_KEY, route);
 };
 
 window.addEventListener("hashchange", persistRoute, { passive: true });
@@ -150,21 +155,262 @@ function mountShell(root, { statusText, safeMode }) {
   const status = document.createElement("p");
   status.id = "shell-status";
   status.textContent = statusText;
-
   root.append(status);
 
   if (!safeMode) {
+    const navigation = buildMainNavigation();
+    root.append(navigation);
+
+    const contentHost = document.createElement("div");
+    contentHost.id = "shell-content";
+    root.append(contentHost);
+
     const dashboardSection = buildDashboardSection();
-    root.append(dashboardSection);
+    dashboardSection.dataset.route = "dashboard";
+    toggleSection(dashboardSection, true);
+
+    const villagesSection = buildVillagesSection();
+    villagesSection.dataset.route = "villages";
+    toggleSection(villagesSection, false);
+
+    contentHost.append(dashboardSection, villagesSection);
+
     const dashboardViewModel = new DashboardViewModel();
     new DashboardView(dashboardSection, dashboardViewModel);
     dashboardViewModel.load();
+
+    const listRoot = villagesSection.querySelector('[data-role="village-list-root"]');
+    const detailRoot = villagesSection.querySelector('[data-role="village-detail-root"]');
+    const villageListViewModel = new VillageListViewModel();
+    const villageDetailViewModel = new VillageDetailViewModel();
+
+    if (!listRoot || !detailRoot) {
+      console.warn("Boot: villages panel missing expected subtrees");
+    }
+
+    if (listRoot) {
+      new VillageListView(listRoot, villageListViewModel, {
+        onSelect: (villageId) => {
+          const targetHash = villageId ? `#villages/${encodeURIComponent(villageId)}` : "#villages";
+          if (window.location.hash !== targetHash) {
+            window.location.hash = targetHash;
+          }
+        },
+      });
+    }
+
+    if (detailRoot) {
+      new VillageDetailView(detailRoot, villageDetailViewModel, {
+        onBack: () => {
+          if (window.location.hash !== "#villages") {
+            window.location.hash = "#villages";
+          } else {
+            villageDetailViewModel.clear();
+          }
+        },
+      });
+    }
+
+    const router = new HashRouter((route) => {
+      handleRoute({
+        route,
+        navigation,
+        dashboardSection,
+        villagesSection,
+        villageListViewModel,
+        villageDetailViewModel,
+      });
+    });
+    router.start();
   }
 
   const transferPanel = buildTransferPanel();
   root.append(transferPanel);
 
   initializeImportExportControls(root);
+}
+
+function buildMainNavigation() {
+  const nav = document.createElement("nav");
+  nav.id = "main-nav";
+  nav.setAttribute("aria-label", "Primary navigation");
+
+  const dashboardLink = document.createElement("a");
+  dashboardLink.href = "#dashboard";
+  dashboardLink.dataset.route = "dashboard";
+  dashboardLink.textContent = "Dashboard";
+
+  const villagesLink = document.createElement("a");
+  villagesLink.href = "#villages";
+  villagesLink.dataset.route = "villages";
+  villagesLink.textContent = "Villages";
+
+  nav.append(dashboardLink, villagesLink);
+  return nav;
+}
+
+function buildVillagesSection() {
+  const section = document.createElement("section");
+  section.id = "villages-panel";
+  section.innerHTML = `
+    <div class="villages-header">
+      <h2>Villages</h2>
+      <div class="villages-controls">
+        <form class="villages-search" data-role="village-search-form">
+          <label class="sr-only" for="village-search-input">Search villages</label>
+          <input id="village-search-input" type="search" data-role="village-search" placeholder="Search villages" />
+          <button type="submit">Search</button>
+        </form>
+        <button type="button" class="villages-refresh" data-action="refresh">Refresh</button>
+      </div>
+    </div>
+    <div class="villages-body">
+      <div class="villages-list-root" data-role="village-list-root">
+        <p class="villages-loading" data-role="village-loading" role="status" aria-live="polite">Loading villages…</p>
+        <p class="villages-empty" data-role="village-empty">No villages match the current filters.</p>
+        <ul class="villages-list" data-role="village-list" role="listbox" aria-label="Villages"></ul>
+        <div class="villages-error" data-role="village-error" role="alert" hidden>
+          <p class="villages-error-message" data-role="village-error-message">Unable to load villages.</p>
+          <button type="button" class="villages-retry" data-action="retry">Retry</button>
+        </div>
+      </div>
+      <div class="villages-detail-root" data-role="village-detail-root">
+        <div class="village-detail">
+          <p class="village-detail-placeholder" data-role="detail-placeholder">Select a village from the list to see its details.</p>
+          <p class="village-detail-loading" data-role="detail-loading" role="status" aria-live="polite">Loading village details…</p>
+          <div class="village-detail-error" data-role="detail-error" role="alert" hidden>
+            <p data-role="detail-error-message">Unable to load village details.</p>
+            <button type="button" class="village-detail-retry" data-action="detail-retry">Retry</button>
+          </div>
+          <article class="village-detail-card" data-role="detail-content" hidden>
+            <header class="village-detail-header">
+              <span class="village-detail-climate" data-role="detail-climate"></span>
+              <h3 data-role="detail-name"></h3>
+              <p class="village-detail-description" data-role="detail-description"></p>
+            </header>
+            <dl class="village-detail-stats">
+              <div><dt>Established</dt><dd data-role="detail-established"></dd></div>
+              <div><dt>Plants</dt><dd data-role="detail-plants"></dd></div>
+              <div><dt>Health</dt><dd data-role="detail-health"></dd></div>
+              <div><dt>Irrigation</dt><dd data-role="detail-irrigation"></dd></div>
+            </dl>
+            <button type="button" class="village-detail-back" data-action="detail-back">Back to list</button>
+          </article>
+        </div>
+      </div>
+    </div>
+  `;
+  return section;
+}
+
+function toggleSection(section, isVisible) {
+  if (!section) {
+    return;
+  }
+  section.hidden = !isVisible;
+  section.setAttribute("aria-hidden", String(!isVisible));
+}
+
+function setActiveNavigation(navigation, activeRoute) {
+  if (!navigation) {
+    return;
+  }
+  navigation.querySelectorAll('[data-route]').forEach((link) => {
+    if (!(link instanceof HTMLElement)) {
+      return;
+    }
+    const isActive = link.dataset.route === activeRoute;
+    if (isActive) {
+      link.setAttribute("aria-current", "page");
+      link.dataset.active = "true";
+    } else {
+      link.removeAttribute("aria-current");
+      link.dataset.active = "false";
+    }
+  });
+}
+
+function handleRoute({
+  route,
+  navigation,
+  dashboardSection,
+  villagesSection,
+  villageListViewModel,
+  villageDetailViewModel,
+}) {
+  const segments = Array.isArray(route.segments) ? route.segments : [];
+  const [firstSegment = ""] = segments;
+  const activeSegment = firstSegment || "dashboard";
+
+  if (activeSegment === "dashboard") {
+    setActiveNavigation(navigation, "dashboard");
+    toggleSection(dashboardSection, true);
+    toggleSection(villagesSection, false);
+    if (!firstSegment && window.location.hash !== DEFAULT_ROUTE) {
+      window.location.hash = DEFAULT_ROUTE;
+    }
+    return;
+  }
+
+  if (activeSegment === "villages") {
+    setActiveNavigation(navigation, "villages");
+    toggleSection(dashboardSection, false);
+    toggleSection(villagesSection, true);
+
+    villageListViewModel.ensureLoaded();
+    const selectedId = segments[1] || null;
+    villageListViewModel.setSelectedVillageId(selectedId);
+    if (selectedId) {
+      villageDetailViewModel.load(selectedId);
+    } else {
+      villageDetailViewModel.clear();
+    }
+    return;
+  }
+
+  if (window.location.hash !== DEFAULT_ROUTE) {
+    window.location.hash = DEFAULT_ROUTE;
+  }
+}
+
+class HashRouter {
+  constructor(onChange) {
+    this._onChange = onChange;
+    this._listener = () => {
+      this._emit();
+    };
+  }
+
+  start() {
+    window.addEventListener("hashchange", this._listener, { passive: true });
+    this._emit();
+  }
+
+  stop() {
+    window.removeEventListener("hashchange", this._listener);
+  }
+
+  _emit() {
+    const rawHash = window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+    const trimmed = rawHash.trim();
+    const segments = trimmed
+      ? trimmed.split("/").map((segment) => {
+          try {
+            return decodeURIComponent(segment);
+          } catch (error) {
+            console.warn("HashRouter: failed to decode segment", segment, error);
+            return segment;
+          }
+        })
+      : [];
+    this._onChange({
+      raw: window.location.hash,
+      hash: trimmed,
+      segments,
+    });
+  }
 }
 
 function initializeImportExportControls(root) {
