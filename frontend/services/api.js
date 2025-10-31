@@ -209,6 +209,15 @@ function resolveUrl(path) {
  *  @property {'low'|'medium'|'high'} priority
  */
 
+/** @typedef {Object} PlantListItem
+ *  @property {string} id
+ *  @property {string} displayName
+ *  @property {string} species
+ *  @property {'seedling'|'vegetative'|'flowering'|'mature'} stage
+ *  @property {string} lastWateredAt
+ *  @property {number} healthScore
+ */
+
 /** @typedef {Object} PlantDetail
  *  @property {string} id
  *  @property {string} displayName
@@ -281,8 +290,20 @@ export function fetchVillageDetail(villageId, correlationId) {
 }
 
 /**
+ * @param {string} villageId
  * @param {string} [correlationId]
- * @returns {Promise<{ tasks: DailyTask[] }>}
+ * @returns {Promise<{ village: VillageSummary, plants: PlantListItem[] }>}
+ */
+export function fetchVillagePlants(villageId, correlationId) {
+  if (!villageId) {
+    return Promise.reject(new Error('villageId is required'));
+  }
+  return request(`/villages/${encodeURIComponent(villageId)}/plants`, { correlationId });
+}
+
+/**
+ * @param {string} [correlationId]
+ * @returns {Promise<{ tasks: DailyTask[], emptyStateMessage: string | null }>}
  */
 export function fetchTodayTasks(correlationId) {
   return request('/today', { correlationId });

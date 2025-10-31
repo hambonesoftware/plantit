@@ -1,4 +1,4 @@
-import { fetchDashboard, HttpError, NetworkError } from '../services/api.js';
+import { fetchDashboard, fetchTodayTasks, HttpError, NetworkError } from '../services/api.js';
 
 /**
  * @typedef {'idle'|'loading'|'ready'|'error'} DashboardStatus
@@ -138,6 +138,156 @@ export class DashboardViewModel {
     return {
       type: 'unknown',
       message: 'Something went wrong while loading the dashboard. Please try again.',
+      cause: error instanceof Error ? error : undefined,
+    };
+  }
+}
+
+/**
+ * @typedef {'idle'|'loading'|'ready'|'error'} TodayPanelStatus
+ */
+
+/**
+ * @typedef {Object} TodayPanelErrorState
+ * @property {'network'|'http'|'unknown'} type
+ * @property {string} message
+ * @property {Error} [cause]
+ */
+
+/**
+ * @typedef {Object} TodayPanelState
+ * @property {TodayPanelStatus} status
+ * @property {import('../services/api.js').DailyTask[]} tasks
+ * @property {string | null} emptyMessage
+ * @property {string | null} lastUpdated
+ * @property {TodayPanelErrorState | null} error
+ */
+
+export class TodayPanelViewModel {
+  constructor(options = {}) {
+    const { fetcher = fetchTodayTasks } = options;
+    this._fetcher = fetcher;
+    this._subscribers = new Set();
+    /** @type {TodayPanelState} */
+    this._state = {
+      status: 'idle',
+      tasks: [],
+      emptyMessage: null,
+      lastUpdated: null,
+      error: null,
+    };
+    this._currentPromise = null;
+    this._requestToken = 0;
+  }
+
+  /**
+   * @param {(state: TodayPanelState) => void} subscriber
+   * @returns {() => void}
+   */
+  subscribe(subscriber) {
+    this._subscribers.add(subscriber);
+    subscriber(this._state);
+    return () => {
+      this._subscribers.delete(subscriber);
+    };
+  }
+
+  /**
+   * Load or refresh the Today panel data.
+   *
+   * @returns {Promise<void>}
+   */
+  async load() {
+    if (this._state.status === 'loading') {
+      return this._currentPromise ?? Promise.resolve();
+    }
+
+    const token = ++this._requestToken;
+    this._transition({ status: 'loading', error: null });
+
+    const request = (async () => {
+      try {
+        const payload = await this._fetcher();
+        if (token !== this._requestToken) {
+          return;
+        }
+        const tasks = Array.isArray(payload?.tasks) ? payload.tasks : [];
+        const emptyMessage = typeof payload?.emptyStateMessage === 'string'
+          ? payload.emptyStateMessage
+          : null;
+        this._transition({
+          status: 'ready',
+          tasks,
+          emptyMessage,
+          lastUpdated: new Date().toISOString(),
+          error: null,
+        });
+      } catch (error) {
+        if (token !== this._requestToken) {
+          return;
+        }
+        console.error('TodayPanelViewModel: failed to load tasks', error);
+        this._transition({
+          status: 'error',
+          error: this._normalizeError(error),
+        });
+      } finally {
+        if (token === this._requestToken) {
+          this._currentPromise = null;
+        }
+      }
+    })();
+
+    this._currentPromise = request;
+    return request;
+  }
+
+  /**
+   * Trigger a refresh of the Today panel.
+   *
+   * @returns {Promise<void>}
+   */
+  async refresh() {
+    return this.load();
+  }
+
+  /**
+   * Retry after an error state.
+   *
+   * @returns {Promise<void>}
+   */
+  async retry() {
+    return this.load();
+  }
+
+  _transition(patch) {
+    this._state = {
+      ...this._state,
+      ...patch,
+    };
+    for (const subscriber of this._subscribers) {
+      subscriber(this._state);
+    }
+  }
+
+  _normalizeError(error) {
+    if (error instanceof NetworkError) {
+      return {
+        type: 'network',
+        message: 'Unable to reach Plantit. Check your connection and try again.',
+        cause: error,
+      };
+    }
+    if (error instanceof HttpError) {
+      return {
+        type: 'http',
+        message: `Plantit responded with HTTP ${error.status}. Please retry shortly.`,
+        cause: error,
+      };
+    }
+    return {
+      type: 'unknown',
+      message: 'Something went wrong while loading today\'s tasks. Please try again.',
       cause: error instanceof Error ? error : undefined,
     };
   }

@@ -1,4 +1,10 @@
-import { fetchVillageDetail, fetchVillages, HttpError, NetworkError } from '../services/api.js';
+import {
+  fetchVillageDetail,
+  fetchVillagePlants,
+  fetchVillages,
+  HttpError,
+  NetworkError,
+} from '../services/api.js';
 
 /**
  * @typedef {'idle'|'loading'|'ready'|'error'} LoadStatus
@@ -32,6 +38,22 @@ import { fetchVillageDetail, fetchVillages, HttpError, NetworkError } from '../s
  * @property {LoadStatus} status
  * @property {import('../services/api.js').VillageDetail | null} village
  * @property {VillageDetailErrorState | null} error
+ */
+
+/**
+ * @typedef {Object} VillagePlantListErrorState
+ * @property {'network'|'http'|'unknown'} type
+ * @property {string} message
+ * @property {Error} [cause]
+ */
+
+/**
+ * @typedef {Object} VillagePlantListState
+ * @property {LoadStatus} status
+ * @property {import('../services/api.js').VillageSummary | null} village
+ * @property {import('../services/api.js').PlantListItem[]} plants
+ * @property {VillagePlantListErrorState | null} error
+ * @property {string | null} lastUpdated
  */
 
 const DEFAULT_FILTERS = Object.freeze({
@@ -378,6 +400,179 @@ export class VillageDetailViewModel {
     return {
       type: 'unknown',
       message: 'Something went wrong while loading the village. Please try again.',
+      cause: error instanceof Error ? error : undefined,
+    };
+  }
+}
+
+export class VillagePlantListViewModel {
+  constructor(options = {}) {
+    const { fetcher = fetchVillagePlants } = options;
+    this._fetcher = fetcher;
+    this._subscribers = new Set();
+    /** @type {VillagePlantListState} */
+    this._state = {
+      status: 'idle',
+      village: null,
+      plants: [],
+      error: null,
+      lastUpdated: null,
+    };
+    this._currentPromise = null;
+    this._requestToken = 0;
+    this._currentVillageId = null;
+  }
+
+  /**
+   * @param {(state: VillagePlantListState) => void} subscriber
+   * @returns {() => void}
+   */
+  subscribe(subscriber) {
+    this._subscribers.add(subscriber);
+    subscriber(this._state);
+    return () => {
+      this._subscribers.delete(subscriber);
+    };
+  }
+
+  /**
+   * @returns {VillagePlantListState}
+   */
+  getState() {
+    return this._state;
+  }
+
+  /**
+   * @param {string} villageId
+   * @param {{ force?: boolean }} [options]
+   * @returns {Promise<void> | void}
+   */
+  load(villageId, options = {}) {
+    const targetId = typeof villageId === 'string' && villageId ? villageId : null;
+    const force = Boolean(options.force);
+
+    if (!targetId) {
+      this.clear();
+      return;
+    }
+
+    if (!force && this._currentVillageId === targetId && this._state.status === 'ready') {
+      return;
+    }
+
+    this._currentVillageId = targetId;
+    const token = ++this._requestToken;
+    this._transition({ status: 'loading', error: null });
+
+    const request = (async () => {
+      try {
+        const payload = await this._fetcher(targetId);
+        if (token !== this._requestToken || this._currentVillageId !== targetId) {
+          return;
+        }
+        const village = payload?.village ?? null;
+        const plants = Array.isArray(payload?.plants) ? payload.plants : [];
+        if (!village) {
+          throw new Error('Missing village summary in response');
+        }
+        this._transition({
+          status: 'ready',
+          village,
+          plants,
+          error: null,
+          lastUpdated: new Date().toISOString(),
+        });
+      } catch (error) {
+        if (token !== this._requestToken || this._currentVillageId !== targetId) {
+          return;
+        }
+        console.error('VillagePlantListViewModel: failed to load plants', error);
+        this._transition({
+          status: 'error',
+          village: this._state.village,
+          plants: this._state.plants,
+          error: this._normalizeError(error),
+          lastUpdated: this._state.lastUpdated,
+        });
+      } finally {
+        if (token === this._requestToken) {
+          this._currentPromise = null;
+        }
+      }
+    })();
+
+    this._currentPromise = request;
+    return request;
+  }
+
+  /**
+   * Retry the last request for the current village.
+   *
+   * @returns {Promise<void> | void}
+   */
+  retry() {
+    if (!this._currentVillageId) {
+      return;
+    }
+    return this.load(this._currentVillageId, { force: true });
+  }
+
+  /**
+   * Trigger a refresh even if the current data is already loaded.
+   *
+   * @returns {Promise<void> | void}
+   */
+  refresh() {
+    if (!this._currentVillageId) {
+      return;
+    }
+    return this.load(this._currentVillageId, { force: true });
+  }
+
+  /**
+   * Clear the active village selection and reset state.
+   */
+  clear() {
+    this._currentVillageId = null;
+    this._requestToken += 1;
+    this._currentPromise = null;
+    this._transition({
+      status: 'idle',
+      village: null,
+      plants: [],
+      error: null,
+      lastUpdated: null,
+    });
+  }
+
+  _transition(patch) {
+    this._state = {
+      ...this._state,
+      ...patch,
+    };
+    for (const subscriber of this._subscribers) {
+      subscriber(this._state);
+    }
+  }
+
+  _normalizeError(error) {
+    if (error instanceof NetworkError) {
+      return {
+        type: 'network',
+        message: 'Unable to reach Plantit. Check your connection and retry.',
+        cause: error,
+      };
+    }
+    if (error instanceof HttpError) {
+      return {
+        type: 'http',
+        message: `Plantit responded with status ${error.status}. Please try again shortly.`,
+        cause: error,
+      };
+    }
+    return {
+      type: 'unknown',
+      message: 'Something went wrong while loading plants. Please retry.',
       cause: error instanceof Error ? error : undefined,
     };
   }

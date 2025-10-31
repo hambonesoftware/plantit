@@ -1,8 +1,14 @@
-import { DashboardViewModel } from './dashboard/viewModel.js';
+import { DashboardViewModel, TodayPanelViewModel } from './dashboard/viewModel.js';
+import { TodayPanel } from './dashboard/todayPanel.js';
 import { downloadExportBundle, importBundleFromFile } from './services/importExport.js';
 import { VillageDetailView } from './villages/detailView.js';
-import { VillageDetailViewModel, VillageListViewModel } from './villages/viewModels.js';
+import {
+  VillageDetailViewModel,
+  VillageListViewModel,
+  VillagePlantListViewModel,
+} from './villages/viewModels.js';
 import { VillageListView } from './villages/listView.js';
+import { PlantListView } from './villages/plantListView.js';
 
 const searchParams = new URLSearchParams(window.location.search);
 const disableServiceWorkers = searchParams.get("no-sw") === "1";
@@ -179,12 +185,21 @@ function mountShell(root, { statusText, safeMode }) {
     new DashboardView(dashboardSection, dashboardViewModel);
     dashboardViewModel.load();
 
+    const todayPanelRoot = dashboardSection.querySelector('[data-role="today-panel-root"]');
+    const todayPanelViewModel = new TodayPanelViewModel();
+    if (todayPanelRoot) {
+      new TodayPanel(todayPanelRoot, todayPanelViewModel);
+    }
+    todayPanelViewModel.load();
+
     const listRoot = villagesSection.querySelector('[data-role="village-list-root"]');
     const detailRoot = villagesSection.querySelector('[data-role="village-detail-root"]');
+    const plantListRoot = villagesSection.querySelector('[data-role="plant-list-root"]');
     const villageListViewModel = new VillageListViewModel();
     const villageDetailViewModel = new VillageDetailViewModel();
+    const villagePlantListViewModel = new VillagePlantListViewModel();
 
-    if (!listRoot || !detailRoot) {
+    if (!listRoot || !detailRoot || !plantListRoot) {
       console.warn("Boot: villages panel missing expected subtrees");
     }
 
@@ -211,6 +226,10 @@ function mountShell(root, { statusText, safeMode }) {
       });
     }
 
+    if (plantListRoot) {
+      new PlantListView(plantListRoot, villagePlantListViewModel);
+    }
+
     const router = new HashRouter((route) => {
       handleRoute({
         route,
@@ -219,6 +238,7 @@ function mountShell(root, { statusText, safeMode }) {
         villagesSection,
         villageListViewModel,
         villageDetailViewModel,
+        villagePlantListViewModel,
       });
     });
     router.start();
@@ -297,6 +317,26 @@ function buildVillagesSection() {
             <button type="button" class="village-detail-back" data-action="detail-back">Back to list</button>
           </article>
         </div>
+        <div class="village-plants-panel" data-role="plant-list-root">
+          <div class="village-plants-header" data-role="plant-header" hidden>
+            <div class="village-plants-header-text">
+              <h3>Plants</h3>
+              <p class="village-plants-subtitle" data-role="plant-village-name"></p>
+              <p class="village-plants-updated" data-role="plant-updated" role="status" aria-live="polite">No data loaded yet</p>
+            </div>
+            <button type="button" class="village-plants-refresh" data-action="plant-refresh">Refresh</button>
+          </div>
+          <p class="village-plants-placeholder" data-role="plant-placeholder">Select a village to see its plants.</p>
+          <p class="village-plants-loading" data-role="plant-loading" role="status" aria-live="polite" hidden>Loading plants…</p>
+          <div class="village-plants-error" data-role="plant-error" role="alert" hidden>
+            <p data-role="plant-error-message">Unable to load plants.</p>
+            <button type="button" class="village-plants-retry" data-action="plant-retry">Retry</button>
+          </div>
+          <div class="village-plants-content" data-role="plant-content" hidden>
+            <ul class="village-plants-list" data-role="plant-list"></ul>
+            <p class="village-plants-empty" data-role="plant-empty">No plants recorded for this village yet.</p>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -337,6 +377,7 @@ function handleRoute({
   villagesSection,
   villageListViewModel,
   villageDetailViewModel,
+  villagePlantListViewModel,
 }) {
   const segments = Array.isArray(route.segments) ? route.segments : [];
   const [firstSegment = ""] = segments;
@@ -362,8 +403,10 @@ function handleRoute({
     villageListViewModel.setSelectedVillageId(selectedId);
     if (selectedId) {
       villageDetailViewModel.load(selectedId);
+      villagePlantListViewModel.load(selectedId);
     } else {
       villageDetailViewModel.clear();
+      villagePlantListViewModel.clear();
     }
     return;
   }
@@ -554,7 +597,30 @@ function buildDashboardSection() {
 
   alerts.append(alertsHeading, alertList, emptyState);
 
-  content.append(cards, alerts);
+  const today = document.createElement("div");
+  today.className = "today-panel";
+  today.dataset.role = "today-panel-root";
+  today.innerHTML = `
+    <div class="today-panel-header">
+      <div class="today-panel-title">
+        <h3>Today</h3>
+        <p class="today-panel-updated" data-role="today-updated" role="status" aria-live="polite">Today's tasks not loaded yet</p>
+      </div>
+      <button type="button" class="today-panel-refresh" data-action="today-refresh">Refresh</button>
+    </div>
+    <p class="today-panel-placeholder" data-role="today-placeholder">Refresh to see today's scheduled tasks.</p>
+    <p class="today-panel-loading" data-role="today-loading" role="status" aria-live="polite" hidden>Loading today's tasks…</p>
+    <div class="today-panel-error" data-role="today-error" role="alert" hidden>
+      <p data-role="today-error-message">Unable to load today's tasks.</p>
+      <button type="button" data-action="today-retry">Retry</button>
+    </div>
+    <div class="today-panel-content" data-role="today-content" hidden>
+      <ul class="today-task-list" data-role="today-task-list"></ul>
+      <p class="today-panel-empty" data-role="today-empty">No tasks scheduled for today.</p>
+    </div>
+  `;
+
+  content.append(cards, alerts, today);
 
   const errorPanel = document.createElement("div");
   errorPanel.className = "dashboard-error";
