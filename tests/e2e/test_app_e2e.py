@@ -6,7 +6,12 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError, sync_playwright
+
+_playwright_sync_api = pytest.importorskip(
+    "playwright.sync_api", reason="Playwright not installed"
+)
+PlaywrightError = _playwright_sync_api.Error
+sync_playwright = _playwright_sync_api.sync_playwright
 
 
 pytestmark = pytest.mark.e2e

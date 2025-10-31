@@ -1511,7 +1511,14 @@ function buildTransferPanel() {
     <p class="panel-subtitle">Import bundles or download a backup.</p>
     <div class="transfer-group">
       <button id="import-button" type="button">Import Bundle</button>
-      <input id="import-file-input" type="file" accept="application/json" hidden />
+      <input
+        id="import-file-input"
+        type="file"
+        accept="application/json"
+        class="sr-only"
+        tabindex="-1"
+        aria-hidden="true"
+      />
       <p id="import-status" class="status-text" role="status" aria-live="polite"></p>
     </div>
     <div class="transfer-group">
