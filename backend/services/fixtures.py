@@ -1,14 +1,9 @@
-"""Static fixtures used by early API phases.
-
-The fixtures provide deterministic payloads for the read-path endpoints until
-real persistence layers are wired up in later phases.  Keeping the data in a
-single module allows contract tests to reference the same shapes that the
-OpenAPI specification documents.
-"""
+"""Static fixtures derived from the canonical seed data."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Dict, List, Sequence
+
+from backend.data import seed_content
 
 __all__ = [
     "DASHBOARD_PAYLOAD",
@@ -24,308 +19,109 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True)
-class _VillageSummary:
-    id: str
-    name: str
-    climate: str
-    plantCount: int
-    healthScore: float
+def _summary_for_village(village: Dict[str, object], *, plant_count: int) -> Dict[str, object]:
+    return {
+        "id": village["id"],
+        "name": village["name"],
+        "climate": village["climate"],
+        "plantCount": plant_count,
+        "healthScore": village["health_score"],
+    }
 
 
-# Dashboard -----------------------------------------------------------------
-
-DASHBOARD_PAYLOAD = {
-    "summary": {
-        "totalPlants": 42,
-        "activeVillages": 3,
-        "successRate": 0.94,
-        "upcomingTasks": 6,
-    },
-    "alerts": [
-        {
-            "id": "alert-failing-drip",
-            "level": "warning",
-            "message": "Drip irrigation flow is below threshold in Evergreen Terrace.",
-            "relatedPlantId": "plant-004",
-        },
-        {
-            "id": "alert-powdery-mildew",
-            "level": "critical",
-            "message": "Powdery mildew detected on Moonlit Kale — inspect immediately.",
-            "relatedPlantId": "plant-007",
-        },
-    ],
-    "lastUpdated": "2024-04-12T08:30:00Z",
-}
+def _plant_payload(plant: Dict[str, object]) -> Dict[str, object]:
+    return {
+        "id": plant["id"],
+        "displayName": plant["display_name"],
+        "species": plant["species"],
+        "stage": plant["stage"],
+        "lastWateredAt": plant["last_watered_at"],
+        "healthScore": plant["health_score"],
+    }
 
 
 # Villages -------------------------------------------------------------------
 
+_plants_by_village: Dict[str, List[Dict[str, object]]] = {}
+for plant in seed_content.PLANTS:
+    _plants_by_village.setdefault(plant["village_id"], []).append(plant)
+
 VILLAGE_SUMMARIES: Sequence[Dict[str, object]] = [
-    {
-        "id": "village-001",
-        "name": "Evergreen Terrace",
-        "climate": "Temperate",
-        "plantCount": 18,
-        "healthScore": 0.93,
-    },
-    {
-        "id": "village-002",
-        "name": "Solstice Ridge",
-        "climate": "Arid",
-        "plantCount": 11,
-        "healthScore": 0.88,
-    },
-    {
-        "id": "village-003",
-        "name": "Cascade Hollow",
-        "climate": "Humid",
-        "plantCount": 13,
-        "healthScore": 0.9,
-    },
+    _summary_for_village(village, plant_count=len(_plants_by_village.get(village["id"], ())))
+    for village in seed_content.VILLAGES
 ]
 
-VILLAGE_DETAIL_BY_ID: Dict[str, Dict[str, object]] = {
-    summary["id"]: {
+VILLAGE_DETAIL_BY_ID: Dict[str, Dict[str, object]] = {}
+for village in seed_content.VILLAGES:
+    summary = _summary_for_village(village, plant_count=len(_plants_by_village.get(village["id"], ())))
+    VILLAGE_DETAIL_BY_ID[village["id"]] = {
         **summary,
-        "description": description,
-        "establishedAt": established,
-        "irrigationType": irrigation,
+        "description": village["description"],
+        "establishedAt": village["established_at"],
+        "irrigationType": village["irrigation_type"],
     }
-    for summary, description, established, irrigation in [
-        (
-            _VillageSummary("village-001", "Evergreen Terrace", "Temperate", 18, 0.93).__dict__,
-            "North-facing terraces with automated drip irrigation and shade cloths.",
-            "2021-03-15",
-            "drip",
-        ),
-        (
-            _VillageSummary("village-002", "Solstice Ridge", "Arid", 11, 0.88).__dict__,
-            "High-elevation beds optimized for drought-resistant varieties.",
-            "2020-06-09",
-            "spray",
-        ),
-        (
-            _VillageSummary("village-003", "Cascade Hollow", "Humid", 13, 0.90).__dict__,
-            "Reclaimed greenhouse space with automated misting and heat recovery.",
-            "2022-01-20",
-            "manual",
-        ),
-    ]
-}
 
 VILLAGE_PLANTS_BY_ID: Dict[str, List[Dict[str, object]]] = {
-    "village-001": [
-        {
-            "id": "plant-001",
-            "displayName": "Ruby Basil",
-            "species": "Ocimum basilicum",
-            "stage": "vegetative",
-            "lastWateredAt": "2024-04-11T07:15:00Z",
-            "healthScore": 0.96,
-        },
-        {
-            "id": "plant-002",
-            "displayName": "Silver Fern",
-            "species": "Pteris cretica",
-            "stage": "mature",
-            "lastWateredAt": "2024-04-11T08:45:00Z",
-            "healthScore": 0.91,
-        },
-    ],
-    "village-002": [
-        {
-            "id": "plant-003",
-            "displayName": "Sunburst Succulent",
-            "species": "Sedum nussbaumerianum",
-            "stage": "flowering",
-            "lastWateredAt": "2024-04-10T14:10:00Z",
-            "healthScore": 0.87,
-        },
-        {
-            "id": "plant-004",
-            "displayName": "Amber Aloe",
-            "species": "Aloe vera",
-            "stage": "vegetative",
-            "lastWateredAt": "2024-04-09T12:00:00Z",
-            "healthScore": 0.79,
-        },
-    ],
-    "village-003": [
-        {
-            "id": "plant-005",
-            "displayName": "Moonlit Kale",
-            "species": "Brassica oleracea",
-            "stage": "mature",
-            "lastWateredAt": "2024-04-11T09:30:00Z",
-            "healthScore": 0.84,
-        },
-        {
-            "id": "plant-006",
-            "displayName": "Cascade Mint",
-            "species": "Mentha canadensis",
-            "stage": "vegetative",
-            "lastWateredAt": "2024-04-11T05:40:00Z",
-            "healthScore": 0.92,
-        },
-        {
-            "id": "plant-007",
-            "displayName": "Twilight Orchid",
-            "species": "Cattleya trianae",
-            "stage": "flowering",
-            "lastWateredAt": "2024-04-10T18:05:00Z",
-            "healthScore": 0.76,
-        },
-    ],
+    village_id: [_plant_payload(plant) for plant in plants]
+    for village_id, plants in _plants_by_village.items()
 }
 
 
 # Plant detail ---------------------------------------------------------------
 
+_village_name_by_id = {village["id"]: village["name"] for village in seed_content.VILLAGES}
+
 PLANT_DETAIL_BY_ID: Dict[str, Dict[str, object]] = {
-    "plant-001": {
-        "id": "plant-001",
-        "displayName": "Ruby Basil",
-        "species": "Ocimum basilicum",
-        "villageName": "Evergreen Terrace",
-        "lastWateredAt": "2024-04-11T07:15:00Z",
-        "healthScore": 0.96,
-        "notes": "Thriving after nutrient boost — monitor color shifts weekly.",
-    },
-    "plant-002": {
-        "id": "plant-002",
-        "displayName": "Silver Fern",
-        "species": "Pteris cretica",
-        "villageName": "Evergreen Terrace",
-        "lastWateredAt": "2024-04-11T08:45:00Z",
-        "healthScore": 0.91,
-        "notes": "Rotate tray during next maintenance cycle to balance canopy.",
-    },
-    "plant-003": {
-        "id": "plant-003",
-        "displayName": "Sunburst Succulent",
-        "species": "Sedum nussbaumerianum",
-        "villageName": "Solstice Ridge",
-        "lastWateredAt": "2024-04-10T14:10:00Z",
-        "healthScore": 0.87,
-        "notes": "Supplemental lighting reduced scorch spots — keep monitoring.",
-    },
-    "plant-004": {
-        "id": "plant-004",
-        "displayName": "Amber Aloe",
-        "species": "Aloe vera",
-        "villageName": "Solstice Ridge",
-        "lastWateredAt": "2024-04-09T12:00:00Z",
-        "healthScore": 0.79,
-        "notes": "Irrigation flow low — inspect emitter during weekly rounds.",
-    },
-    "plant-005": {
-        "id": "plant-005",
-        "displayName": "Moonlit Kale",
-        "species": "Brassica oleracea",
-        "villageName": "Cascade Hollow",
-        "lastWateredAt": "2024-04-11T09:30:00Z",
-        "healthScore": 0.84,
-        "notes": "Fungal pressure rising; preventative spray scheduled.",
-    },
-    "plant-006": {
-        "id": "plant-006",
-        "displayName": "Cascade Mint",
-        "species": "Mentha canadensis",
-        "villageName": "Cascade Hollow",
-        "lastWateredAt": "2024-04-11T05:40:00Z",
-        "healthScore": 0.92,
-        "notes": "Harvest scheduled for upcoming tasting event.",
-    },
-    "plant-007": {
-        "id": "plant-007",
-        "displayName": "Twilight Orchid",
-        "species": "Cattleya trianae",
-        "villageName": "Cascade Hollow",
-        "lastWateredAt": "2024-04-10T18:05:00Z",
-        "healthScore": 0.76,
-        "notes": "Mildew detected — maintain isolation bench until cleared.",
-    },
+    plant["id"]: {
+        "id": plant["id"],
+        "displayName": plant["display_name"],
+        "species": plant["species"],
+        "villageName": _village_name_by_id[plant["village_id"]],
+        "lastWateredAt": plant["last_watered_at"],
+        "healthScore": plant["health_score"],
+        "notes": plant["notes"],
+    }
+    for plant in seed_content.PLANTS
 }
 
-PLANT_TIMELINE_BY_ID: Dict[str, List[Dict[str, object]]] = {
-    "plant-001": [
-        {
-            "id": "event-plant-001-01",
-            "occurredAt": "2024-04-10T06:00:00Z",
-            "type": "watering",
-            "summary": "Automated irrigation cycle completed (2.5L).",
-        },
-        {
-            "id": "event-plant-001-02",
-            "occurredAt": "2024-04-08T12:40:00Z",
-            "type": "fertilizer",
-            "summary": "Applied foliar feed — 15-5-10 at 1:200 dilution.",
-        },
-    ],
-    "plant-005": [
-        {
-            "id": "event-plant-005-01",
-            "occurredAt": "2024-04-09T09:15:00Z",
-            "type": "inspection",
-            "summary": "Leaf spot noted on lower canopy leaves.",
-        },
-        {
-            "id": "event-plant-005-02",
-            "occurredAt": "2024-04-07T07:20:00Z",
-            "type": "note",
-            "summary": "Improved growth after humidity adjustments.",
-        },
-    ],
-    "plant-007": [
-        {
-            "id": "event-plant-007-01",
-            "occurredAt": "2024-04-10T18:05:00Z",
-            "type": "inspection",
-            "summary": "Powdery mildew detected on two leaves.",
-        },
-        {
-            "id": "event-plant-007-02",
-            "occurredAt": "2024-04-08T16:30:00Z",
-            "type": "watering",
-            "summary": "Hand-watered due to emitter clog during automated cycle.",
-        },
-    ],
+PLANT_TIMELINE_BY_ID: Dict[str, List[Dict[str, object]]] = seed_content.PLANT_TIMELINE
+
+
+# Dashboard ------------------------------------------------------------------
+
+HELLO_PAYLOAD = {"message": "Hello, Plantit"}
+HEALTH_PAYLOAD = {"status": "ok", "checks": {"db": "ok"}}
+
+TOTAL_PLANTS = sum(len(plants) for plants in _plants_by_village.values())
+
+DASHBOARD_PAYLOAD = {
+    "summary": {
+        "totalPlants": TOTAL_PLANTS,
+        "activeVillages": len(seed_content.VILLAGES),
+        "successRate": round(
+            sum(plant["health_score"] for plant in seed_content.PLANTS) / TOTAL_PLANTS, 2
+        ),
+        "upcomingTasks": len(seed_content.TODAY_TASKS),
+    },
+    "alerts": seed_content.DASHBOARD_ALERTS,
+    "lastUpdated": "2024-04-12T08:30:00Z",
 }
 
 
-# Today tasks ----------------------------------------------------------------
+# Tasks ----------------------------------------------------------------------
 
 TODAY_TASKS_RESPONSE = {
     "tasks": [
         {
-            "id": "task-001",
-            "type": "water",
-            "plantId": "plant-004",
-            "plantName": "Amber Aloe",
-            "villageName": "Solstice Ridge",
-            "dueAt": "2024-04-12T10:00:00Z",
-            "priority": "high",
-        },
-        {
-            "id": "task-002",
-            "type": "inspect",
-            "plantId": "plant-007",
-            "plantName": "Twilight Orchid",
-            "villageName": "Cascade Hollow",
-            "dueAt": "2024-04-12T12:30:00Z",
-            "priority": "high",
-        },
-        {
-            "id": "task-003",
-            "type": "fertilize",
-            "plantId": "plant-002",
-            "plantName": "Silver Fern",
-            "villageName": "Evergreen Terrace",
-            "dueAt": "2024-04-12T15:00:00Z",
-            "priority": "medium",
-        },
+            "id": task["id"],
+            "type": task["type"],
+            "plantId": task["plant_id"],
+            "plantName": task["plant_name"],
+            "villageName": task["village_name"],
+            "dueAt": task["due_at"],
+            "priority": task["priority"],
+        }
+        for task in seed_content.TODAY_TASKS
     ],
     "emptyStateMessage": None,
 }
@@ -333,43 +129,32 @@ TODAY_TASKS_RESPONSE = {
 
 # Import/Export ---------------------------------------------------------------
 
-HELLO_PAYLOAD = {"message": "Hello, Plantit"}
-
-HEALTH_PAYLOAD = {"status": "ok", "checks": {"db": "ok"}}
-
 EXPORT_BUNDLE = {
-    "schemaVersion": 1,
+    "schemaVersion": seed_content.EXPORT_METADATA["schemaVersion"],
     "generatedAt": "2024-04-12T08:30:00Z",
-    "metadata": {
-        "source": "fixture",
-        "note": "Static export bundle for contract tests.",
-    },
+    "metadata": seed_content.EXPORT_METADATA["metadata"],
     "payload": {
         "villages": [
             {
-                "id": detail["id"],
-                "name": detail["name"],
-                "climate": detail["climate"],
-                "plantCount": detail["plantCount"],
-                "healthScore": detail["healthScore"],
-                "establishedAt": detail["establishedAt"],
+                "id": village["id"],
+                "name": village["name"],
+                "climate": village["climate"],
+                "plantCount": len(_plants_by_village.get(village["id"], ())),
+                "healthScore": village["health_score"],
+                "establishedAt": village["established_at"],
             }
-            for detail in VILLAGE_DETAIL_BY_ID.values()
+            for village in seed_content.VILLAGES
         ],
         "plants": [
             {
                 "id": plant["id"],
-                "displayName": plant["displayName"],
+                "displayName": plant["display_name"],
                 "species": plant["species"],
-                "villageId": next(
-                    village_id
-                    for village_id, plants in VILLAGE_PLANTS_BY_ID.items()
-                    if any(item["id"] == plant["id"] for item in plants)
-                ),
-                "lastWateredAt": plant["lastWateredAt"],
-                "healthScore": plant["healthScore"],
+                "villageId": plant["village_id"],
+                "lastWateredAt": plant["last_watered_at"],
+                "healthScore": plant["health_score"],
             }
-            for plant in PLANT_DETAIL_BY_ID.values()
+            for plant in seed_content.PLANTS
         ],
     },
 }
