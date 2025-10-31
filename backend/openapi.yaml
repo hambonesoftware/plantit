@@ -1,0 +1,509 @@
+openapi: 3.0.3
+info:
+  title: Plantit API
+  version: 0.6.0
+  description: |
+    Contract-first definition for the Plantit backend read-path endpoints.
+    Responses provide deterministic fixtures until persistence is available.
+servers:
+  - url: http://127.0.0.1:5581
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Readiness check for orchestrators and smoke tests.
+      responses:
+        '200':
+          description: Service readiness information.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/hello:
+    get:
+      tags: [Greetings]
+      summary: Friendly greeting used by smoke tests.
+      responses:
+        '200':
+          description: Greeting payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelloResponse'
+  /api/dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Retrieve summary metrics and actionable alerts for the dashboard.
+      responses:
+        '200':
+          description: Dashboard summary payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+  /api/villages:
+    get:
+      tags: [Villages]
+      summary: List villages with optional filters applied.
+      parameters:
+        - in: query
+          name: searchTerm
+          schema:
+            type: string
+          description: Optional free-text search applied server side.
+        - in: query
+          name: climateZones
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          description: Climate zones to include.
+        - in: query
+          name: minHealth
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+          description: Minimum health score to surface.
+      responses:
+        '200':
+          description: Villages with applied filters echoed back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VillageListResponse'
+  /api/villages/{villageId}:
+    get:
+      tags: [Villages]
+      summary: Retrieve details for a specific village.
+      parameters:
+        - in: path
+          name: villageId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Village detail payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VillageDetailResponse'
+        '404':
+          description: The requested village does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/villages/{villageId}/plants:
+    get:
+      tags: [Plants]
+      summary: Retrieve plants within a given village.
+      parameters:
+        - in: path
+          name: villageId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plant list scoped to the village.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VillagePlantListResponse'
+        '404':
+          description: The requested village does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/plants/{plantId}:
+    get:
+      tags: [Plants]
+      summary: Retrieve the plant modal payload for a single plant.
+      parameters:
+        - in: path
+          name: plantId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plant detail with timeline events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantDetailResponse'
+        '404':
+          description: The requested plant does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/today:
+    get:
+      tags: [Today]
+      summary: Retrieve the aggregated task list for the current day.
+      responses:
+        '200':
+          description: Today task list payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodayTasksResponse'
+  /api/import:
+    post:
+      tags: [Import/Export]
+      summary: Submit an import preview for validation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportPreviewRequest'
+      responses:
+        '202':
+          description: Import preview accepted for processing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportPreviewResponse'
+  /api/export:
+    get:
+      tags: [Import/Export]
+      summary: Retrieve an export bundle for download.
+      responses:
+        '200':
+          description: Export bundle payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportBundle'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          example: ok
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            db: ok
+    HelloResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Hello, Plantit
+    DashboardResponse:
+      type: object
+      required: [summary, alerts, lastUpdated]
+      properties:
+        summary:
+          $ref: '#/components/schemas/DashboardSummary'
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardAlert'
+        lastUpdated:
+          type: string
+          format: date-time
+    DashboardSummary:
+      type: object
+      required: [totalPlants, activeVillages, successRate, upcomingTasks]
+      properties:
+        totalPlants:
+          type: integer
+          minimum: 0
+        activeVillages:
+          type: integer
+          minimum: 0
+        successRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        upcomingTasks:
+          type: integer
+          minimum: 0
+    DashboardAlert:
+      type: object
+      required: [id, level, message]
+      properties:
+        id:
+          type: string
+        level:
+          type: string
+          enum: [info, warning, critical]
+        message:
+          type: string
+        relatedPlantId:
+          type: string
+          nullable: true
+    VillageListResponse:
+      type: object
+      required: [villages, appliedFilters]
+      properties:
+        villages:
+          type: array
+          items:
+            $ref: '#/components/schemas/VillageSummary'
+        appliedFilters:
+          $ref: '#/components/schemas/VillageFilterState'
+    VillageSummary:
+      type: object
+      required: [id, name, climate, plantCount, healthScore]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        climate:
+          type: string
+        plantCount:
+          type: integer
+          minimum: 0
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 1
+    VillageFilterState:
+      type: object
+      required: [searchTerm, climateZones]
+      properties:
+        searchTerm:
+          type: string
+        climateZones:
+          type: array
+          items:
+            type: string
+        minHealth:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+    VillageDetailResponse:
+      type: object
+      required: [village]
+      properties:
+        village:
+          $ref: '#/components/schemas/VillageDetail'
+    VillageDetail:
+      allOf:
+        - $ref: '#/components/schemas/VillageSummary'
+        - type: object
+          required: [description, establishedAt, irrigationType]
+          properties:
+            description:
+              type: string
+            establishedAt:
+              type: string
+              format: date
+            irrigationType:
+              type: string
+              enum: [drip, spray, manual]
+    VillagePlantListResponse:
+      type: object
+      required: [village, plants]
+      properties:
+        village:
+          $ref: '#/components/schemas/VillageSummary'
+        plants:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantListItem'
+    PlantListItem:
+      type: object
+      required: [id, displayName, species, stage, lastWateredAt, healthScore]
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        species:
+          type: string
+        stage:
+          type: string
+          enum: [seedling, vegetative, flowering, mature]
+        lastWateredAt:
+          type: string
+          format: date-time
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 1
+    PlantDetailResponse:
+      type: object
+      required: [plant, timeline]
+      properties:
+        plant:
+          $ref: '#/components/schemas/PlantDetail'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantEvent'
+    PlantDetail:
+      type: object
+      required: [id, displayName, species, villageName, lastWateredAt, healthScore, notes]
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        species:
+          type: string
+        villageName:
+          type: string
+        lastWateredAt:
+          type: string
+          format: date-time
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        notes:
+          type: string
+    PlantEvent:
+      type: object
+      required: [id, occurredAt, type, summary]
+      properties:
+        id:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum: [watering, fertilizer, inspection, transfer, note]
+        summary:
+          type: string
+    TodayTasksResponse:
+      type: object
+      required: [tasks, emptyStateMessage]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TodayTask'
+        emptyStateMessage:
+          type: string
+          nullable: true
+    TodayTask:
+      type: object
+      required: [id, type, plantId, plantName, villageName, dueAt, priority]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [water, fertilize, inspect, transplant]
+        plantId:
+          type: string
+        plantName:
+          type: string
+        villageName:
+          type: string
+        dueAt:
+          type: string
+          format: date-time
+        priority:
+          type: string
+          enum: [low, medium, high]
+    ImportPreviewRequest:
+      type: object
+      required: [schemaVersion, summary]
+      properties:
+        schemaVersion:
+          type: integer
+          minimum: 1
+        summary:
+          type: object
+          description: Free-form summary counts generated by the client.
+          additionalProperties: true
+    ImportPreviewResponse:
+      type: object
+      required: [status, schemaVersion, summary, message]
+      properties:
+        status:
+          type: string
+          enum: [accepted]
+        schemaVersion:
+          type: integer
+          minimum: 1
+        summary:
+          type: object
+          additionalProperties: true
+        message:
+          type: string
+    ExportBundle:
+      type: object
+      required: [schemaVersion, generatedAt, metadata, payload]
+      properties:
+        schemaVersion:
+          type: integer
+          minimum: 1
+        generatedAt:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          required: [source, note]
+          properties:
+            source:
+              type: string
+            note:
+              type: string
+        payload:
+          type: object
+          required: [villages, plants]
+          properties:
+            villages:
+              type: array
+              items:
+                $ref: '#/components/schemas/ExportVillage'
+            plants:
+              type: array
+              items:
+                $ref: '#/components/schemas/ExportPlant'
+    ExportVillage:
+      allOf:
+        - $ref: '#/components/schemas/VillageSummary'
+        - type: object
+          required: [establishedAt]
+          properties:
+            establishedAt:
+              type: string
+              format: date
+    ExportPlant:
+      type: object
+      required: [id, displayName, species, villageId, lastWateredAt, healthScore]
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        species:
+          type: string
+        villageId:
+          type: string
+        lastWateredAt:
+          type: string
+          format: date-time
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 1
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
