@@ -474,7 +474,7 @@ const onReady = () => {
 if (document.readyState === "loading") {
   window.addEventListener("DOMContentLoaded", onReady, { once: true });
 } else {
-  onReady();
+  queueMicrotask(onReady);
 }
 
 function mountShell(root, { statusText, safeMode }) {
