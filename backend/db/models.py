@@ -62,7 +62,9 @@ class Plant(Base):
     )
 
     village: Mapped[Village] = relationship("Village", back_populates="plants")
-    tasks: Mapped[list["Task"]] = relationship("Task", back_populates="plant")
+    tasks: Mapped[list["Task"]] = relationship(
+        "Task", back_populates="plant", cascade="all, delete-orphan"
+    )
 
 
 class Task(Base):
