@@ -70,6 +70,17 @@ def _env_int(name: str, default: int) -> int:
     return parsed if parsed >= 0 else default
 
 
+def _env_list(name: str, default: Sequence[str]) -> list[str]:
+    """Return a list parsed from a comma-separated environment variable."""
+
+    value = os.getenv(name)
+    if value is None:
+        return list(default)
+
+    items = [item.strip() for item in value.split(",")]
+    return [item for item in items if item]
+
+
 APP_VERSION = os.getenv("PLANTIT_APP_VERSION", __version__)
 BUILD_HASH = os.getenv("PLANTIT_BUILD_HASH", "unknown")
 
@@ -80,6 +91,11 @@ SESSION_COOKIE_NAME = _env_text("PLANTIT_SESSION_COOKIE", "plantit_session")
 SESSION_COOKIE_MAX_AGE = _env_int("PLANTIT_SESSION_MAX_AGE", 60 * 60 * 24)
 SESSION_COOKIE_SECURE = _env_flag("PLANTIT_SESSION_COOKIE_SECURE")
 SECURITY_HEADERS_ENABLED = _env_flag("PLANTIT_ENABLE_CSP")
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:5580",
+    "http://localhost:5580",
+]
+ALLOWED_ORIGINS = _env_list("PLANTIT_CORS_ALLOW_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
 
 _SECURITY_HEADERS = {
     "Content-Security-Policy": "".join(
@@ -114,7 +130,7 @@ app = FastAPI(title="Plantit Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5580"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
