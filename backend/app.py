@@ -78,7 +78,10 @@ def _env_list(name: str, default: Sequence[str]) -> list[str]:
         return list(default)
 
     items = [item.strip() for item in value.split(",")]
-    return [item for item in items if item]
+    cleaned = [item for item in items if item]
+    if not cleaned:
+        return list(default)
+    return cleaned
 
 
 APP_VERSION = os.getenv("PLANTIT_APP_VERSION", __version__)
