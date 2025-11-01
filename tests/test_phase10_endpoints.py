@@ -1,9 +1,12 @@
 """Integration tests for Phase 10 read-path endpoints."""
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from backend.app import app
+from backend.db import models
+from backend.db.session import session_scope
 
 client = TestClient(app)
 
@@ -48,6 +51,23 @@ def _create_plant(village_id: str) -> dict:
     plant = response.json().get("plant")
     assert isinstance(plant, dict)
     return plant
+
+
+def _create_task(plant_id: str, plant_name: str, village_name: str) -> str:
+    task_id = f"task-{uuid4().hex[:8]}"
+    with session_scope() as session:
+        session.add(
+            models.Task(
+                id=task_id,
+                task_type="inspect",
+                plant_id=plant_id,
+                plant_name=plant_name,
+                village_name=village_name,
+                due_at=datetime.now(timezone.utc),
+                priority="medium",
+            )
+        )
+    return task_id
 
 
 def test_list_village_plants_returns_seeded_plants() -> None:
@@ -246,3 +266,29 @@ def test_update_plant_conflict_returns_409() -> None:
         f"/api/villages/{village['id']}",
         json={"updatedAt": (updated_village or village)["updatedAt"]},
     )
+
+
+def test_delete_village_removes_dependent_records() -> None:
+    village = _create_village()
+    village_id = village["id"]
+
+    plant = _create_plant(village_id)
+    plant_id = plant["id"]
+    task_id = _create_task(plant_id, plant["displayName"], village["name"])
+
+    detail_response = client.get(f"/api/villages/{village_id}")
+    assert detail_response.status_code == 200, detail_response.text
+    updated_village = detail_response.json().get("village")
+    assert isinstance(updated_village, dict)
+
+    delete_response = client.request(
+        "DELETE",
+        f"/api/villages/{village_id}",
+        json={"updatedAt": updated_village["updatedAt"]},
+    )
+    assert delete_response.status_code == 200, delete_response.text
+
+    with session_scope() as session:
+        assert session.get(models.Village, village_id) is None
+        assert session.get(models.Plant, plant_id) is None
+        assert session.get(models.Task, task_id) is None
