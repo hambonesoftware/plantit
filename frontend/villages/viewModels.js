@@ -334,6 +334,47 @@ function preparePlantPayload(input = {}, options = {}) {
     amount: cleanText(input.amount),
   };
 
+  if (Array.isArray(input.activityLog)) {
+    const normalizedLog = input.activityLog
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') {
+          return null;
+        }
+        const date = typeof entry.date === 'string' && entry.date.trim() !== '' ? entry.date.trim() : null;
+        const type = typeof entry.type === 'string' && entry.type.trim() !== '' ? entry.type.trim() : 'note';
+        const noteValue =
+          typeof entry.note === 'string'
+            ? entry.note.trim()
+            : entry.note !== undefined && entry.note !== null
+            ? String(entry.note)
+            : '';
+        const normalized = {
+          type,
+          note: noteValue,
+        };
+        if (date) {
+          normalized.date = date;
+        }
+        if (entry.amount !== undefined && entry.amount !== null) {
+          const amount = typeof entry.amount === 'string' ? entry.amount.trim() : String(entry.amount).trim();
+          if (amount) {
+            normalized.amount = amount;
+          }
+        }
+        if (entry.method !== undefined && entry.method !== null) {
+          const method = typeof entry.method === 'string' ? entry.method.trim() : String(entry.method).trim();
+          if (method) {
+            normalized.method = method;
+          }
+        }
+        return normalized;
+      })
+      .filter(Boolean);
+    payload.activityLog = normalizedLog;
+  } else if (Object.prototype.hasOwnProperty.call(input, 'activityLog')) {
+    payload.activityLog = [];
+  }
+
   if (normalizedImage) {
     payload.imageUrl = normalizedImage;
   } else if (rawImage === null || rawImage === '') {
