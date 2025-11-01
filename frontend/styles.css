@@ -842,6 +842,105 @@ picture[data-loading='lazy'] img {
   color: #12324b;
 }
 
+.plant-detail-watering {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(18, 50, 75, 0.12);
+  border-radius: 12px;
+  background: rgba(246, 250, 253, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plant-detail-watering-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.plant-detail-watering-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #12324b;
+}
+
+.plant-detail-water-today {
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(18, 50, 75, 0.2);
+  background: #ffffff;
+  font-weight: 600;
+  color: #12324b;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.plant-detail-water-today:hover:not(:disabled),
+.plant-detail-water-today:focus-visible:not(:disabled) {
+  background: rgba(86, 175, 104, 0.15);
+  color: #1b7030;
+}
+
+.plant-detail-water-today:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.plant-detail-next-watering {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #46627a;
+}
+
+.plant-detail-watering-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #46627a;
+}
+
+.plant-detail-watering-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.plant-watering-calendar-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #46627a;
+}
+
+.plant-watering-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.plant-watering-calendar-cell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  background: #ffffff;
+  border: 1px solid rgba(18, 50, 75, 0.15);
+  color: #46627a;
+}
+
+.plant-watering-calendar-cell.is-watered {
+  background: rgba(86, 175, 104, 0.2);
+  color: #1b7030;
+  border-color: #1b7030;
+}
+
+.plant-watering-calendar-cell.is-today {
+  border-color: rgba(18, 50, 75, 0.6);
+  box-shadow: 0 0 0 1px rgba(18, 50, 75, 0.6) inset;
+}
+
 .plant-detail-notes {
   background: rgba(255, 255, 255, 0.9);
   border-radius: 12px;

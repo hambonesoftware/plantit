@@ -467,6 +467,12 @@ function _stringifyForDiagnostics(value) {
  *  @property {string} [notes]
  */
 
+/** @typedef {Object} PlantWateringInfo
+ *  @property {string[]} history
+ *  @property {string | null} nextWateringDate
+ *  @property {boolean} hasWateringToday
+ */
+
 /** @typedef {Object} PlantDetail
  *  @property {string} id
  *  @property {string} displayName
@@ -477,6 +483,7 @@ function _stringifyForDiagnostics(value) {
  *  @property {string} notes
  *  @property {string} updatedAt
  *  @property {string} villageId
+ *  @property {PlantWateringInfo | undefined} [watering]
  */
 
 /** @typedef {Object} PlantEvent
@@ -567,6 +574,27 @@ export function fetchTodayTasks(correlationId) {
  */
 export function fetchPlantDetail(plantId, correlationId) {
   return request(`/plants/${plantId}`, { correlationId });
+}
+
+/**
+ * @param {string} plantId
+ * @param {{ wateredAt?: string }} [payload]
+ * @param {string} [correlationId]
+ * @returns {Promise<{ plant: PlantDetail, timeline: PlantEvent[] }>}
+ */
+export function recordPlantWatering(plantId, payload = {}, correlationId) {
+  if (!plantId) {
+    return Promise.reject(new Error('plantId is required'));
+  }
+  const body = {};
+  if (typeof payload.wateredAt === 'string' && payload.wateredAt) {
+    body.wateredAt = payload.wateredAt;
+  }
+  return request(`/plants/${encodeURIComponent(plantId)}/waterings`, {
+    method: 'POST',
+    body,
+    correlationId,
+  });
 }
 
 /**

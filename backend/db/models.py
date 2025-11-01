@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -65,6 +65,12 @@ class Plant(Base):
     tasks: Mapped[list["Task"]] = relationship(
         "Task", back_populates="plant", cascade="all, delete-orphan"
     )
+    waterings: Mapped[list["PlantWateringEvent"]] = relationship(
+        "PlantWateringEvent",
+        back_populates="plant",
+        cascade="all, delete-orphan",
+        order_by="PlantWateringEvent.watered_at",
+    )
 
 
 class Task(Base):
@@ -81,3 +87,19 @@ class Task(Base):
     priority: Mapped[str] = mapped_column(String, nullable=False)
 
     plant: Mapped[Plant] = relationship("Plant", back_populates="tasks")
+
+
+class PlantWateringEvent(Base):
+    """Recorded watering event for a plant."""
+
+    __tablename__ = "plant_watering_events"
+    __table_args__ = (UniqueConstraint("plant_id", "watered_at"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    plant_id: Mapped[str] = mapped_column(ForeignKey("plants.id"), nullable=False, index=True)
+    watered_at: Mapped[date] = mapped_column(Date, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    plant: Mapped[Plant] = relationship("Plant", back_populates="waterings")

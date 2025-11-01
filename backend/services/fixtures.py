@@ -1,6 +1,7 @@
 """Static fixtures derived from the canonical seed data."""
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Dict, List, Sequence
 
 from backend.data import seed_content
@@ -40,6 +41,53 @@ def _plant_payload(plant: Dict[str, object]) -> Dict[str, object]:
         "healthScore": plant["health_score"],
         "notes": plant.get("notes"),
         "updatedAt": plant.get("updated_at", "2024-04-12T08:30:00Z"),
+    }
+
+
+def _predict_next_watering(history: Sequence[date]) -> date | None:
+    unique_sorted = sorted({value for value in history if isinstance(value, date)})
+    count = len(unique_sorted)
+    if count < 2:
+        return None
+
+    indices = list(range(count))
+    ordinals = [value.toordinal() for value in unique_sorted]
+    mean_index = sum(indices) / count
+    mean_ordinal = sum(ordinals) / count
+    denominator = sum((index - mean_index) ** 2 for index in indices)
+    if denominator == 0:
+        interval = max(1, ordinals[-1] - ordinals[-2])
+        return unique_sorted[-1] + timedelta(days=interval)
+
+    numerator = sum(
+        (index - mean_index) * (ordinal - mean_ordinal)
+        for index, ordinal in zip(indices, ordinals)
+    )
+    slope = numerator / denominator
+    intercept = mean_ordinal - slope * mean_index
+    predicted = slope * count + intercept
+    rounded = round(predicted)
+    minimum_next = ordinals[-1] + 1
+    target = max(minimum_next, rounded)
+    return date.fromordinal(target)
+
+
+def _watering_payload(plant_id: str) -> Dict[str, object]:
+    raw_dates = seed_content.PLANT_WATERINGS.get(plant_id, [])
+    parsed_dates: List[date] = []
+    for value in raw_dates:
+        try:
+            parsed_dates.append(date.fromisoformat(value))
+        except ValueError:
+            continue
+    parsed_dates = sorted(parsed_dates)
+    history = [value.isoformat() for value in parsed_dates]
+    next_date = _predict_next_watering(parsed_dates)
+    today = date.today().isoformat()
+    return {
+        "history": history,
+        "nextWateringDate": next_date.isoformat() if next_date else None,
+        "hasWateringToday": today in history,
     }
 
 
@@ -85,6 +133,7 @@ PLANT_DETAIL_BY_ID: Dict[str, Dict[str, object]] = {
         "healthScore": plant["health_score"],
         "notes": plant["notes"],
         "updatedAt": plant.get("updated_at", "2024-04-12T08:30:00Z"),
+        "watering": _watering_payload(plant["id"]),
     }
     for plant in seed_content.PLANTS
 }
