@@ -271,6 +271,10 @@ function createPlantListItem(plant) {
   if ('notes' in plant) {
     item.dataset.notes = plant.notes ?? '';
   }
+  if ('imageUrl' in plant) {
+    const sanitizedImage = normalizeImageUrl(plant.imageUrl);
+    item.dataset.imageUrl = sanitizedImage ?? '';
+  }
   item.dataset.displayName = plant.displayName;
   item.dataset.species = plant.species;
 
@@ -301,6 +305,7 @@ function createPlantListItem(plant) {
   openButton.dataset.action = 'plant-open';
   openButton.setAttribute('aria-label', `View ${plant.displayName}`);
   openButton.append(header, species, meta);
+  setPlantCardBackground(openButton, plant.imageUrl);
 
   const actions = document.createElement('div');
   actions.className = 'village-plants-item-actions';
@@ -315,6 +320,43 @@ function createPlantListItem(plant) {
 
   item.append(openButton, actions);
   return item;
+}
+
+function setPlantCardBackground(button, imageUrl) {
+  if (!button) {
+    return;
+  }
+  const normalized = normalizeImageUrl(imageUrl);
+  if (normalized) {
+    const escaped = escapeForCssUrl(normalized);
+    button.style.setProperty('--plant-card-image', `url("${escaped}")`);
+    button.dataset.hasImage = 'true';
+  } else {
+    button.style.removeProperty('--plant-card-image');
+    button.dataset.hasImage = 'false';
+  }
+}
+
+function normalizeImageUrl(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('data:image/')) {
+    return trimmed;
+  }
+  if (lower.startsWith('http://') || lower.startsWith('https://')) {
+    return trimmed;
+  }
+  return null;
+}
+
+function escapeForCssUrl(value) {
+  return value.replace(/["'\\]/g, (character) => `\\${character}`);
 }
 
 function sanitizeStage(stage) {

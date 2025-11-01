@@ -861,14 +861,18 @@ function buildVillagesSection() {
             </div>
           </div>
           <article class="village-detail-card" data-role="detail-content" hidden>
-            <header class="village-detail-header">
-              <span class="village-detail-climate" data-role="detail-climate"></span>
-              <h3 data-role="detail-name"></h3>
-              <p class="village-detail-description" data-role="detail-description"></p>
-            </header>
-            <div class="village-detail-actions">
-              <button type="button" class="village-detail-edit" data-action="detail-edit">Edit</button>
-              <button type="button" class="village-detail-delete" data-action="detail-delete">Delete</button>
+            <div class="village-detail-hero" data-role="village-hero">
+              <div class="village-detail-hero-overlay">
+                <header class="village-detail-header">
+                  <span class="village-detail-climate" data-role="detail-climate"></span>
+                  <h3 data-role="detail-name"></h3>
+                  <p class="village-detail-description" data-role="detail-description"></p>
+                </header>
+                <div class="village-detail-actions">
+                  <button type="button" class="village-detail-edit" data-action="detail-edit">Edit</button>
+                  <button type="button" class="village-detail-delete" data-action="detail-delete">Delete</button>
+                </div>
+              </div>
             </div>
             <dl class="village-detail-stats">
               <div><dt>Established</dt><dd data-role="detail-established"></dd></div>
@@ -931,6 +935,7 @@ function buildVillagesSection() {
               <h4 data-role="plant-form-title">Add Plant</h4>
               <input type="hidden" data-role="plant-id" />
               <input type="hidden" data-role="plant-updated-at" />
+              <input type="hidden" data-role="plant-image-data" />
               <label> Name
                 <input type="text" data-role="plant-name" required />
               </label>
@@ -951,6 +956,13 @@ function buildVillagesSection() {
               <label> Health Score
                 <input type="number" min="0" max="1" step="0.01" data-role="plant-health" required />
               </label>
+              <label> Photo
+                <input type="file" accept="image/*" data-role="plant-image" />
+              </label>
+              <div class="plant-image-preview" data-role="plant-image-preview" hidden>
+                <img alt="Selected plant preview" data-role="plant-image-preview-img" loading="lazy" />
+                <button type="button" data-action="plant-image-clear">Remove image</button>
+              </div>
               <label> Notes
                 <textarea data-role="plant-notes"></textarea>
               </label>
@@ -997,11 +1009,13 @@ function buildPlantSection() {
         </ol>
       </nav>
       <article class="plant-detail" data-role="plant-content" hidden>
-        <header class="plant-detail-header">
-          <button type="button" class="plant-detail-back" data-action="plant-detail-back">Back to village</button>
-          <div class="plant-detail-heading">
-            <h2 data-role="plant-name">Plant</h2>
-            <p class="plant-detail-subtitle" data-role="plant-subtitle"></p>
+        <header class="plant-detail-hero" data-role="plant-hero">
+          <div class="plant-detail-hero-overlay">
+            <button type="button" class="plant-detail-back" data-action="plant-detail-back">Back to village</button>
+            <div class="plant-detail-heading">
+              <h2 data-role="plant-name">Plant</h2>
+              <p class="plant-detail-subtitle" data-role="plant-subtitle"></p>
+            </div>
           </div>
         </header>
         <dl class="plant-detail-meta">
@@ -1315,12 +1329,32 @@ function setupPlantForm(root, { plantListViewModel }) {
   const stageInput = form.querySelector('[data-role="plant-stage"]');
   const lastWateredInput = form.querySelector('[data-role="plant-last-watered"]');
   const healthInput = form.querySelector('[data-role="plant-health"]');
+  const imageDataInput = form.querySelector('[data-role="plant-image-data"]');
+  const imageFileInput = form.querySelector('[data-role="plant-image"]');
+  const imagePreview = form.querySelector('[data-role="plant-image-preview"]');
+  const imagePreviewImg = form.querySelector('[data-role="plant-image-preview-img"]');
+  const imageClearButton = form.querySelector('[data-action="plant-image-clear"]');
   const notesInput = form.querySelector('[data-role="plant-notes"]');
   const errorMessage = form.querySelector('[data-role="plant-form-error"]');
   const cancelButton = form.querySelector('[data-action="plant-cancel"]');
   const deleteButton = form.querySelector('[data-action="plant-delete"]');
 
   let currentVillage = null;
+
+  const setImageData = (value) => {
+    if (imageDataInput) {
+      imageDataInput.value = typeof value === 'string' ? value : '';
+    }
+    if (imagePreview && imagePreviewImg) {
+      if (value) {
+        imagePreview.hidden = false;
+        imagePreviewImg.src = value;
+      } else {
+        imagePreview.hidden = true;
+        imagePreviewImg.removeAttribute('src');
+      }
+    }
+  };
 
   const hideForm = () => {
     form.hidden = true;
@@ -1331,6 +1365,10 @@ function setupPlantForm(root, { plantListViewModel }) {
       deleteButton.hidden = true;
     }
     form.reset();
+    setImageData('');
+    if (imageFileInput) {
+      imageFileInput.value = '';
+    }
   };
 
   const showCreateForm = () => {
@@ -1359,6 +1397,10 @@ function setupPlantForm(root, { plantListViewModel }) {
     }
     if (updatedAtInput) {
       updatedAtInput.value = '';
+    }
+    setImageData('');
+    if (imageFileInput) {
+      imageFileInput.value = '';
     }
     if (nameInput instanceof HTMLElement) {
       nameInput.focus();
@@ -1399,6 +1441,10 @@ function setupPlantForm(root, { plantListViewModel }) {
     if (notesInput) {
       notesInput.value = item.dataset.notes ?? '';
     }
+    setImageData(item.dataset.imageUrl ?? '');
+    if (imageFileInput) {
+      imageFileInput.value = '';
+    }
   };
 
   toggleButton.addEventListener('click', () => {
@@ -1411,6 +1457,38 @@ function setupPlantForm(root, { plantListViewModel }) {
 
   if (cancelButton) {
     cancelButton.addEventListener('click', hideForm);
+  }
+
+  if (imageFileInput) {
+    imageFileInput.addEventListener('change', () => {
+      const file = imageFileInput.files && imageFileInput.files[0];
+      if (!file) {
+        return;
+      }
+      if (file.type && !file.type.startsWith('image/')) {
+        showToast({ message: 'Select an image file for the plant photo.', tone: 'warning' });
+        imageFileInput.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.addEventListener('error', () => {
+        showToast({ message: 'Unable to read image. Try a smaller file.', tone: 'warning' });
+      });
+      reader.addEventListener('load', () => {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        setImageData(result);
+      });
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (imageClearButton) {
+    imageClearButton.addEventListener('click', () => {
+      setImageData('');
+      if (imageFileInput) {
+        imageFileInput.value = '';
+      }
+    });
   }
 
   if (deleteButton) {
@@ -1464,6 +1542,7 @@ function setupPlantForm(root, { plantListViewModel }) {
       lastWateredAt: lastWateredInput ? fromDateTimeLocal(lastWateredInput.value) : null,
       healthScore: healthInput ? healthInput.value : '0.5',
       notes: notesInput ? notesInput.value : null,
+      imageUrl: imageDataInput ? imageDataInput.value : '',
     };
 
     const plantId = idInput ? idInput.value : '';

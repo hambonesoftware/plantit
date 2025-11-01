@@ -46,6 +46,24 @@ const DEFAULT_FILTERS = Object.freeze({
   minHealth: null,
 });
 
+function normalizeImageUrl(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('data:image/')) {
+    return trimmed;
+  }
+  if (lower.startsWith('http://') || lower.startsWith('https://')) {
+    return trimmed;
+  }
+  return null;
+}
+
 function clampHealthScore(value, fallback = 0) {
   const numeric =
     typeof value === 'number'
@@ -65,6 +83,11 @@ function normalizeVillageDetailPayload(village) {
   }
   const id = typeof village.id === 'string' ? village.id : String(village.id ?? '').trim();
   const updatedAt = typeof village.updatedAt === 'string' ? village.updatedAt : new Date().toISOString();
+  const bannerImageUrls = Array.isArray(village.bannerImageUrls)
+    ? village.bannerImageUrls
+        .map((value) => normalizeImageUrl(value))
+        .filter(Boolean)
+    : [];
   return {
     id,
     name: typeof village.name === 'string' ? village.name : '',
@@ -75,6 +98,7 @@ function normalizeVillageDetailPayload(village) {
     establishedAt: typeof village.establishedAt === 'string' ? village.establishedAt : null,
     irrigationType: typeof village.irrigationType === 'string' ? village.irrigationType : null,
     updatedAt,
+    bannerImageUrls,
   };
 }
 
@@ -87,6 +111,7 @@ function summarizeVillage(detail) {
     plantCount: normalized.plantCount,
     healthScore: normalized.healthScore,
     updatedAt: normalized.updatedAt,
+    bannerImageUrls: normalized.bannerImageUrls,
   };
 }
 
@@ -105,6 +130,12 @@ function normalizePlantDetailPayload(plant) {
     healthScore: clampHealthScore(plant.healthScore),
     notes: typeof plant.notes === 'string' ? plant.notes : '',
     updatedAt,
+    imageUrl:
+      typeof plant.imageUrl === 'string'
+        ? normalizeImageUrl(plant.imageUrl)
+        : typeof plant.image_url === 'string'
+        ? normalizeImageUrl(plant.image_url)
+        : null,
     villageId:
       typeof plant.villageId === 'string'
         ? plant.villageId
@@ -139,6 +170,7 @@ function summarizePlant(detail) {
     healthScore: normalized.healthScore,
     updatedAt: normalized.updatedAt,
     notes: normalized.notes,
+    imageUrl: normalized.imageUrl,
   };
 }
 
@@ -167,6 +199,14 @@ function preparePlantPayload(input = {}, options = {}) {
       ? String(input.notes)
       : input.notes;
 
+  const rawImage =
+    input && Object.prototype.hasOwnProperty.call(input, 'imageUrl')
+      ? input.imageUrl
+      : input && Object.prototype.hasOwnProperty.call(input, 'imageData')
+      ? input.imageData
+      : undefined;
+  const normalizedImage = normalizeImageUrl(rawImage);
+
   const payload = {
     displayName,
     species,
@@ -175,6 +215,12 @@ function preparePlantPayload(input = {}, options = {}) {
     healthScore: clampHealthScore(input.healthScore, 0.5),
     notes: typeof notes === 'string' && notes !== '' ? notes : null,
   };
+
+  if (normalizedImage) {
+    payload.imageUrl = normalizedImage;
+  } else if (rawImage === null || rawImage === '') {
+    payload.imageUrl = null;
+  }
 
   if (options.includeVillageId) {
     payload.villageId = options.includeVillageId;
@@ -405,6 +451,7 @@ export class VillageListViewModel {
       plantCount: 0,
       healthScore: requestPayload.healthScore,
       updatedAt: new Date().toISOString(),
+      bannerImageUrls: [],
     };
 
     this._transition({
@@ -461,6 +508,8 @@ export class VillageListViewModel {
         previousVillages.find((item) => item.id === villageId)?.plantCount ?? 0,
       healthScore: requestPayload.healthScore,
       updatedAt: new Date().toISOString(),
+      bannerImageUrls:
+        previousVillages.find((item) => item.id === villageId)?.bannerImageUrls ?? [],
     });
 
     const nextVillages = previousVillages.map((item) =>
@@ -964,6 +1013,8 @@ export class VillagePlantListViewModel {
     const previousVillage = this._state.village;
     const previousLastUpdated = this._state.lastUpdated;
     const optimisticId = `temp-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const hasImageProp = Object.prototype.hasOwnProperty.call(requestPayload, 'imageUrl');
+    const optimisticImage = hasImageProp ? requestPayload.imageUrl ?? null : null;
     const optimisticPlant = {
       id: optimisticId,
       displayName: requestPayload.displayName,
@@ -972,6 +1023,7 @@ export class VillagePlantListViewModel {
       lastWateredAt: requestPayload.lastWateredAt,
       healthScore: requestPayload.healthScore,
       updatedAt: new Date().toISOString(),
+      imageUrl: optimisticImage,
     };
     const optimisticVillage = previousVillage
       ? {
@@ -1040,6 +1092,11 @@ export class VillagePlantListViewModel {
 
     const previousPlants = this._state.plants;
     const previousLastUpdated = this._state.lastUpdated;
+    const previousPlant = previousPlants.find((item) => item.id === plantId) || null;
+    const hasImageProp = Object.prototype.hasOwnProperty.call(requestPayload, 'imageUrl');
+    const optimisticImage = hasImageProp
+      ? requestPayload.imageUrl ?? null
+      : previousPlant?.imageUrl ?? null;
     const optimisticSummary = summarizePlant({
       id: plantId,
       displayName: requestPayload.displayName,
@@ -1048,6 +1105,7 @@ export class VillagePlantListViewModel {
       lastWateredAt: requestPayload.lastWateredAt,
       healthScore: requestPayload.healthScore,
       updatedAt: new Date().toISOString(),
+      imageUrl: optimisticImage,
     });
     const nextPlants = previousPlants.map((item) =>
       item.id === plantId ? optimisticSummary : item,

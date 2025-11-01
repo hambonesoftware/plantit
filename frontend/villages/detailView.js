@@ -33,6 +33,8 @@ export class VillageDetailView {
     this.health = root.querySelector('[data-role="detail-health"]');
     this.irrigation = root.querySelector('[data-role="detail-irrigation"]');
     this.content = root.querySelector('[data-role="detail-content"]');
+    this.hero = root.querySelector('[data-role="village-hero"]');
+    this._heroTimer = null;
 
     if (this.retryButton) {
       this.retryButton.addEventListener('click', () => {
@@ -93,6 +95,7 @@ export class VillageDetailView {
       content: false,
     });
     this._updateErrorContext(null, null);
+    this._setHeroImages([]);
   }
 
   renderLoading() {
@@ -103,6 +106,7 @@ export class VillageDetailView {
       content: false,
     });
     this._updateErrorContext(null, null);
+    this._setHeroImages([]);
   }
 
   /**
@@ -137,6 +141,8 @@ export class VillageDetailView {
       this.irrigation.textContent = village.irrigationType || '—';
     }
 
+    this._setHeroImages(village.bannerImageUrls || []);
+
     this.toggleVisibility({
       placeholder: false,
       loading: false,
@@ -160,6 +166,7 @@ export class VillageDetailView {
       content: false,
     });
     this._updateErrorContext(state.error?.detail ?? null, state.error?.category ?? null);
+    this._setHeroImages([]);
   }
 
   toggleVisibility({ placeholder, loading, error, content }) {
@@ -188,6 +195,39 @@ export class VillageDetailView {
       } else {
         delete this.errorPanel.dataset.category;
       }
+    }
+  }
+
+  _setHeroImages(images) {
+    if (this._heroTimer !== null) {
+      window.clearInterval(this._heroTimer);
+      this._heroTimer = null;
+    }
+    const hero = this.hero instanceof HTMLElement ? this.hero : null;
+    if (!hero) {
+      return;
+    }
+    const sanitized = Array.isArray(images)
+      ? images
+          .map((value) => (typeof value === 'string' ? value.trim() : ''))
+          .filter(Boolean)
+      : [];
+    if (sanitized.length === 0) {
+      hero.style.removeProperty('--village-hero-image');
+      hero.dataset.hasBanner = 'false';
+      return;
+    }
+    let index = 0;
+    const apply = () => {
+      hero.style.setProperty('--village-hero-image', `url("${sanitized[index]}")`);
+      hero.dataset.hasBanner = 'true';
+    };
+    apply();
+    if (sanitized.length > 1) {
+      this._heroTimer = window.setInterval(() => {
+        index = (index + 1) % sanitized.length;
+        apply();
+      }, 6000);
     }
   }
 }

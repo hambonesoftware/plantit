@@ -2027,6 +2027,284 @@ button.villages-list-button[data-selected='true'] {
   color: var(--green-700);
 }
 
+/* Media-rich enhancements -------------------------------------------------- */
+
+.villages-list-button {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(14, 116, 144, 0.08));
+  box-shadow: 0 14px 32px rgba(12, 74, 110, 0.18);
+  color: #0f172a;
+}
+
+.villages-list-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--village-banner-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transform: scale(1.04);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.villages-list-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(12, 74, 110, 0.18), rgba(12, 74, 110, 0.6));
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.villages-list-button > * {
+  position: relative;
+  z-index: 1;
+}
+
+.villages-list-button[data-has-banner='true']::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.villages-list-button[data-has-banner='true']::after {
+  opacity: 1;
+}
+
+.villages-list-button[data-has-banner='true'] {
+  color: #f0fdfa;
+}
+
+.villages-list-button[data-has-banner='true'] .villages-list-meta {
+  opacity: 0.78;
+}
+
+.villages-list-button[data-has-banner='true'] .villages-list-health {
+  color: inherit;
+}
+
+.villages-list-button[data-selected='true'] {
+  box-shadow: 0 16px 36px rgba(14, 116, 144, 0.28);
+}
+
+.village-plants-item {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: rgba(14, 116, 144, 0.08);
+  border: 1px solid rgba(14, 116, 144, 0.14);
+  box-shadow: 0 16px 32px rgba(12, 74, 110, 0.16);
+}
+
+.village-plants-item-open {
+  position: relative;
+  flex: 1 1 auto;
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem 1.25rem;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  background: linear-gradient(180deg, rgba(236, 253, 245, 0.92), rgba(209, 250, 229, 0.88));
+  color: #0f172a;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.village-plants-item-open::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--plant-card-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transform: scale(1.03);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.village-plants-item-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(185deg, rgba(6, 78, 59, 0.12), rgba(6, 78, 59, 0.6));
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.village-plants-item-open > * {
+  position: relative;
+  z-index: 1;
+}
+
+.village-plants-item-open[data-has-image='true'] {
+  color: #f4fff9;
+}
+
+.village-plants-item-open[data-has-image='true']::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.village-plants-item-open[data-has-image='true']::after {
+  opacity: 1;
+}
+
+.village-plants-item-open[data-has-image='true'] .village-plants-item-stage {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fafff5;
+}
+
+.village-plants-item-open:hover,
+.village-plants-item-open:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(12, 74, 110, 0.22);
+}
+
+.village-plants-item-actions {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 0.5rem;
+}
+
+.plant-image-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.plant-image-preview img {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  box-shadow: 0 10px 22px rgba(17, 45, 30, 0.22);
+}
+
+.plant-image-preview button {
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(12, 70, 44, 0.3);
+  background: rgba(12, 70, 44, 0.08);
+  color: var(--green-700);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.plant-image-preview button:hover,
+.plant-image-preview button:focus-visible {
+  background: rgba(12, 70, 44, 0.16);
+  color: var(--green-800);
+}
+
+.village-detail-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  min-height: 180px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(16, 185, 129, 0.12));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.village-detail-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--village-hero-image, none);
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.village-detail-hero[data-has-banner='true']::before {
+  opacity: 1;
+}
+
+.village-detail-hero-overlay {
+  position: relative;
+  z-index: 1;
+  min-height: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding: 1.25rem 1.5rem;
+  color: #f0fdfa;
+  background: linear-gradient(190deg, rgba(6, 78, 59, 0.55), rgba(6, 78, 59, 0.78));
+}
+
+.village-detail-hero .village-detail-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.village-detail-hero .village-detail-actions button {
+  background: rgba(255, 255, 255, 0.18);
+  color: #f0fdfa;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.village-detail-hero .village-detail-actions button:hover,
+.village-detail-hero .village-detail-actions button:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.plant-detail-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  min-height: 220px;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(160deg, rgba(59, 130, 246, 0.12), rgba(16, 185, 129, 0.12));
+}
+
+.plant-detail-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--plant-hero-image, none);
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+.plant-detail-hero[data-has-image='true']::before {
+  opacity: 1;
+}
+
+.plant-detail-hero-overlay {
+  position: relative;
+  z-index: 1;
+  min-height: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 1.5rem;
+  color: #f8fafc;
+  background: linear-gradient(195deg, rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.78));
+}
+
+.plant-detail-hero .plant-detail-back {
+  background: rgba(255, 255, 255, 0.18);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.plant-detail-hero .plant-detail-back:hover,
+.plant-detail-hero .plant-detail-back:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 @media (max-width: 860px) {
   #main-nav {
     grid-template-columns: 1fr;

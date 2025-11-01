@@ -54,6 +54,7 @@ class Plant(Base):
     last_watered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     health_score: Mapped[float] = mapped_column(Float, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

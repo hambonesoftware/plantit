@@ -15,6 +15,7 @@ export class VillageListView {
     this.root = root;
     this.viewModel = viewModel;
     this.onSelect = options.onSelect ?? (() => {});
+    this._bannerTimers = new Map();
 
     this.searchForm = root.querySelector('[data-role="village-search-form"]');
     this.searchInput = root.querySelector('[data-role="village-search"]');
@@ -90,6 +91,7 @@ export class VillageListView {
   }
 
   renderLoading() {
+    this._clearBannerTimers();
     if (this.loadingMessage) {
       this.loadingMessage.hidden = false;
     }
@@ -110,6 +112,7 @@ export class VillageListView {
    * @param {import('./viewModels.js').VillageListState} state
    */
   renderReady(state) {
+    this._clearBannerTimers();
     if (this.loadingMessage) {
       this.loadingMessage.hidden = true;
     }
@@ -166,6 +169,8 @@ export class VillageListView {
         button.removeAttribute('aria-current');
       }
 
+      this._registerBannerCycle(button, village.bannerImageUrls);
+
       button.append(name, meta, health);
       item.append(button);
       return item;
@@ -178,6 +183,7 @@ export class VillageListView {
    * @param {import('./viewModels.js').VillageListState} state
    */
   renderError(state) {
+    this._clearBannerTimers();
     if (this.loadingMessage) {
       this.loadingMessage.hidden = true;
     }
@@ -209,5 +215,42 @@ export class VillageListView {
         delete this.errorPanel.dataset.category;
       }
     }
+  }
+
+  _clearBannerTimers() {
+    for (const timer of this._bannerTimers.values()) {
+      window.clearInterval(timer);
+    }
+    this._bannerTimers.clear();
+  }
+
+  _registerBannerCycle(button, images) {
+    if (!(button instanceof HTMLElement)) {
+      return;
+    }
+    const sanitized = Array.isArray(images)
+      ? images
+          .map((value) => (typeof value === 'string' ? value.trim() : ''))
+          .filter(Boolean)
+      : [];
+    if (sanitized.length === 0) {
+      button.dataset.hasBanner = 'false';
+      button.style.removeProperty('--village-banner-image');
+      return;
+    }
+    let index = 0;
+    const applyImage = () => {
+      button.style.setProperty('--village-banner-image', `url("${sanitized[index]}")`);
+      button.dataset.hasBanner = 'true';
+    };
+    applyImage();
+    if (sanitized.length === 1) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      index = (index + 1) % sanitized.length;
+      applyImage();
+    }, 6000);
+    this._bannerTimers.set(button, timer);
   }
 }
