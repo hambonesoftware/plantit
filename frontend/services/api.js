@@ -461,6 +461,8 @@ function _stringifyForDiagnostics(value) {
  *  @property {string} id
  *  @property {string} displayName
  *  @property {string} species
+ *  @property {string} villageId
+ *  @property {string | null} [villageName]
  *  @property {'seedling'|'vegetative'|'flowering'|'mature'} stage
  *  @property {string | null} lastWateredAt
  *  @property {number} healthScore
@@ -759,6 +761,7 @@ export function deleteVillage(villageId, payload, correlationId) {
  * @property {string | null} [dormancy]
  * @property {string | null} [waterAverage]
  * @property {string | null} [amount]
+ * @property {string | undefined} [villageId]
  */
 
 /**
@@ -766,7 +769,7 @@ export function deleteVillage(villageId, payload, correlationId) {
  */
 
 /**
- * @typedef {PlantWritePayload & { updatedAt: string }} PlantUpdatePayload
+ * @typedef {PlantWritePayload & { updatedAt: string, villageId?: string }} PlantUpdatePayload
  */
 
 /**
@@ -786,7 +789,7 @@ export function createPlant(payload, correlationId) {
  * @param {string} plantId
  * @param {PlantUpdatePayload} payload
  * @param {string} [correlationId]
- * @returns {Promise<{ plant: PlantDetail, village?: VillageSummary }>}
+ * @returns {Promise<{ plant: PlantDetail, village?: VillageSummary, previousVillage?: VillageSummary }>}
  */
 export function updatePlant(plantId, payload, correlationId) {
   return request(`/plants/${encodeURIComponent(plantId)}`, {

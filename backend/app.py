@@ -462,6 +462,8 @@ def _serialize_plant_summary(plant: models.Plant) -> Dict[str, Any]:
         "id": plant.id,
         "displayName": plant.display_name,
         "species": plant.species,
+        "villageId": plant.village_id,
+        "villageName": plant.village.name if plant.village else None,
         "stage": plant.stage,
         "lastWateredAt": _serialize_timestamp(plant.last_watered_at),
         "healthScore": plant.health_score,
@@ -772,6 +774,16 @@ class PlantCreateRequest(PlantBaseModel):
 
 class PlantUpdateRequest(PlantBaseModel):
     updated_at: datetime = Field(..., alias="updatedAt")
+    village_id: str | None = Field(default=None, alias="villageId")
+
+    @validator("village_id")
+    def _normalize_village(cls, value: str | None) -> str | None:  # noqa: N805 - pydantic signature
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("villageId must not be empty")
+        return normalized
 
 
 class PlantDeleteRequest(BaseModel):
@@ -1316,6 +1328,19 @@ def update_plant(
 
     _assert_plant_version(plant, payload.updated_at)
 
+    original_village_id = plant.village_id
+    original_village = plant.village
+
+    if payload.village_id is not None and payload.village_id != plant.village_id:
+        target_village = session.get(
+            models.Village,
+            payload.village_id,
+            options=(selectinload(models.Village.plants),),
+        )
+        if target_village is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Village not found")
+        plant.village = target_village
+
     plant.display_name = payload.display_name
     plant.species = payload.species
     plant.stage = payload.stage
@@ -1339,6 +1364,12 @@ def update_plant(
         plant.activity_log = payload.activity_log or []
     _touch_plant(plant)
     _touch_village(plant.village)
+    if (
+        original_village is not None
+        and original_village.id is not None
+        and original_village.id != plant.village_id
+    ):
+        _touch_village(original_village)
     session.commit()
     session.refresh(plant)
 
@@ -1350,9 +1381,19 @@ def update_plant(
             options=(selectinload(models.Village.plants),),
         )
 
+    previous_village = None
+    if original_village_id and original_village_id != plant.village_id:
+        previous_village = session.get(
+            models.Village,
+            original_village_id,
+            options=(selectinload(models.Village.plants),),
+        )
+
     response: Dict[str, Any] = {"plant": _serialize_plant_detail(plant)}
     if updated_village is not None:
         response["village"] = _serialize_village_summary(updated_village)
+    if previous_village is not None:
+        response["previousVillage"] = _serialize_village_summary(previous_village)
     return response
 
 

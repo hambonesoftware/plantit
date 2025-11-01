@@ -316,6 +316,8 @@ function createPlantListItem(plant) {
   }
   item.dataset.displayName = plant.displayName;
   item.dataset.species = plant.species;
+  item.dataset.villageId = plant.villageId ?? '';
+  item.dataset.villageName = plant.villageName ?? '';
   item.dataset.family = plant.family ?? '';
   item.dataset.plantOrigin = plant.plantOrigin ?? '';
   item.dataset.naturalHabitat = plant.naturalHabitat ?? '';
@@ -346,6 +348,10 @@ function createPlantListItem(plant) {
   species.className = 'village-plants-item-species';
   species.textContent = plant.species;
 
+  const villageInfo = document.createElement('p');
+  villageInfo.className = 'village-plants-item-meta';
+  villageInfo.textContent = `Village: ${plant.villageName || '—'}`;
+
   const family = document.createElement('p');
   family.className = 'village-plants-item-meta';
   family.textContent = `Family: ${plant.family || '—'}`;
@@ -371,7 +377,16 @@ function createPlantListItem(plant) {
   openButton.className = 'village-plants-item-open';
   openButton.dataset.action = 'plant-open';
   openButton.setAttribute('aria-label', `View ${plant.displayName}`);
-  openButton.append(header, species, family, environment, potInfo, health, activityPreview);
+  openButton.append(
+    header,
+    villageInfo,
+    species,
+    family,
+    environment,
+    potInfo,
+    health,
+    activityPreview,
+  );
   setPlantCardBackground(openButton, plant.imageUrl);
 
   const actions = document.createElement('div');

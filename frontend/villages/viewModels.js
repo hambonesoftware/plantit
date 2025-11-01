@@ -202,6 +202,8 @@ function summarizePlant(detail) {
     id: normalized.id,
     displayName: normalized.displayName,
     species: normalized.species,
+    villageId: normalized.villageId,
+    villageName: normalized.villageName,
     stage: normalized.stage,
     lastWateredAt: normalized.lastWateredAt,
     healthScore: normalized.healthScore,
@@ -381,8 +383,22 @@ function preparePlantPayload(input = {}, options = {}) {
     payload.imageUrl = null;
   }
 
-  if (options.includeVillageId) {
-    payload.villageId = options.includeVillageId;
+  let explicitVillageId = null;
+  if (typeof input.villageId === 'string') {
+    const trimmed = input.villageId.trim();
+    if (trimmed) {
+      explicitVillageId = trimmed;
+    }
+  }
+
+  const fallbackVillageId =
+    typeof options.includeVillageId === 'string' && options.includeVillageId
+      ? options.includeVillageId
+      : null;
+
+  const resolvedVillageId = explicitVillageId || fallbackVillageId;
+  if (resolvedVillageId) {
+    payload.villageId = resolvedVillageId;
   }
   if (options.updatedAt) {
     payload.updatedAt = options.updatedAt;
@@ -1171,46 +1187,80 @@ export class VillagePlantListViewModel {
     const previousPlants = this._state.plants;
     const previousVillage = this._state.village;
     const previousLastUpdated = this._state.lastUpdated;
+    const targetVillageId =
+      typeof requestPayload.villageId === 'string'
+        ? requestPayload.villageId
+        : this._currentVillageId;
+    const targetVillageName =
+      typeof payload?.villageName === 'string' && payload.villageName
+        ? payload.villageName
+        : targetVillageId === previousVillage?.id
+        ? previousVillage?.name ?? ''
+        : '';
     const optimisticId = `temp-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     const hasImageProp = Object.prototype.hasOwnProperty.call(requestPayload, 'imageUrl');
     const optimisticImage = hasImageProp ? requestPayload.imageUrl ?? null : null;
-    const optimisticPlant = {
-      id: optimisticId,
-      displayName: requestPayload.displayName,
-      species: requestPayload.species,
-      stage: requestPayload.stage,
-      lastWateredAt: requestPayload.lastWateredAt,
-      healthScore: requestPayload.healthScore,
-      updatedAt: new Date().toISOString(),
-      imageUrl: optimisticImage,
-    };
-    const optimisticVillage = previousVillage
-      ? {
-          ...previousVillage,
-          plantCount: previousVillage.plantCount + 1,
-          updatedAt: new Date().toISOString(),
-        }
-      : previousVillage;
+    const shouldDisplay = Boolean(
+      targetVillageId && targetVillageId === this._currentVillageId,
+    );
+    let hasOptimisticUpdate = false;
 
-    this._transition({
-      plants: [optimisticPlant, ...previousPlants],
-      village: optimisticVillage,
-      lastUpdated: new Date().toISOString(),
-    });
+    if (shouldDisplay) {
+      const optimisticPlant = {
+        id: optimisticId,
+        displayName: requestPayload.displayName,
+        species: requestPayload.species,
+        stage: requestPayload.stage,
+        lastWateredAt: requestPayload.lastWateredAt,
+        healthScore: requestPayload.healthScore,
+        updatedAt: new Date().toISOString(),
+        imageUrl: optimisticImage,
+        villageId: targetVillageId,
+        villageName: targetVillageName || previousVillage?.name || '',
+      };
+      const optimisticVillage = previousVillage
+        ? {
+            ...previousVillage,
+            plantCount: previousVillage.plantCount + 1,
+            updatedAt: new Date().toISOString(),
+          }
+        : previousVillage;
+
+      this._transition({
+        plants: [optimisticPlant, ...previousPlants],
+        village: optimisticVillage,
+        lastUpdated: new Date().toISOString(),
+      });
+      hasOptimisticUpdate = true;
+    }
 
     try {
       const response = await this._creator(requestPayload);
       const detail = normalizePlantDetailPayload(response?.plant);
       const summary = summarizePlant(detail);
-      const nextPlants = this._state.plants.map((item) =>
-        item.id === optimisticId ? summary : item,
-      );
-      const updatedVillage = response?.village
-        ? normalizeVillageDetailPayload(response.village)
-        : this._state.village;
+      const existingIndex = this._state.plants.findIndex((item) => item.id === summary.id);
+      let nextPlants = this._state.plants;
+      if (detail.villageId === this._currentVillageId) {
+        if (existingIndex >= 0) {
+          nextPlants = this._state.plants.map((item) =>
+            item.id === summary.id ? summary : item,
+          );
+        } else {
+          nextPlants = [summary, ...this._state.plants];
+        }
+      } else if (existingIndex >= 0) {
+        nextPlants = this._state.plants.filter((item) => item.id !== summary.id);
+      }
+      let nextVillageState = this._state.village;
+      if (response?.village) {
+        const normalizedVillage = normalizeVillageDetailPayload(response.village);
+        if (normalizedVillage.id === this._state.village?.id) {
+          nextVillageState = normalizedVillage;
+        }
+      }
       this._transition({
         plants: nextPlants,
-        village: updatedVillage,
+        village: nextVillageState,
         lastUpdated: new Date().toISOString(),
       });
       if (response?.village) {
@@ -1219,11 +1269,13 @@ export class VillagePlantListViewModel {
       this._notifyPlantUpdate(detail);
       return detail;
     } catch (error) {
-      this._transition({
-        plants: previousPlants,
-        village: previousVillage,
-        lastUpdated: previousLastUpdated,
-      });
+      if (hasOptimisticUpdate) {
+        this._transition({
+          plants: previousPlants,
+          village: previousVillage,
+          lastUpdated: previousLastUpdated,
+        });
+      }
       throw error;
     }
   }
@@ -1244,6 +1296,8 @@ export class VillagePlantListViewModel {
       throw new Error('updatedAt token required for plant update');
     }
 
+    const desiredVillageName =
+      typeof payload?.villageName === 'string' && payload.villageName ? payload.villageName : '';
     const requestPayload = {
       ...preparePlantPayload(payload),
       updatedAt,
@@ -1252,10 +1306,22 @@ export class VillagePlantListViewModel {
     const previousPlants = this._state.plants;
     const previousLastUpdated = this._state.lastUpdated;
     const previousPlant = previousPlants.find((item) => item.id === plantId) || null;
+    const previousVillage = this._state.village;
     const hasImageProp = Object.prototype.hasOwnProperty.call(requestPayload, 'imageUrl');
     const optimisticImage = hasImageProp
       ? requestPayload.imageUrl ?? null
       : previousPlant?.imageUrl ?? null;
+    const fallbackVillageId =
+      (typeof previousPlant?.villageId === 'string' && previousPlant.villageId) ||
+      this._state.village?.id ||
+      '';
+    const optimisticVillageId =
+      (typeof requestPayload.villageId === 'string' && requestPayload.villageId) ||
+      fallbackVillageId;
+    const fallbackVillageName =
+      (typeof previousPlant?.villageName === 'string' && previousPlant.villageName) ||
+      (fallbackVillageId === previousVillage?.id ? previousVillage?.name ?? '' : '');
+    const optimisticVillageName = desiredVillageName || fallbackVillageName;
     const optimisticSummary = summarizePlant({
       id: plantId,
       displayName: requestPayload.displayName,
@@ -1265,34 +1331,76 @@ export class VillagePlantListViewModel {
       healthScore: requestPayload.healthScore,
       updatedAt: new Date().toISOString(),
       imageUrl: optimisticImage,
+      villageId: optimisticVillageId,
+      villageName: optimisticVillageName,
     });
-    const nextPlants = previousPlants.map((item) =>
-      item.id === plantId ? optimisticSummary : item,
-    );
-    this._transition({ plants: nextPlants, lastUpdated: new Date().toISOString() });
+    const optimisticVillageState =
+      previousVillage && optimisticSummary.villageId !== this._currentVillageId
+        ? {
+            ...previousVillage,
+            plantCount: Math.max(0, previousVillage.plantCount - 1),
+            updatedAt: new Date().toISOString(),
+          }
+        : previousVillage;
+    const nextPlants =
+      optimisticSummary.villageId === this._currentVillageId
+        ? previousPlants.map((item) => (item.id === plantId ? optimisticSummary : item))
+        : previousPlants.filter((item) => item.id !== plantId);
+    this._transition({
+      plants: nextPlants,
+      village: optimisticVillageState,
+      lastUpdated: new Date().toISOString(),
+    });
 
     try {
       const response = await this._updater(plantId, requestPayload);
       const detail = normalizePlantDetailPayload(response?.plant);
       const summary = summarizePlant(detail);
-      const refreshedPlants = this._state.plants.map((item) =>
-        item.id === summary.id ? summary : item,
-      );
-      const updatedVillage = response?.village
-        ? normalizeVillageDetailPayload(response.village)
-        : this._state.village;
+      const existsInCurrent = this._state.plants.some((item) => item.id === summary.id);
+      let refreshedPlants = this._state.plants;
+      if (detail.villageId === this._currentVillageId) {
+        if (existsInCurrent) {
+          refreshedPlants = this._state.plants.map((item) =>
+            item.id === summary.id ? summary : item,
+          );
+        } else {
+          refreshedPlants = [summary, ...this._state.plants];
+        }
+      } else if (existsInCurrent) {
+        refreshedPlants = this._state.plants.filter((item) => item.id !== summary.id);
+      }
+      let nextVillageState = this._state.village;
+      if (response?.village) {
+        const normalizedVillage = normalizeVillageDetailPayload(response.village);
+        if (normalizedVillage.id === this._state.village?.id) {
+          nextVillageState = normalizedVillage;
+        }
+      }
+      if (response?.previousVillage) {
+        const normalizedPrevious = normalizeVillageDetailPayload(response.previousVillage);
+        if (normalizedPrevious.id === this._state.village?.id) {
+          nextVillageState = normalizedPrevious;
+        }
+      }
       this._transition({
         plants: refreshedPlants,
-        village: updatedVillage,
+        village: nextVillageState,
         lastUpdated: new Date().toISOString(),
       });
       if (response?.village) {
         this._notifyVillageUpdate(normalizeVillageDetailPayload(response.village));
       }
+      if (response?.previousVillage) {
+        this._notifyVillageUpdate(normalizeVillageDetailPayload(response.previousVillage));
+      }
       this._notifyPlantUpdate(detail);
       return detail;
     } catch (error) {
-      this._transition({ plants: previousPlants, lastUpdated: previousLastUpdated });
+      this._transition({
+        plants: previousPlants,
+        village: previousVillage,
+        lastUpdated: previousLastUpdated,
+      });
       throw error;
     }
   }
