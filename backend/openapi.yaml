@@ -601,6 +601,10 @@ components:
         updatedAt:
           type: string
           format: date-time
+        bannerImageUrls:
+          type: array
+          items:
+            type: string
     VillageFilterState:
       type: object
       required: [searchTerm, climateZones]
@@ -674,6 +678,9 @@ components:
           type: string
           format: date-time
         notes:
+          type: string
+          nullable: true
+        imageUrl:
           type: string
           nullable: true
     PlantDetailResponse:
@@ -764,6 +771,9 @@ components:
         notes:
           type: string
           nullable: true
+        imageUrl:
+          type: string
+          nullable: true
     PlantCreateRequest:
       allOf:
         - $ref: '#/components/schemas/PlantWriteRequest'
@@ -840,6 +850,9 @@ components:
         updatedAt:
           type: string
           format: date-time
+        imageUrl:
+          type: string
+          nullable: true
         watering:
           $ref: '#/components/schemas/PlantWateringSummary'
           nullable: true

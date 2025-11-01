@@ -8,6 +8,8 @@ from backend.app import app
 from backend.db import models
 from backend.db.session import session_scope
 
+SAMPLE_IMAGE_DATA = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA="
+
 client = TestClient(app)
 
 
@@ -45,6 +47,7 @@ def _create_plant(village_id: str) -> dict:
         "lastWateredAt": "2024-04-12T09:00:00Z",
         "healthScore": 0.55,
         "notes": "Created via integration test",
+        "imageUrl": SAMPLE_IMAGE_DATA,
     }
     response = client.post("/api/plants", json=payload)
     assert response.status_code == 201, response.text
@@ -93,6 +96,7 @@ def test_list_village_plants_returns_seeded_plants() -> None:
         "plantCount",
         "healthScore",
         "updatedAt",
+        "bannerImageUrls",
     }
     assert expected_village_keys.issubset(village.keys())
 
@@ -105,6 +109,7 @@ def test_list_village_plants_returns_seeded_plants() -> None:
         "healthScore",
         "updatedAt",
         "notes",
+        "imageUrl",
     }
     for plant in plants:
         assert expected_plant_keys.issubset(plant.keys()), plant
@@ -206,6 +211,7 @@ def test_create_update_delete_plant_flow() -> None:
         "healthScore": plant["healthScore"],
         "notes": "Updated via test",
         "updatedAt": plant["updatedAt"],
+        "imageUrl": plant.get("imageUrl") or SAMPLE_IMAGE_DATA,
     }
     response = client.put(f"/api/plants/{plant['id']}", json=update_payload)
     assert response.status_code == 200, response.text
@@ -243,6 +249,7 @@ def test_update_plant_conflict_returns_409() -> None:
         "healthScore": plant["healthScore"],
         "notes": plant.get("notes"),
         "updatedAt": plant["updatedAt"],
+        "imageUrl": plant.get("imageUrl") or SAMPLE_IMAGE_DATA,
     }
     response = client.put(f"/api/plants/{plant['id']}", json=first_update)
     assert response.status_code == 200, response.text

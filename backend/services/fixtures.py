@@ -21,6 +21,15 @@ __all__ = [
 
 
 def _summary_for_village(village: Dict[str, object], *, plant_count: int) -> Dict[str, object]:
+    banner_images = [
+        plant.get("image_url")
+        for plant in sorted(
+            _plants_by_village.get(village["id"], ()),
+            key=lambda item: item.get("updated_at", ""),
+            reverse=True,
+        )
+        if plant.get("image_url")
+    ]
     return {
         "id": village["id"],
         "name": village["name"],
@@ -28,6 +37,7 @@ def _summary_for_village(village: Dict[str, object], *, plant_count: int) -> Dic
         "plantCount": plant_count,
         "healthScore": village["health_score"],
         "updatedAt": village.get("updated_at", "2024-04-12T08:30:00Z"),
+        "bannerImageUrls": banner_images,
     }
 
 
@@ -41,6 +51,7 @@ def _plant_payload(plant: Dict[str, object]) -> Dict[str, object]:
         "healthScore": plant["health_score"],
         "notes": plant.get("notes"),
         "updatedAt": plant.get("updated_at", "2024-04-12T08:30:00Z"),
+        "imageUrl": plant.get("image_url"),
     }
 
 
@@ -133,6 +144,7 @@ PLANT_DETAIL_BY_ID: Dict[str, Dict[str, object]] = {
         "healthScore": plant["health_score"],
         "notes": plant["notes"],
         "updatedAt": plant.get("updated_at", "2024-04-12T08:30:00Z"),
+        "imageUrl": plant.get("image_url"),
         "watering": _watering_payload(plant["id"]),
     }
     for plant in seed_content.PLANTS

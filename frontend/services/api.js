@@ -426,6 +426,7 @@ function _stringifyForDiagnostics(value) {
  *  @property {number} plantCount
  *  @property {number} healthScore
  *  @property {string} updatedAt
+ *  @property {string[]} [bannerImageUrls]
  */
 
 /** @typedef {Object} VillageDetail
@@ -465,6 +466,7 @@ function _stringifyForDiagnostics(value) {
  *  @property {number} healthScore
  *  @property {string} updatedAt
  *  @property {string} [notes]
+ *  @property {string | null} [imageUrl]
  */
 
 /** @typedef {Object} PlantWateringInfo
@@ -483,6 +485,7 @@ function _stringifyForDiagnostics(value) {
  *  @property {string} notes
  *  @property {string} updatedAt
  *  @property {string} villageId
+ *  @property {string | null} [imageUrl]
  *  @property {PlantWateringInfo | undefined} [watering]
  */
 
@@ -660,6 +663,7 @@ export function deleteVillage(villageId, payload, correlationId) {
  * @property {string | null} [lastWateredAt]
  * @property {number} healthScore
  * @property {string | null} [notes]
+ * @property {string | null} [imageUrl]
  */
 
 /**

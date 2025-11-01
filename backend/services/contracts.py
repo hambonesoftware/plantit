@@ -55,6 +55,7 @@ class VillageSummary:
     climate: str
     plantCount: int
     healthScore: float
+    bannerImageUrls: Sequence[str] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,7 @@ class PlantDetail:
     lastWateredAt: datetime
     healthScore: float
     notes: str
+    imageUrl: Optional[str] = None
 
 
 @dataclass(frozen=True)

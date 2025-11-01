@@ -79,6 +79,7 @@ export class PlantDetailView {
     this.waterTodayButton = root.querySelector('[data-action="plant-water-today"]');
     this.waterDateInput = root.querySelector('[data-role="plant-water-date"]');
     this.waterOnDateButton = root.querySelector('[data-action="plant-water-on-date"]');
+    this.hero = root.querySelector('[data-role="plant-hero"]');
     this._currentErrorDetail = '';
 
     if (this.retryButton) {
@@ -228,6 +229,7 @@ export class PlantDetailView {
     }
     this._renderWatering(emptyWateringState(), false);
     this._updateErrorContext(null, null);
+    this._setHeroImage(null);
   }
 
   renderLoading() {
@@ -259,6 +261,7 @@ export class PlantDetailView {
     }
     this._renderWatering(emptyWateringState(), false);
     this._updateErrorContext(null, null);
+    this._setHeroImage(null);
   }
 
   /**
@@ -318,6 +321,8 @@ export class PlantDetailView {
       this.villageButton.disabled = !this.lastKnownVillageId;
       this.villageButton.dataset.villageId = this.lastKnownVillageId ?? '';
     }
+
+    this._setHeroImage(detail.imageUrl);
 
     if (this.breadcrumbVillage) {
       const villageName = detail.villageName || 'Village';
@@ -391,6 +396,7 @@ export class PlantDetailView {
     }
     this._renderWatering(state.watering ?? emptyWateringState(), false);
     this._updateErrorContext(state.error?.detail ?? null, state.error?.category ?? null);
+    this._setHeroImage(null);
   }
 
   _renderWatering(watering, isSaving) {
@@ -449,6 +455,21 @@ export class PlantDetailView {
       } else {
         delete this.errorPanel.dataset.category;
       }
+    }
+  }
+
+  _setHeroImage(imageUrl) {
+    const hero = this.hero instanceof HTMLElement ? this.hero : null;
+    if (!hero) {
+      return;
+    }
+    const normalized = typeof imageUrl === 'string' ? imageUrl.trim() : '';
+    if (normalized) {
+      hero.style.setProperty('--plant-hero-image', `url("${normalized}")`);
+      hero.dataset.hasImage = 'true';
+    } else {
+      hero.style.removeProperty('--plant-hero-image');
+      hero.dataset.hasImage = 'false';
     }
   }
 }

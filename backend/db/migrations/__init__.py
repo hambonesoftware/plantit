@@ -10,6 +10,7 @@ from . import (
     v0002_updated_at_columns,
     v0003_add_harbor_pineapple,
     v0004_add_plant_watering_events,
+    v0005_add_plant_images,
 )
 
 Migration = Tuple[str, Callable[[Connection], None]]
@@ -19,6 +20,7 @@ MIGRATIONS: List[Migration] = [
     (v0002_updated_at_columns.VERSION, v0002_updated_at_columns.apply),
     (v0003_add_harbor_pineapple.VERSION, v0003_add_harbor_pineapple.apply),
     (v0004_add_plant_watering_events.VERSION, v0004_add_plant_watering_events.apply),
+    (v0005_add_plant_images.VERSION, v0005_add_plant_images.apply),
 ]
 
 LATEST_VERSION = MIGRATIONS[-1][0]

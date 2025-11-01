@@ -311,6 +311,24 @@ function clampHealthScore(value, fallback = 0) {
   return Math.max(0, Math.min(1, numeric));
 }
 
+function normalizeImageUrl(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('data:image/')) {
+    return trimmed;
+  }
+  if (lower.startsWith('http://') || lower.startsWith('https://')) {
+    return trimmed;
+  }
+  return null;
+}
+
 function normalizePlantDetailPayload(plant) {
   if (!plant || typeof plant !== 'object') {
     throw new Error('Invalid plant payload');
@@ -327,6 +345,12 @@ function normalizePlantDetailPayload(plant) {
     healthScore: clampHealthScore(plant.healthScore),
     notes: typeof plant.notes === 'string' ? plant.notes : '',
     updatedAt,
+    imageUrl:
+      typeof plant.imageUrl === 'string'
+        ? normalizeImageUrl(plant.imageUrl)
+        : typeof plant.image_url === 'string'
+        ? normalizeImageUrl(plant.image_url)
+        : null,
     villageId:
       typeof plant.villageId === 'string'
         ? plant.villageId

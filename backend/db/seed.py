@@ -53,6 +53,7 @@ def seed_demo_data(session: Session) -> None:
             last_watered_at=_parse_datetime(plant["last_watered_at"]),
             health_score=plant["health_score"],
             notes=plant["notes"],
+            image_url=plant.get("image_url"),
         )
         for plant in seed_content.PLANTS
     }

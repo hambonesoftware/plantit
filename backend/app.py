@@ -348,6 +348,14 @@ def _touch_plant(plant: models.Plant | None) -> None:
 
 
 def _serialize_village_summary(village: models.Village) -> Dict[str, Any]:
+    banner_sources = [
+        plant.image_url
+        for plant in sorted(
+            (candidate for candidate in village.plants if candidate.image_url),
+            key=lambda candidate: candidate.updated_at,
+            reverse=True,
+        )[:6]
+    ]
     return {
         "id": village.id,
         "name": village.name,
@@ -355,6 +363,7 @@ def _serialize_village_summary(village: models.Village) -> Dict[str, Any]:
         "plantCount": len(village.plants),
         "healthScore": village.health_score,
         "updatedAt": _serialize_timestamp(village.updated_at),
+        "bannerImageUrls": banner_sources,
     }
 
 
@@ -380,6 +389,7 @@ def _serialize_plant_summary(plant: models.Plant) -> Dict[str, Any]:
         "healthScore": plant.health_score,
         "updatedAt": _serialize_timestamp(plant.updated_at),
         "notes": plant.notes,
+        "imageUrl": plant.image_url,
     }
 
 
@@ -437,6 +447,21 @@ def _predict_next_watering_date(history: Sequence[date]) -> date | None:
     minimum_next = ordinals[-1] + 1
     target = max(minimum_next, rounded)
     return date.fromordinal(target)
+
+
+def _normalize_image_url(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed:
+            return None
+        lowered = trimmed.lower()
+        if lowered.startswith("data:image/") or lowered.startswith("http://") or lowered.startswith(
+            "https://"
+        ):
+            return trimmed
+    raise ValueError("imageUrl must be a data URL or http(s) URL")
 
 
 def _assert_village_version(village: models.Village, expected: datetime) -> None:
@@ -523,6 +548,7 @@ class PlantBaseModel(BaseModel):
     last_watered_at: datetime | None = Field(default=None, alias="lastWateredAt")
     health_score: float = Field(..., ge=0.0, le=1.0, alias="healthScore")
     notes: str | None = Field(default=None)
+    image_url: str | None = Field(default=None, alias="imageUrl")
 
     class Config:
         allow_population_by_field_name = True
@@ -549,6 +575,10 @@ class PlantBaseModel(BaseModel):
             trimmed = value.strip()
             return trimmed or None
         return value
+
+    @validator("image_url", pre=True)
+    def _validate_image(cls, value: Any) -> Any:  # noqa: N805 - pydantic signature
+        return _normalize_image_url(value)
 
 
 class PlantCreateRequest(PlantBaseModel):
@@ -942,6 +972,7 @@ def create_plant(
         last_watered_at=payload.last_watered_at,
         health_score=payload.health_score,
         notes=payload.notes,
+        image_url=payload.image_url,
     )
     session.add(plant)
     _touch_village(village)
@@ -987,6 +1018,7 @@ def update_plant(
     plant.last_watered_at = payload.last_watered_at
     plant.health_score = payload.health_score
     plant.notes = payload.notes
+    plant.image_url = payload.image_url
     _touch_plant(plant)
     _touch_village(plant.village)
     session.commit()
