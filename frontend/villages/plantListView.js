@@ -16,10 +16,12 @@ export class PlantListView {
   /**
    * @param {HTMLElement} root
    * @param {import('./viewModels.js').VillagePlantListViewModel} viewModel
+   * @param {{ onSelect?: (plantId: string) => void }} [options]
    */
-  constructor(root, viewModel) {
+  constructor(root, viewModel, options = {}) {
     this.root = root;
     this.viewModel = viewModel;
+    this.onSelect = typeof options.onSelect === 'function' ? options.onSelect : () => {};
 
     this.placeholder = root.querySelector('[data-role="plant-placeholder"]');
     this.loading = root.querySelector('[data-role="plant-loading"]');
@@ -58,6 +60,25 @@ export class PlantListView {
         }
       });
     }
+
+    this.root.addEventListener('click', (event) => {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (!target) {
+        return;
+      }
+      const trigger = target.closest('[data-action="plant-open"]');
+      if (!trigger) {
+        return;
+      }
+      const item = trigger.closest('.village-plants-item');
+      if (!item) {
+        return;
+      }
+      const plantId = item.dataset.plantId;
+      if (plantId) {
+        this.onSelect(plantId);
+      }
+    });
 
     this.unsubscribe = this.viewModel.subscribe((state) => {
       this.render(state);
@@ -274,6 +295,13 @@ function createPlantListItem(plant) {
   meta.className = 'village-plants-item-meta';
   meta.textContent = `Last watered ${formatDateTime(plant.lastWateredAt)} • Health ${formatHealthScore(plant.healthScore)}`;
 
+  const openButton = document.createElement('button');
+  openButton.type = 'button';
+  openButton.className = 'village-plants-item-open';
+  openButton.dataset.action = 'plant-open';
+  openButton.setAttribute('aria-label', `View ${plant.displayName}`);
+  openButton.append(header, species, meta);
+
   const actions = document.createElement('div');
   actions.className = 'village-plants-item-actions';
 
@@ -285,7 +313,7 @@ function createPlantListItem(plant) {
 
   actions.append(editButton);
 
-  item.append(header, species, meta, actions);
+  item.append(openButton, actions);
   return item;
 }
 

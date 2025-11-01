@@ -423,11 +423,276 @@ picture[data-loading='lazy'] img {
   font-weight: 600;
 }
 
+.village-plants-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.village-plants-item {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.village-plants-item-open {
+  flex: 1 1 auto;
+  background: rgba(255, 255, 255, 0.94);
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(18, 50, 75, 0.16);
+  color: #12324b;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 0.35rem;
+  column-gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.village-plants-item-open:hover,
+.village-plants-item-open:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(18, 50, 75, 0.22);
+  outline: none;
+}
+
+.village-plants-item-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  grid-column: 1 / -1;
+}
+
+.village-plants-item-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.village-plants-item-stage {
+  font-size: 0.85rem;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.12);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.village-plants-item-species {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #2f4858;
+}
+
+.village-plants-item-meta {
+  margin: 0;
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  color: #46627a;
+}
+
+.village-plants-item-actions {
+  display: flex;
+  align-items: center;
+}
+
+.village-plants-item-edit {
+  background: rgba(18, 50, 75, 0.1);
+  border: none;
+  border-radius: 8px;
+  color: #12324b;
+  cursor: pointer;
+  padding: 0.45rem 0.75rem;
+  transition: background 0.2s ease;
+}
+
+.village-plants-item-edit:hover,
+.village-plants-item-edit:focus-visible {
+  background: rgba(18, 50, 75, 0.18);
+  outline: none;
+}
+
 .village-detail {
   min-height: 220px;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+#plant-panel {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 36px rgba(15, 37, 51, 0.16);
+  padding: 1.5rem;
+}
+
+.plant-detail-root {
+  background: rgba(18, 50, 75, 0.05);
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.plant-detail-placeholder,
+.plant-detail-loading {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #2f4858;
+}
+
+.plant-detail-loading {
+  font-style: italic;
+}
+
+.plant-detail-error {
+  background: rgba(199, 56, 79, 0.12);
+  border: 1px solid rgba(199, 56, 79, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.plant-detail-error-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.plant-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.plant-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.plant-detail-back {
+  background: rgba(18, 50, 75, 0.12);
+  border: none;
+  border-radius: 999px;
+  color: #12324b;
+  cursor: pointer;
+  padding: 0.45rem 1rem;
+}
+
+.plant-detail-heading h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #12324b;
+}
+
+.plant-detail-subtitle {
+  margin: 0.15rem 0 0;
+  color: #46627a;
+  font-size: 0.95rem;
+}
+
+.plant-detail-meta {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 0;
+}
+
+.plant-detail-meta div {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.plant-detail-meta dt {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5a7287;
+}
+
+.plant-detail-meta dd {
+  margin: 0;
+  font-size: 1rem;
+  color: #12324b;
+}
+
+.plant-detail-notes {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.plant-detail-notes h3,
+.plant-detail-timeline h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  color: #12324b;
+}
+
+.plant-detail-notes p {
+  margin: 0;
+  color: #2f4858;
+  line-height: 1.5;
+}
+
+.plant-detail-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plant-detail-timeline-empty {
+  margin: 0;
+  color: #46627a;
+  font-size: 0.95rem;
+}
+
+.plant-detail-timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plant-detail-timeline-item {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  box-shadow: 0 6px 14px rgba(18, 50, 75, 0.14);
+}
+
+.plant-detail-timeline-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.plant-detail-timeline-type {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.plant-detail-timeline-date {
+  font-size: 0.85rem;
+  color: #46627a;
+}
+
+.plant-detail-timeline-summary {
+  margin: 0.35rem 0 0;
+  color: #2f4858;
+  line-height: 1.45;
 }
 
 .village-detail-placeholder,
