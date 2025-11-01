@@ -518,6 +518,13 @@ picture[data-loading='lazy'] img {
 .villages-body {
   display: grid;
   gap: 1.5rem;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.villages-main {
+  display: grid;
+  gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   align-items: start;
 }
@@ -536,10 +543,147 @@ picture[data-loading='lazy'] img {
 }
 
 .villages-list-root,
-.villages-detail-root {
+.villages-detail-root,
+.village-watering-queue {
   background: rgba(18, 50, 75, 0.05);
   border-radius: 14px;
   padding: 1rem;
+}
+
+.village-watering-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.village-watering-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.village-watering-queue-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #12324b;
+}
+
+.village-watering-queue-refresh {
+  background: transparent;
+  border: 1px solid rgba(18, 50, 75, 0.25);
+  border-radius: 999px;
+  color: #12324b;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.village-watering-queue-refresh:hover {
+  background: rgba(18, 50, 75, 0.08);
+  box-shadow: 0 4px 10px rgba(18, 50, 75, 0.1);
+}
+
+.village-watering-queue-description {
+  margin: 0;
+  color: #2f4858;
+  font-size: 0.9rem;
+}
+
+.village-watering-queue-loading,
+.village-watering-queue-empty {
+  margin: 0;
+  color: #2f4858;
+  font-size: 0.9rem;
+}
+
+.village-watering-queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.village-watering-queue-item {
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(18, 50, 75, 0.12);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+}
+
+.village-watering-queue-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.village-watering-queue-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #12324b;
+}
+
+.village-watering-queue-due {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #2563eb;
+}
+
+.village-watering-queue-due[data-overdue='true'] {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.village-watering-queue-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(18, 50, 75, 0.75);
+}
+
+.village-watering-queue-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.village-watering-queue-dismiss {
+  background: linear-gradient(135deg, #2563eb, #1e3a8a);
+  border: none;
+  border-radius: 999px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.9rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.village-watering-queue-dismiss:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+}
+
+.village-watering-queue-error {
+  background: rgba(185, 28, 28, 0.08);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.village-watering-queue-error-message {
+  margin: 0 0 0.5rem;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.village-watering-queue-error-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .villages-loading,
@@ -1860,7 +2004,13 @@ button.villages-list-button[data-selected='true'] {
 .villages-body {
   display: grid;
   gap: clamp(1.25rem, 2vw, 2rem);
-  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+}
+
+.villages-main {
+  display: grid;
+  gap: clamp(1.25rem, 2vw, 2rem);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 @media (max-width: 1100px) {

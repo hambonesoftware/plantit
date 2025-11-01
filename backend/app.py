@@ -104,6 +104,9 @@ ALLOWED_ORIGINS = _env_list("PLANTIT_CORS_ALLOW_ORIGINS", DEFAULT_ALLOWED_ORIGIN
 _DASHBOARD_ALERTS_LOCK = Lock()
 _DASHBOARD_ALERTS: list[Dict[str, Any]] = []
 
+_WATERING_DISMISSALS_LOCK = Lock()
+_WATERING_DISMISSALS: dict[str, date] = {}
+
 
 def _reset_dashboard_alerts() -> None:
     """Restore dashboard alerts to their seeded defaults."""
@@ -479,6 +482,27 @@ def _normalize_image_url(value: Any) -> str | None:
     raise ValueError("imageUrl must be a data URL or http(s) URL")
 
 
+def _active_watering_dismissals(today: date) -> set[str]:
+    with _WATERING_DISMISSALS_LOCK:
+        expired = [
+            plant_id
+            for plant_id, dismissed_on in _WATERING_DISMISSALS.items()
+            if dismissed_on < today
+        ]
+        for plant_id in expired:
+            _WATERING_DISMISSALS.pop(plant_id, None)
+        return {
+            plant_id
+            for plant_id, dismissed_on in _WATERING_DISMISSALS.items()
+            if dismissed_on == today
+        }
+
+
+def _dismiss_watering_for_today(plant_id: str, today: date) -> None:
+    with _WATERING_DISMISSALS_LOCK:
+        _WATERING_DISMISSALS[plant_id] = today
+
+
 def _assert_village_version(village: models.Village, expected: datetime) -> None:
     if _serialize_timestamp(village.updated_at) != _serialize_timestamp(expected):
         raise HTTPException(
@@ -739,17 +763,12 @@ def get_dashboard(session: Session = Depends(get_session)) -> Dict[str, Any]:
 
 @app.delete("/api/dashboard/alerts/{alert_id}", tags=["Dashboard"])
 def dismiss_dashboard_alert(alert_id: str) -> Dict[str, Any]:
-    """Dismiss a dashboard alert when it meets dismissal criteria."""
+    """Dismiss a dashboard alert."""
 
     with _DASHBOARD_ALERTS_LOCK:
         for index, alert in enumerate(_DASHBOARD_ALERTS):
             if alert.get("id") != alert_id:
                 continue
-            if alert.get("level") != "warning":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Only warning alerts can be dismissed",
-                )
             _DASHBOARD_ALERTS.pop(index)
             return {
                 "status": "dismissed",
@@ -826,6 +845,98 @@ def list_village_plants(village_id: str, session: Session = Depends(get_session)
     plants = [_serialize_plant_summary(plant) for plant in village.plants]
 
     return {"village": village_summary, "plants": plants}
+
+
+@app.get("/api/watering/due", tags=["Plants"])
+def list_due_watering_plants(session: Session = Depends(get_session)) -> Dict[str, Any]:
+    """Return plants that require watering today or are overdue."""
+
+    today = _today_utc_date()
+    dismissed_today = _active_watering_dismissals(today)
+
+    query = (
+        session.query(models.Plant)
+        .options(
+            selectinload(models.Plant.village),
+            selectinload(models.Plant.waterings),
+        )
+        .order_by(models.Plant.display_name)
+    )
+
+    due_plants: list[Dict[str, Any]] = []
+    for plant in query.all():
+        watering = _serialize_watering_detail(plant)
+        next_watering = watering.get("nextWateringDate")
+        if not next_watering or watering.get("hasWateringToday"):
+            continue
+        try:
+            next_date = date.fromisoformat(next_watering)
+        except ValueError:
+            continue
+        if next_date > today or plant.id in dismissed_today:
+            continue
+        due_plants.append(
+            {
+                "id": plant.id,
+                "displayName": plant.display_name,
+                "villageId": plant.village_id,
+                "villageName": plant.village.name if plant.village else None,
+                "nextWateringDate": next_watering,
+                "lastWateredAt": _serialize_timestamp(plant.last_watered_at),
+            }
+        )
+
+    due_plants.sort(key=lambda item: (item["nextWateringDate"] or "", item["displayName"]))
+
+    return {
+        "plants": due_plants,
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post("/api/watering/due/{plant_id}/dismiss", tags=["Plants"])
+def dismiss_due_watering_plant(
+    plant_id: str, session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Dismiss a plant from today's watering queue."""
+
+    plant = session.get(
+        models.Plant,
+        plant_id,
+        options=(selectinload(models.Plant.waterings),),
+    )
+    if plant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plant not found")
+
+    today = _today_utc_date()
+    watering = _serialize_watering_detail(plant)
+    next_watering = watering.get("nextWateringDate")
+    if not next_watering or watering.get("hasWateringToday"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Plant does not require watering today",
+        )
+
+    try:
+        next_date = date.fromisoformat(next_watering)
+    except ValueError as error:  # pragma: no cover - defensive
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Plant does not require watering today",
+        ) from error
+
+    if next_date > today:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Plant does not require watering today",
+        )
+
+    _dismiss_watering_for_today(plant_id, today)
+    return {
+        "status": "dismissed",
+        "plantId": plant_id,
+        "dismissedUntil": today.isoformat(),
+    }
 
 
 @app.post("/api/villages", tags=["Villages"], status_code=status.HTTP_201_CREATED)

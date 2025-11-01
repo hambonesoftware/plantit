@@ -475,6 +475,15 @@ function _stringifyForDiagnostics(value) {
  *  @property {boolean} hasWateringToday
  */
 
+/** @typedef {Object} WateringQueuePlant
+ *  @property {string} id
+ *  @property {string} displayName
+ *  @property {string | null} villageId
+ *  @property {string | null} villageName
+ *  @property {string | null} nextWateringDate
+ *  @property {string | null} lastWateredAt
+ */
+
 /** @typedef {Object} PlantDetail
  *  @property {string} id
  *  @property {string} displayName
@@ -575,6 +584,29 @@ export function fetchVillagePlants(villageId, correlationId) {
     return Promise.reject(new Error('villageId is required'));
   }
   return request(`/villages/${encodeURIComponent(villageId)}/plants`, { correlationId });
+}
+
+/**
+ * @param {string} [correlationId]
+ * @returns {Promise<{ plants: WateringQueuePlant[] }>}
+ */
+export function fetchDueWateringPlants(correlationId) {
+  return request('/watering/due', { correlationId });
+}
+
+/**
+ * @param {string} plantId
+ * @param {string} [correlationId]
+ * @returns {Promise<{ status: string, plantId: string, dismissedUntil: string }>}
+ */
+export function dismissDueWateringPlant(plantId, correlationId) {
+  if (!plantId) {
+    return Promise.reject(new Error('plantId is required'));
+  }
+  return request(`/watering/due/${encodeURIComponent(plantId)}/dismiss`, {
+    method: 'POST',
+    correlationId,
+  });
 }
 
 /**
