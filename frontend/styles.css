@@ -972,22 +972,23 @@ picture[data-loading='lazy'] img {
 .plant-detail-watering-calendar {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .plant-watering-calendar-header {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #46627a;
+  color: #2f4858;
+  text-align: center;
 }
 
 .plant-watering-calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 0.25rem;
-  font-size: 0.7rem;
+  gap: 0.15rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: #5a7287;
 }
 
@@ -998,46 +999,49 @@ picture[data-loading='lazy'] img {
 .plant-watering-calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 
 .plant-watering-calendar-cell {
   aspect-ratio: 1;
-  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
-  background: #ffffff;
-  border: 1px solid rgba(18, 50, 75, 0.12);
   color: #2f4858;
-  position: relative;
 }
 
-.plant-watering-calendar-cell.is-watered {
-  border-color: rgba(37, 99, 235, 0.6);
-  color: #1d4ed8;
-}
-
-.plant-watering-calendar-cell.is-today {
-  border-color: rgba(18, 50, 75, 0.6);
-  box-shadow: 0 0 0 1px rgba(18, 50, 75, 0.4) inset;
-}
-
-.plant-watering-calendar-cell.is-today.is-watered {
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6) inset;
+.plant-watering-calendar-date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 999px;
+  color: inherit;
+  font-weight: 500;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
 .plant-watering-calendar-cell.is-outside-month {
   color: rgba(18, 50, 75, 0.35);
 }
 
-.plant-watering-calendar-dot {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 999px;
+.plant-watering-calendar-cell.is-today .plant-watering-calendar-date {
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+}
+
+.plant-watering-calendar-cell.is-watered {
+  color: #ffffff;
+}
+
+.plant-watering-calendar-cell.is-watered .plant-watering-calendar-date {
   background: #2563eb;
-  display: inline-block;
+  color: #ffffff;
+}
+
+.plant-watering-calendar-cell.is-today.is-watered .plant-watering-calendar-date {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3);
 }
 
 .sr-only {

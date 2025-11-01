@@ -518,21 +518,22 @@ function renderWateringCalendar(container, history) {
     if (cursor.getUTCMonth() !== monthStart.getUTCMonth()) {
       cell.classList.add('is-outside-month');
     }
+    const dateLabel = document.createElement('span');
+    dateLabel.className = 'plant-watering-calendar-date';
+    dateLabel.textContent = String(cursor.getUTCDate());
+    cell.append(dateLabel);
+
     if (historySet.has(iso)) {
       cell.classList.add('is-watered');
-      const dot = document.createElement('span');
-      dot.className = 'plant-watering-calendar-dot';
-      dot.setAttribute('aria-hidden', 'true');
-      cell.append(dot);
+      dateLabel.classList.add('is-watered');
       const srLabel = document.createElement('span');
       srLabel.className = 'sr-only';
-      srLabel.textContent = String(cursor.getUTCDate());
+      srLabel.textContent = `Watered on ${cursor.toLocaleDateString(undefined, { dateStyle: 'long' })}`;
       cell.append(srLabel);
-    } else {
-      cell.textContent = String(cursor.getUTCDate());
     }
     if (iso === today) {
       cell.classList.add('is-today');
+      dateLabel.classList.add('is-today');
     }
     const label = cursor.toLocaleDateString(undefined, {
       dateStyle: 'medium',
