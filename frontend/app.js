@@ -1027,7 +1027,20 @@ function buildPlantSection() {
         <section class="plant-detail-watering" data-role="plant-watering-section">
           <div class="plant-detail-watering-header">
             <h3>Watering</h3>
-            <button type="button" class="plant-detail-water-today" data-action="plant-water-today">Mark watered today</button>
+            <div class="plant-detail-watering-actions">
+              <button
+                type="button"
+                class="plant-detail-water-today"
+                data-action="plant-water-today"
+              >Mark watered today</button>
+              <div class="plant-detail-water-date">
+                <label for="plant-water-date-input">Record past watering</label>
+                <div class="plant-detail-water-date-input">
+                  <input type="date" id="plant-water-date-input" data-role="plant-water-date" max="" />
+                  <button type="button" data-action="plant-water-on-date">Add date</button>
+                </div>
+              </div>
+            </div>
           </div>
           <p class="plant-detail-next-watering">Next watering: <span data-role="plant-next-watering">—</span></p>
           <p class="plant-detail-watering-empty" data-role="plant-watering-empty">No watering history recorded yet.</p>

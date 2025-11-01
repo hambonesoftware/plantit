@@ -855,15 +855,34 @@ picture[data-loading='lazy'] img {
 
 .plant-detail-watering-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .plant-detail-watering-header h3 {
   margin: 0;
   font-size: 1rem;
   color: #12324b;
+}
+
+.plant-detail-watering-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+@media (min-width: 600px) {
+  .plant-detail-watering-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .plant-detail-watering-actions {
+    flex-direction: row;
+    align-items: center;
+  }
 }
 
 .plant-detail-water-today {
@@ -886,6 +905,56 @@ picture[data-loading='lazy'] img {
 .plant-detail-water-today:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.plant-detail-water-date {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #46627a;
+}
+
+.plant-detail-water-date-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plant-detail-water-date-input input[type='date'] {
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(18, 50, 75, 0.25);
+  background: #ffffff;
+  color: #12324b;
+  font-size: 0.85rem;
+}
+
+.plant-detail-water-date-input input[type='date']:disabled {
+  background: rgba(228, 235, 242, 0.6);
+  cursor: not-allowed;
+}
+
+.plant-detail-water-date-input button {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.plant-detail-water-date-input button:hover:not(:disabled),
+.plant-detail-water-date-input button:focus-visible:not(:disabled) {
+  background: rgba(37, 99, 235, 0.18);
+  color: #1e40af;
+}
+
+.plant-detail-water-date-input button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .plant-detail-next-watering {
@@ -912,6 +981,20 @@ picture[data-loading='lazy'] img {
   color: #46627a;
 }
 
+.plant-watering-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5a7287;
+}
+
+.plant-watering-calendar-weekdays span {
+  text-align: center;
+}
+
 .plant-watering-calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -920,25 +1003,52 @@ picture[data-loading='lazy'] img {
 
 .plant-watering-calendar-cell {
   aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
   background: #ffffff;
-  border: 1px solid rgba(18, 50, 75, 0.15);
-  color: #46627a;
+  border: 1px solid rgba(18, 50, 75, 0.12);
+  color: #2f4858;
+  position: relative;
 }
 
 .plant-watering-calendar-cell.is-watered {
-  background: rgba(86, 175, 104, 0.2);
-  color: #1b7030;
-  border-color: #1b7030;
+  border-color: rgba(37, 99, 235, 0.6);
+  color: #1d4ed8;
 }
 
 .plant-watering-calendar-cell.is-today {
   border-color: rgba(18, 50, 75, 0.6);
-  box-shadow: 0 0 0 1px rgba(18, 50, 75, 0.6) inset;
+  box-shadow: 0 0 0 1px rgba(18, 50, 75, 0.4) inset;
+}
+
+.plant-watering-calendar-cell.is-today.is-watered {
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6) inset;
+}
+
+.plant-watering-calendar-cell.is-outside-month {
+  color: rgba(18, 50, 75, 0.35);
+}
+
+.plant-watering-calendar-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #2563eb;
+  display: inline-block;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .plant-detail-notes {
