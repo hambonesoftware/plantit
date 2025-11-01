@@ -51,6 +51,11 @@ export class PlantDetailView {
     this.notes = root.querySelector('[data-role="plant-notes"]');
     this.timeline = root.querySelector('[data-role="plant-timeline"]');
     this.timelineEmpty = root.querySelector('[data-role="plant-timeline-empty"]');
+    this.wateringSection = root.querySelector('[data-role="plant-watering-section"]');
+    this.wateringNext = root.querySelector('[data-role="plant-next-watering"]');
+    this.wateringEmpty = root.querySelector('[data-role="plant-watering-empty"]');
+    this.wateringCalendar = root.querySelector('[data-role="plant-watering-calendar"]');
+    this.waterTodayButton = root.querySelector('[data-action="plant-water-today"]');
     this._currentErrorDetail = '';
 
     if (this.retryButton) {
@@ -89,6 +94,21 @@ export class PlantDetailView {
           return;
         }
         this.onViewVillage(this.lastKnownVillageId);
+      });
+    }
+
+    if (this.waterTodayButton) {
+      this.waterTodayButton.addEventListener('click', async () => {
+        if (this.waterTodayButton.disabled) {
+          return;
+        }
+        try {
+          await this.viewModel.markWateredToday();
+          showToast({ message: 'Recorded watering for today.', tone: 'success' });
+        } catch (error) {
+          console.error('PlantDetailView: unable to record watering', error);
+          showToast({ message: 'Unable to record watering. Try again.', tone: 'warning' });
+        }
       });
     }
 
@@ -148,6 +168,7 @@ export class PlantDetailView {
     if (this.breadcrumbPlant) {
       this.breadcrumbPlant.textContent = 'Plant';
     }
+    this._renderWatering(emptyWateringState(), false);
     this._updateErrorContext(null, null);
   }
 
@@ -178,6 +199,7 @@ export class PlantDetailView {
     if (this.breadcrumbPlant) {
       this.breadcrumbPlant.textContent = 'Plant';
     }
+    this._renderWatering(emptyWateringState(), false);
     this._updateErrorContext(null, null);
   }
 
@@ -272,6 +294,8 @@ export class PlantDetailView {
         this.timelineEmpty.hidden = true;
       }
     }
+    const watering = state.watering ?? detail.watering ?? emptyWateringState();
+    this._renderWatering(watering, Boolean(state.isRecordingWatering));
   }
 
   /**
@@ -307,7 +331,42 @@ export class PlantDetailView {
     if (this.breadcrumbPlant) {
       this.breadcrumbPlant.textContent = 'Plant';
     }
+    this._renderWatering(state.watering ?? emptyWateringState(), false);
     this._updateErrorContext(state.error?.detail ?? null, state.error?.category ?? null);
+  }
+
+  _renderWatering(watering, isSaving) {
+    const resolved = watering && typeof watering === 'object' ? watering : emptyWateringState();
+    const history = Array.isArray(resolved.history) ? resolved.history : [];
+    const nextDate =
+      typeof resolved.nextWateringDate === 'string' && resolved.nextWateringDate
+        ? resolved.nextWateringDate
+        : null;
+    const hasToday = Boolean(resolved.hasWateringToday);
+
+    if (this.waterTodayButton) {
+      this.waterTodayButton.disabled = isSaving || hasToday;
+      const label = hasToday ? 'Watered today' : 'Mark watered today';
+      this.waterTodayButton.textContent = isSaving ? 'Saving…' : label;
+    }
+
+    if (this.wateringNext) {
+      this.wateringNext.textContent = nextDate ? formatDate(nextDate) : '—';
+    }
+
+    if (this.wateringEmpty) {
+      this.wateringEmpty.hidden = history.length > 0;
+    }
+
+    if (this.wateringCalendar) {
+      if (history.length === 0) {
+        this.wateringCalendar.hidden = true;
+        this.wateringCalendar.replaceChildren();
+      } else {
+        this.wateringCalendar.hidden = false;
+        renderWateringCalendar(this.wateringCalendar, history);
+      }
+    }
   }
 
   _updateErrorContext(detail, category) {
@@ -323,6 +382,10 @@ export class PlantDetailView {
       }
     }
   }
+}
+
+function emptyWateringState() {
+  return { history: [], nextWateringDate: null, hasWateringToday: false };
 }
 
 function formatStage(stage) {
@@ -371,4 +434,64 @@ function createTimelineItem(event) {
 
   item.append(header, summary);
   return item;
+}
+
+function renderWateringCalendar(container, history) {
+  const today = todayIsoDate();
+  const historySet = new Set(history);
+  const start = startOfCalendarRange();
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 27);
+
+  const header = document.createElement('div');
+  header.className = 'plant-watering-calendar-header';
+  header.textContent = formatCalendarRange(start, end);
+
+  const grid = document.createElement('div');
+  grid.className = 'plant-watering-calendar-grid';
+
+  for (let index = 0; index < 28; index += 1) {
+    const cellDate = new Date(start);
+    cellDate.setUTCDate(start.getUTCDate() + index);
+    const iso = toIsoDate(cellDate);
+    const cell = document.createElement('div');
+    cell.className = 'plant-watering-calendar-cell';
+    if (historySet.has(iso)) {
+      cell.classList.add('is-watered');
+    }
+    if (iso === today) {
+      cell.classList.add('is-today');
+    }
+    cell.textContent = String(cellDate.getUTCDate());
+    cell.title = cellDate.toLocaleDateString(undefined, { dateStyle: 'medium' });
+    grid.append(cell);
+  }
+
+  container.replaceChildren(header, grid);
+}
+
+function startOfCalendarRange() {
+  const now = new Date();
+  const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  utcToday.setUTCDate(utcToday.getUTCDate() - 27);
+  return utcToday;
+}
+
+function formatCalendarRange(start, end) {
+  const sameMonth = start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth();
+  if (sameMonth) {
+    return start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
+  const startLabel = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const endLabel = end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${startLabel} – ${endLabel}`;
+}
+
+function toIsoDate(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+function todayIsoDate() {
+  const now = new Date();
+  return toIsoDate(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
 }

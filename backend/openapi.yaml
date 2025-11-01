@@ -331,6 +331,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/plants/{plantId}/waterings:
+    post:
+      tags: [Plants]
+      summary: Record a watering entry for the specified plant.
+      parameters:
+        - in: path
+          name: plantId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlantWateringRequest'
+      responses:
+        '201':
+          description: Updated plant detail with watering history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantDetailResponse'
+        '400':
+          description: Invalid watering payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The requested plant does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags: [Plants]
       summary: Update an existing plant.
@@ -799,6 +840,9 @@ components:
         updatedAt:
           type: string
           format: date-time
+        watering:
+          $ref: '#/components/schemas/PlantWateringSummary'
+          nullable: true
     PlantEvent:
       type: object
       required: [id, occurredAt, type, summary]
@@ -813,6 +857,28 @@ components:
           enum: [watering, fertilizer, inspection, transfer, note]
         summary:
           type: string
+    PlantWateringSummary:
+      type: object
+      required: [history, hasWateringToday]
+      properties:
+        history:
+          type: array
+          items:
+            type: string
+            format: date
+        nextWateringDate:
+          type: string
+          format: date
+          nullable: true
+        hasWateringToday:
+          type: boolean
+    PlantWateringRequest:
+      type: object
+      properties:
+        wateredAt:
+          type: string
+          format: date
+          nullable: true
     TodayTasksResponse:
       type: object
       required: [tasks, emptyStateMessage]

@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import os
 from contextvars import ContextVar
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Sequence
 from uuid import uuid4
 
@@ -333,6 +333,10 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _today_utc_date() -> date:
+    return _now_utc().date()
+
+
 def _touch_village(village: models.Village | None) -> None:
     if village is not None:
         village.updated_at = _now_utc()
@@ -386,7 +390,53 @@ def _serialize_plant_detail(plant: models.Plant) -> Dict[str, Any]:
         "notes": plant.notes,
         "villageId": plant.village_id,
         "villageName": plant.village.name if plant.village else None,
+        "watering": _serialize_watering_detail(plant),
     }
+
+
+def _serialize_watering_detail(plant: models.Plant) -> Dict[str, Any]:
+    history_dates = [
+        watering.watered_at
+        for watering in sorted(plant.waterings, key=lambda record: record.watered_at)
+        if watering.watered_at is not None
+    ]
+    history_strings = [value.isoformat() for value in history_dates]
+    next_date = _predict_next_watering_date(history_dates)
+    today = _today_utc_date().isoformat()
+    return {
+        "history": history_strings,
+        "nextWateringDate": next_date.isoformat() if next_date else None,
+        "hasWateringToday": today in history_strings,
+    }
+
+
+def _predict_next_watering_date(history: Sequence[date]) -> date | None:
+    unique_sorted = sorted({value for value in history if isinstance(value, date)})
+    count = len(unique_sorted)
+    if count < 2:
+        return None
+
+    indices = list(range(count))
+    ordinals = [value.toordinal() for value in unique_sorted]
+    mean_index = sum(indices) / count
+    mean_ordinal = sum(ordinals) / count
+    denominator = sum((index - mean_index) ** 2 for index in indices)
+
+    if denominator == 0:
+        interval = max(1, ordinals[-1] - ordinals[-2])
+        return unique_sorted[-1] + timedelta(days=interval)
+
+    numerator = sum(
+        (index - mean_index) * (ordinal - mean_ordinal)
+        for index, ordinal in zip(indices, ordinals)
+    )
+    slope = numerator / denominator
+    intercept = mean_ordinal - slope * mean_index
+    predicted_ordinal = slope * count + intercept
+    rounded = round(predicted_ordinal)
+    minimum_next = ordinals[-1] + 1
+    target = max(minimum_next, rounded)
+    return date.fromordinal(target)
 
 
 def _assert_village_version(village: models.Village, expected: datetime) -> None:
@@ -518,6 +568,23 @@ class PlantUpdateRequest(PlantBaseModel):
 
 class PlantDeleteRequest(BaseModel):
     updated_at: datetime = Field(..., alias="updatedAt")
+
+
+class PlantWateringRequest(BaseModel):
+    watered_at: date | None = Field(default=None, alias="wateredAt")
+
+    class Config:
+        allow_population_by_field_name = True
+
+    @validator("watered_at")
+    def _validate_watering_date(
+        cls, value: date | None
+    ) -> date | None:  # noqa: N805 - pydantic signature
+        if value is None:
+            return None
+        if value > _today_utc_date():
+            raise ValueError("wateredAt cannot be in the future")
+        return value
 @app.get("/api/health", tags=["Health"])
 def get_health() -> Dict[str, Any]:
     """Return service readiness information."""
@@ -779,16 +846,74 @@ def delete_village(
 def get_plant(plant_id: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
     """Return the plant detail payload and recent timeline events."""
 
-    plant = session.get(
-        models.Plant,
-        plant_id,
-        options=(selectinload(models.Plant.village),),
-    )
+    plant = session.execute(
+        select(models.Plant)
+        .options(
+            selectinload(models.Plant.village),
+            selectinload(models.Plant.waterings),
+        )
+        .where(models.Plant.id == plant_id)
+    ).scalar_one_or_none()
     if plant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plant not found")
 
     plant_payload = _serialize_plant_detail(plant)
     timeline = seed_content.PLANT_TIMELINE.get(plant.id, [])
+    return {"plant": plant_payload, "timeline": timeline}
+
+
+@app.post(
+    "/api/plants/{plant_id}/waterings",
+    tags=["Plants"],
+    status_code=status.HTTP_201_CREATED,
+)
+def record_plant_watering(
+    plant_id: str,
+    payload: PlantWateringRequest,
+    _: None = Depends(require_authentication),
+    session: Session = Depends(get_session),
+) -> Dict[str, Any]:
+    """Record a watering for the given plant, defaulting to the current day."""
+
+    plant = session.execute(
+        select(models.Plant)
+        .options(
+            selectinload(models.Plant.village),
+            selectinload(models.Plant.waterings),
+        )
+        .where(models.Plant.id == plant_id)
+    ).scalar_one_or_none()
+    if plant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plant not found")
+
+    watered_at = payload.watered_at or _today_utc_date()
+    existing = next(
+        (event for event in plant.waterings if event.watered_at == watered_at), None
+    )
+    if existing is None:
+        session.add(
+            models.PlantWateringEvent(
+                id=str(uuid4()),
+                plant=plant,
+                watered_at=watered_at,
+            )
+        )
+
+    plant.last_watered_at = _now_utc()
+    _touch_plant(plant)
+    session.commit()
+
+    refreshed = session.execute(
+        select(models.Plant)
+        .options(
+            selectinload(models.Plant.village),
+            selectinload(models.Plant.waterings),
+        )
+        .where(models.Plant.id == plant_id)
+    ).scalar_one()
+
+    plant_payload = _serialize_plant_detail(refreshed)
+    timeline = seed_content.PLANT_TIMELINE.get(refreshed.id, [])
     return {"plant": plant_payload, "timeline": timeline}
 
 
@@ -846,7 +971,10 @@ def update_plant(
     plant = session.get(
         models.Plant,
         plant_id,
-        options=(selectinload(models.Plant.village),),
+        options=(
+            selectinload(models.Plant.village),
+            selectinload(models.Plant.waterings),
+        ),
     )
     if plant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plant not found")

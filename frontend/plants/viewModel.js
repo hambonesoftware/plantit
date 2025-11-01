@@ -1,7 +1,14 @@
-import { describeApiError, fetchPlantDetail } from '../services/api.js';
+import { describeApiError, fetchPlantDetail, recordPlantWatering } from '../services/api.js';
 
 /**
  * @typedef {'idle'|'loading'|'ready'|'error'} LoadStatus
+ */
+
+/**
+ * @typedef {Object} PlantWateringState
+ * @property {string[]} history
+ * @property {string | null} nextWateringDate
+ * @property {boolean} hasWateringToday
  */
 
 /**
@@ -10,12 +17,15 @@ import { describeApiError, fetchPlantDetail } from '../services/api.js';
  * @property {import('../services/api.js').PlantDetail | null} plant
  * @property {{ id: string, occurredAt: string, type: string, summary: string }[]} timeline
  * @property {import('../services/api.js').ErrorDescriptor | null} error
+ * @property {PlantWateringState} watering
+ * @property {boolean} isRecordingWatering
  */
 
 export class PlantDetailViewModel {
   constructor(options = {}) {
-    const { fetcher = fetchPlantDetail } = options;
+    const { fetcher = fetchPlantDetail, waterer = recordPlantWatering } = options;
     this._fetcher = fetcher;
+    this._waterer = waterer;
     this._subscribers = new Set();
     /** @type {PlantDetailState} */
     this._state = {
@@ -23,10 +33,13 @@ export class PlantDetailViewModel {
       plant: null,
       timeline: [],
       error: null,
+      watering: createEmptyWateringState(),
+      isRecordingWatering: false,
     };
     this._currentPlantId = null;
     this._currentPromise = null;
     this._requestToken = 0;
+    this._wateringToken = 0;
     this._fallbackVillageId = null;
     this._lastKnownVillageId = null;
   }
@@ -110,7 +123,15 @@ export class PlantDetailViewModel {
         const plant = normalizePlantDetailPayload(payload?.plant);
         const timeline = normalizeTimeline(payload?.timeline);
         this._lastKnownVillageId = plant.villageId || this._fallbackVillageId;
-        this._transition({ status: 'ready', plant, timeline, error: null });
+        const watering = plant.watering || createEmptyWateringState();
+        this._transition({
+          status: 'ready',
+          plant,
+          timeline,
+          error: null,
+          watering,
+          isRecordingWatering: false,
+        });
       } catch (error) {
         if (token !== this._requestToken || this._currentPlantId !== targetId) {
           return;
@@ -149,7 +170,14 @@ export class PlantDetailViewModel {
     this._currentPlantId = null;
     this._currentPromise = null;
     this._requestToken += 1;
-    this._transition({ status: 'idle', plant: null, timeline: [], error: null });
+    this._transition({
+      status: 'idle',
+      plant: null,
+      timeline: [],
+      error: null,
+      watering: createEmptyWateringState(),
+      isRecordingWatering: false,
+    });
   }
 
   /**
@@ -170,7 +198,44 @@ export class PlantDetailViewModel {
       plant: normalized,
       status: 'ready',
       error: null,
+      watering: normalized.watering || this._state.watering,
     });
+  }
+
+  async markWateredToday(options = {}) {
+    if (!this._currentPlantId) {
+      return;
+    }
+    if (this._state.isRecordingWatering) {
+      return;
+    }
+    const plantId = this._currentPlantId;
+    const token = ++this._wateringToken;
+    this._transition({ isRecordingWatering: true });
+    try {
+      const payload = await this._waterer(plantId, options);
+      if (token !== this._wateringToken || this._currentPlantId !== plantId) {
+        return;
+      }
+      const plant = normalizePlantDetailPayload(payload?.plant);
+      const timeline = payload?.timeline ? normalizeTimeline(payload.timeline) : this._state.timeline;
+      this._lastKnownVillageId = plant.villageId || this._fallbackVillageId || this._lastKnownVillageId;
+      const watering = plant.watering || this._state.watering;
+      this._transition({
+        status: 'ready',
+        plant,
+        timeline,
+        error: null,
+        watering,
+        isRecordingWatering: false,
+      });
+    } catch (error) {
+      if (token !== this._wateringToken || this._currentPlantId !== plantId) {
+        return;
+      }
+      this._transition({ isRecordingWatering: false });
+      throw error;
+    }
   }
 
   /**
@@ -241,6 +306,7 @@ function normalizePlantDetailPayload(plant) {
   }
   const updatedAt = typeof plant.updatedAt === 'string' ? plant.updatedAt : new Date().toISOString();
   const stage = typeof plant.stage === 'string' ? plant.stage : 'seedling';
+  const watering = normalizeWatering(plant.watering);
   return {
     id: typeof plant.id === 'string' ? plant.id : String(plant.id ?? '').trim(),
     displayName: typeof plant.displayName === 'string' ? plant.displayName : '',
@@ -257,6 +323,7 @@ function normalizePlantDetailPayload(plant) {
         ? plant.village_id
         : '',
     villageName: typeof plant.villageName === 'string' ? plant.villageName : '',
+    watering,
   };
 }
 
@@ -295,4 +362,48 @@ function normalizeTimeline(timeline) {
   });
 
   return entries;
+}
+
+function createEmptyWateringState() {
+  return { history: [], nextWateringDate: null, hasWateringToday: false };
+}
+
+function normalizeWatering(watering) {
+  if (!watering || typeof watering !== 'object') {
+    return createEmptyWateringState();
+  }
+  const rawHistory = Array.isArray(watering.history) ? watering.history : [];
+  const normalizedHistory = Array.from(
+    new Set(
+      rawHistory
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter((value) => value)
+    )
+  ).sort();
+  const nextWateringDate =
+    typeof watering.nextWateringDate === 'string' && watering.nextWateringDate
+      ? watering.nextWateringDate
+      : null;
+  const today = todayIsoDate();
+  let hasWateringToday =
+    typeof watering.hasWateringToday === 'boolean'
+      ? watering.hasWateringToday
+      : normalizedHistory.includes(today);
+  if (!hasWateringToday && normalizedHistory.length > 0) {
+    const mostRecent = normalizedHistory[normalizedHistory.length - 1];
+    hasWateringToday = mostRecent === today;
+  }
+  return {
+    history: normalizedHistory,
+    nextWateringDate,
+    hasWateringToday,
+  };
+}
+
+function todayIsoDate() {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

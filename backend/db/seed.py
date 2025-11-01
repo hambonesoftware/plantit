@@ -59,6 +59,26 @@ def seed_demo_data(session: Session) -> None:
     session.add_all(plants.values())
     session.flush()
 
+    watering_events: list[models.PlantWateringEvent] = []
+    for plant_id, dates in seed_content.PLANT_WATERINGS.items():
+        plant = plants.get(plant_id)
+        if plant is None:
+            continue
+        for index, watered_at in enumerate(dates, start=1):
+            parsed = _parse_date(watered_at)
+            if parsed is None:
+                continue
+            watering_events.append(
+                models.PlantWateringEvent(
+                    id=f"{plant_id}-watering-{index}",
+                    plant=plant,
+                    watered_at=parsed,
+                )
+            )
+
+    if watering_events:
+        session.add_all(watering_events)
+
     tasks = [
         models.Task(
             id=task["id"],

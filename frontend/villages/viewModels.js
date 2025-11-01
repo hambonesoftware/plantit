@@ -112,6 +112,19 @@ function normalizePlantDetailPayload(plant) {
         ? plant.village_id
         : '',
     villageName: typeof plant.villageName === 'string' ? plant.villageName : '',
+    watering:
+      plant && typeof plant.watering === 'object'
+        ? {
+            history: Array.isArray(plant.watering.history)
+              ? plant.watering.history.filter((value) => typeof value === 'string')
+              : [],
+            nextWateringDate:
+              typeof plant.watering.nextWateringDate === 'string'
+                ? plant.watering.nextWateringDate
+                : null,
+            hasWateringToday: Boolean(plant.watering.hasWateringToday),
+          }
+        : undefined,
   };
 }
 
