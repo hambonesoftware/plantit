@@ -56,6 +56,8 @@ export class PlantDetailView {
     this.wateringEmpty = root.querySelector('[data-role="plant-watering-empty"]');
     this.wateringCalendar = root.querySelector('[data-role="plant-watering-calendar"]');
     this.waterTodayButton = root.querySelector('[data-action="plant-water-today"]');
+    this.waterDateInput = root.querySelector('[data-role="plant-water-date"]');
+    this.waterOnDateButton = root.querySelector('[data-action="plant-water-on-date"]');
     this._currentErrorDetail = '';
 
     if (this.retryButton) {
@@ -107,6 +109,41 @@ export class PlantDetailView {
           showToast({ message: 'Recorded watering for today.', tone: 'success' });
         } catch (error) {
           console.error('PlantDetailView: unable to record watering', error);
+          showToast({ message: 'Unable to record watering. Try again.', tone: 'warning' });
+        }
+      });
+    }
+
+    if (this.waterOnDateButton && this.waterDateInput) {
+      const defaultLabel = this.waterOnDateButton.textContent?.trim() || 'Add date';
+      this.waterOnDateButton.dataset.defaultLabel = defaultLabel;
+      this.waterOnDateButton.addEventListener('click', async () => {
+        if (this.waterOnDateButton.disabled) {
+          return;
+        }
+        const selected = this.waterDateInput.value;
+        if (!selected) {
+          showToast({ message: 'Select a date to record watering.', tone: 'warning' });
+          this.waterDateInput.focus();
+          return;
+        }
+        const today = todayIsoDate();
+        if (selected > today) {
+          showToast({ message: 'You can only record past watering dates.', tone: 'warning' });
+          this.waterDateInput.focus();
+          return;
+        }
+        const history = this.viewModel.getState().watering?.history ?? [];
+        if (history.includes(selected)) {
+          showToast({ message: 'Watering already recorded for that date.', tone: 'info' });
+          return;
+        }
+        try {
+          await this.viewModel.markWateredToday({ wateredAt: selected });
+          showToast({ message: 'Recorded watering for the selected date.', tone: 'success' });
+          this.waterDateInput.value = '';
+        } catch (error) {
+          console.error('PlantDetailView: unable to record watering for date', selected, error);
           showToast({ message: 'Unable to record watering. Try again.', tone: 'warning' });
         }
       });
@@ -350,6 +387,17 @@ export class PlantDetailView {
       this.waterTodayButton.textContent = isSaving ? 'Saving…' : label;
     }
 
+    if (this.waterOnDateButton) {
+      const defaultLabel = this.waterOnDateButton.dataset.defaultLabel || 'Add date';
+      this.waterOnDateButton.disabled = isSaving;
+      this.waterOnDateButton.textContent = isSaving ? 'Saving…' : defaultLabel;
+    }
+
+    if (this.waterDateInput) {
+      this.waterDateInput.max = todayIsoDate();
+      this.waterDateInput.disabled = isSaving;
+    }
+
     if (this.wateringNext) {
       this.wateringNext.textContent = nextDate ? formatDate(nextDate) : '—';
     }
@@ -439,52 +487,77 @@ function createTimelineItem(event) {
 function renderWateringCalendar(container, history) {
   const today = todayIsoDate();
   const historySet = new Set(history);
-  const start = startOfCalendarRange();
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 27);
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+  const rangeStart = startOfCalendarMonth(monthStart);
+  const rangeEnd = endOfCalendarMonth(monthEnd);
 
   const header = document.createElement('div');
   header.className = 'plant-watering-calendar-header';
-  header.textContent = formatCalendarRange(start, end);
+  header.textContent = monthStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const weekdayRow = document.createElement('div');
+  weekdayRow.className = 'plant-watering-calendar-weekdays';
+  const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+  for (let day = 0; day < 7; day += 1) {
+    const refDate = new Date(Date.UTC(2023, 0, 1 + day));
+    const weekday = document.createElement('span');
+    weekday.textContent = weekdayFormatter.format(refDate);
+    weekdayRow.append(weekday);
+  }
 
   const grid = document.createElement('div');
   grid.className = 'plant-watering-calendar-grid';
 
-  for (let index = 0; index < 28; index += 1) {
-    const cellDate = new Date(start);
-    cellDate.setUTCDate(start.getUTCDate() + index);
-    const iso = toIsoDate(cellDate);
+  const cursor = new Date(rangeStart);
+  while (cursor <= rangeEnd) {
+    const iso = toIsoDate(cursor);
     const cell = document.createElement('div');
     cell.className = 'plant-watering-calendar-cell';
+    if (cursor.getUTCMonth() !== monthStart.getUTCMonth()) {
+      cell.classList.add('is-outside-month');
+    }
     if (historySet.has(iso)) {
       cell.classList.add('is-watered');
+      const dot = document.createElement('span');
+      dot.className = 'plant-watering-calendar-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      cell.append(dot);
+      const srLabel = document.createElement('span');
+      srLabel.className = 'sr-only';
+      srLabel.textContent = String(cursor.getUTCDate());
+      cell.append(srLabel);
+    } else {
+      cell.textContent = String(cursor.getUTCDate());
     }
     if (iso === today) {
       cell.classList.add('is-today');
     }
-    cell.textContent = String(cellDate.getUTCDate());
-    cell.title = cellDate.toLocaleDateString(undefined, { dateStyle: 'medium' });
+    const label = cursor.toLocaleDateString(undefined, {
+      dateStyle: 'medium',
+    });
+    const annotatedLabel = historySet.has(iso) ? `${label} — watered` : label;
+    cell.title = annotatedLabel;
     grid.append(cell);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
-  container.replaceChildren(header, grid);
+  container.replaceChildren(header, weekdayRow, grid);
 }
 
-function startOfCalendarRange() {
-  const now = new Date();
-  const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  utcToday.setUTCDate(utcToday.getUTCDate() - 27);
-  return utcToday;
+function startOfCalendarMonth(firstOfMonth) {
+  const start = new Date(firstOfMonth);
+  const dayOfWeek = start.getUTCDay();
+  start.setUTCDate(start.getUTCDate() - dayOfWeek);
+  return start;
 }
 
-function formatCalendarRange(start, end) {
-  const sameMonth = start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth();
-  if (sameMonth) {
-    return start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  }
-  const startLabel = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const endLabel = end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  return `${startLabel} – ${endLabel}`;
+function endOfCalendarMonth(lastOfMonth) {
+  const end = new Date(lastOfMonth);
+  const dayOfWeek = end.getUTCDay();
+  end.setUTCDate(end.getUTCDate() + (6 - dayOfWeek));
+  return end;
 }
 
 function toIsoDate(date) {

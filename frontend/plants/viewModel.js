@@ -211,16 +211,27 @@ export class PlantDetailViewModel {
     }
     const plantId = this._currentPlantId;
     const token = ++this._wateringToken;
+    const normalizedOptions = options && typeof options === 'object' ? options : {};
+    const requestedDate =
+      typeof normalizedOptions.wateredAt === 'string' && normalizedOptions.wateredAt
+        ? normalizedOptions.wateredAt
+        : todayIsoDate();
+    const payload = {};
+    if (typeof normalizedOptions.wateredAt === 'string' && normalizedOptions.wateredAt) {
+      payload.wateredAt = normalizedOptions.wateredAt;
+    }
     this._transition({ isRecordingWatering: true });
     try {
-      const payload = await this._waterer(plantId, options);
+      const response = await this._waterer(plantId, payload, normalizedOptions.correlationId);
       if (token !== this._wateringToken || this._currentPlantId !== plantId) {
         return;
       }
-      const plant = normalizePlantDetailPayload(payload?.plant);
-      const timeline = payload?.timeline ? normalizeTimeline(payload.timeline) : this._state.timeline;
+      const plant = normalizePlantDetailPayload(response?.plant);
+      const timeline = response?.timeline
+        ? normalizeTimeline(response.timeline)
+        : this._state.timeline;
       this._lastKnownVillageId = plant.villageId || this._fallbackVillageId || this._lastKnownVillageId;
-      const watering = plant.watering || this._state.watering;
+      const watering = applyRecordedWatering(plant.watering || this._state.watering, requestedDate);
       this._transition({
         status: 'ready',
         plant,
@@ -397,6 +408,23 @@ function normalizeWatering(watering) {
     history: normalizedHistory,
     nextWateringDate,
     hasWateringToday,
+  };
+}
+
+function applyRecordedWatering(watering, recordedDate) {
+  const normalized = normalizeWatering(watering);
+  if (!recordedDate) {
+    return normalized;
+  }
+  if (normalized.history.includes(recordedDate)) {
+    return normalized;
+  }
+  const history = [...normalized.history, recordedDate].sort();
+  const today = todayIsoDate();
+  return {
+    history,
+    nextWateringDate: normalized.nextWateringDate,
+    hasWateringToday: normalized.hasWateringToday || recordedDate === today,
   };
 }
 
