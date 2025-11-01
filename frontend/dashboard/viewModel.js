@@ -1,4 +1,9 @@
-import { describeApiError, fetchDashboard, fetchTodayTasks } from '../services/api.js';
+import {
+  deleteDashboardAlert,
+  describeApiError,
+  fetchDashboard,
+  fetchTodayTasks,
+} from '../services/api.js';
 
 /**
  * @typedef {'idle'|'loading'|'ready'|'error'} DashboardStatus
@@ -19,11 +24,13 @@ import { describeApiError, fetchDashboard, fetchTodayTasks } from '../services/a
  */
 export class DashboardViewModel {
   /**
-   * @param {{ fetcher?: typeof fetchDashboard }} [options]
+   * @param {{ fetcher?: typeof fetchDashboard, alertDismisser?: typeof deleteDashboardAlert }} [options]
    */
   constructor(options = {}) {
-    const { fetcher = fetchDashboard } = options;
+    const { fetcher = fetchDashboard, alertDismisser = deleteDashboardAlert } = options;
     this._fetcher = fetcher;
+    this._alertDismisser = alertDismisser;
+    this._pendingDismissals = new Set();
     /** @type {Set<(state: DashboardState) => void>} */
     this._subscribers = new Set();
     /** @type {DashboardState} */
@@ -95,6 +102,39 @@ export class DashboardViewModel {
   }
 
   /**
+   * Dismiss a warning alert by id.
+   *
+   * @param {string} alertId
+   * @returns {Promise<boolean>}
+   */
+  async dismissAlert(alertId) {
+    if (!alertId || this._pendingDismissals.has(alertId)) {
+      return false;
+    }
+
+    const existing = this._state.alerts.find((alert) => alert.id === alertId);
+    if (!existing || existing.level !== 'warning') {
+      return false;
+    }
+
+    this._pendingDismissals.add(alertId);
+
+    try {
+      await this._alertDismisser(alertId);
+      this._transition({
+        alerts: this._state.alerts.filter((alert) => alert.id !== alertId),
+      });
+      return true;
+    } catch (error) {
+      const friendly = this._normalizeDismissError(error);
+      console.error('DashboardViewModel: failed to dismiss alert', error);
+      throw friendly;
+    } finally {
+      this._pendingDismissals.delete(alertId);
+    }
+  }
+
+  /**
    * @param {Partial<DashboardState>} patch
    */
   _transition(patch) {
@@ -114,6 +154,17 @@ export class DashboardViewModel {
   _normalizeError(error) {
     return describeApiError(error, {
       operation: 'Load dashboard summary',
+    });
+  }
+
+  /**
+   * @param {unknown} error
+   * @returns {import('../services/api.js').ErrorDescriptor}
+   */
+  _normalizeDismissError(error) {
+    return describeApiError(error, {
+      operation: 'Dismiss dashboard alert',
+      userMessage: 'Unable to dismiss warning. Try again.',
     });
   }
 }

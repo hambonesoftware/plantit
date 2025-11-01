@@ -2,15 +2,23 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import app
+from backend.app import app, _reset_dashboard_alerts
 from backend.db import models
 from backend.db.session import session_scope
 
 SAMPLE_IMAGE_DATA = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA="
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _reset_alerts_fixture():
+    _reset_dashboard_alerts()
+    yield
+    _reset_dashboard_alerts()
 
 
 def _get_first_village_id() -> str:
@@ -197,6 +205,47 @@ def test_village_update_conflict_returns_409() -> None:
         f"/api/villages/{village_id}",
         json={"updatedAt": latest["updatedAt"]},
     )
+
+
+def test_dismiss_dashboard_warning_removes_alert() -> None:
+    response = client.get("/api/dashboard")
+    assert response.status_code == 200, response.text
+
+    alerts = response.json().get("alerts")
+    assert isinstance(alerts, list), "Alerts payload missing"
+
+    warnings = [alert for alert in alerts if alert.get("level") == "warning"]
+    assert warnings, "Expected at least one warning alert"
+    alert_id = warnings[0]["id"]
+
+    dismiss_response = client.delete(f"/api/dashboard/alerts/{alert_id}")
+    assert dismiss_response.status_code == 200, dismiss_response.text
+
+    payload = dismiss_response.json()
+    assert payload.get("status") == "dismissed"
+    assert payload.get("alertId") == alert_id
+    assert isinstance(payload.get("dismissedAt"), str)
+
+    follow_up = client.get("/api/dashboard")
+    assert follow_up.status_code == 200, follow_up.text
+    remaining_alerts = follow_up.json().get("alerts")
+    assert isinstance(remaining_alerts, list)
+    assert all(alert.get("id") != alert_id for alert in remaining_alerts)
+
+
+def test_dismiss_dashboard_non_warning_rejected() -> None:
+    response = client.get("/api/dashboard")
+    assert response.status_code == 200, response.text
+
+    alerts = response.json().get("alerts")
+    assert isinstance(alerts, list), "Alerts payload missing"
+
+    criticals = [alert for alert in alerts if alert.get("level") == "critical"]
+    assert criticals, "Expected at least one critical alert"
+    alert_id = criticals[0]["id"]
+
+    dismissal = client.delete(f"/api/dashboard/alerts/{alert_id}")
+    assert dismissal.status_code == 400, dismissal.text
 
 
 def test_create_update_delete_plant_flow() -> None:

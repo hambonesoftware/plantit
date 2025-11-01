@@ -2045,6 +2045,44 @@ class DashboardView {
       });
     }
 
+    if (this.alertList) {
+      this.alertList.addEventListener("click", (event) => {
+        const button = event.target;
+        if (!(button instanceof HTMLButtonElement)) {
+          return;
+        }
+        if (button.dataset.action !== "dashboard-dismiss-alert") {
+          return;
+        }
+        const alertId = button.dataset.alertId;
+        if (!alertId || button.dataset.pending === "true") {
+          return;
+        }
+        button.dataset.pending = "true";
+        button.disabled = true;
+        void (async () => {
+          try {
+            const dismissed = await this.viewModel.dismissAlert(alertId);
+            if (dismissed) {
+              showToast({ message: "Warning dismissed.", tone: "success" });
+            } else {
+              button.disabled = false;
+              delete button.dataset.pending;
+            }
+          } catch (error) {
+            console.error('Dashboard: failed to dismiss warning', error);
+            button.disabled = false;
+            delete button.dataset.pending;
+            const message =
+              typeof error?.message === "string" && error.message
+                ? error.message
+                : "Unable to dismiss warning. Try again.";
+            showToast({ message, tone: "error" });
+          }
+        })();
+      });
+    }
+
     this.unsubscribe = this.viewModel.subscribe((state) => {
       this.render(state);
     });
@@ -2209,6 +2247,19 @@ function createAlertListItem(alert) {
   }
 
   item.append(badge, message);
+
+  if (alert.level === "warning") {
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "dashboard-alert-dismiss";
+    dismiss.dataset.action = "dashboard-dismiss-alert";
+    dismiss.dataset.alertId = alert.id;
+    dismiss.textContent = "Dismiss";
+    dismiss.setAttribute("aria-label", `Dismiss warning: ${alert.message}`);
+    dismiss.title = "Dismiss warning";
+    item.append(dismiss);
+  }
+
   return item;
 }
 
