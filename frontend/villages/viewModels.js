@@ -757,6 +757,8 @@ export class VillagePlantListViewModel {
       updater = updatePlant,
       deleter = deletePlant,
       onVillageUpdate,
+      onPlantUpdate,
+      onPlantDelete,
     } = options;
     this._fetcher = fetcher;
     this._creator = creator;
@@ -764,6 +766,10 @@ export class VillagePlantListViewModel {
     this._deleter = deleter;
     this._notifyVillageUpdate =
       typeof onVillageUpdate === 'function' ? onVillageUpdate : () => {};
+    this._notifyPlantUpdate =
+      typeof onPlantUpdate === 'function' ? onPlantUpdate : () => {};
+    this._notifyPlantDelete =
+      typeof onPlantDelete === 'function' ? onPlantDelete : () => {};
     this._subscribers = new Set();
     /** @type {VillagePlantListState} */
     this._state = {
@@ -795,6 +801,13 @@ export class VillagePlantListViewModel {
    */
   getState() {
     return this._state;
+  }
+
+  /**
+   * @returns {string | null}
+   */
+  getCurrentVillageId() {
+    return this._currentVillageId;
   }
 
   /**
@@ -971,6 +984,7 @@ export class VillagePlantListViewModel {
       if (response?.village) {
         this._notifyVillageUpdate(normalizeVillageDetailPayload(response.village));
       }
+      this._notifyPlantUpdate(detail);
       return detail;
     } catch (error) {
       this._transition({
@@ -1037,6 +1051,7 @@ export class VillagePlantListViewModel {
       if (response?.village) {
         this._notifyVillageUpdate(normalizeVillageDetailPayload(response.village));
       }
+      this._notifyPlantUpdate(detail);
       return detail;
     } catch (error) {
       this._transition({ plants: previousPlants, lastUpdated: previousLastUpdated });
@@ -1084,6 +1099,7 @@ export class VillagePlantListViewModel {
         this._transition({ village: detail, lastUpdated: new Date().toISOString() });
         this._notifyVillageUpdate(detail);
       }
+      this._notifyPlantDelete(plantId);
     } catch (error) {
       this._transition({
         plants: previousPlants,

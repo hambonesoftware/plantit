@@ -4,6 +4,7 @@ import { fetchAuthStatus, login as loginRequest, logout as logoutRequest } from 
 
 let dashboardModulesPromise;
 let villagesModulesPromise;
+let plantModulesPromise;
 let importExportModulePromise;
 let diagnosticsModulePromise;
 
@@ -38,6 +39,19 @@ function loadVillagesModules() {
     }));
   }
   return villagesModulesPromise;
+}
+
+function loadPlantModules() {
+  if (!plantModulesPromise) {
+    plantModulesPromise = Promise.all([
+      import('./plants/detailView.js'),
+      import('./plants/viewModel.js'),
+    ]).then(([detailView, viewModel]) => ({
+      PlantDetailView: detailView.PlantDetailView,
+      PlantDetailViewModel: viewModel.PlantDetailViewModel,
+    }));
+  }
+  return plantModulesPromise;
 }
 
 function loadImportExportModule() {
@@ -509,12 +523,17 @@ function mountShell(root, { statusText, safeMode }) {
     villagesSection.dataset.route = "villages";
     toggleSection(villagesSection, false);
 
-    contentHost.append(dashboardSection, villagesSection);
+    const plantSection = buildPlantSection();
+    plantSection.dataset.route = "plants";
+    toggleSection(plantSection, false);
+
+    contentHost.append(dashboardSection, villagesSection, plantSection);
 
     void hydrateMainPanels({
       navigation,
       dashboardSection,
       villagesSection,
+      plantSection,
     });
   }
 
@@ -524,10 +543,17 @@ function mountShell(root, { statusText, safeMode }) {
   initializeImportExportControls(root);
 }
 
-async function hydrateMainPanels({ navigation, dashboardSection, villagesSection }) {
+async function hydrateMainPanels({ navigation, dashboardSection, villagesSection, plantSection }) {
   try {
-    const [{ DashboardViewModel, TodayPanelViewModel, TodayPanel }, villagesModules] =
-      await Promise.all([loadDashboardModules(), loadVillagesModules()]);
+    const [
+      { DashboardViewModel, TodayPanelViewModel, TodayPanel },
+      villagesModules,
+      plantModules,
+    ] = await Promise.all([
+      loadDashboardModules(),
+      loadVillagesModules(),
+      loadPlantModules(),
+    ]);
 
     const {
       VillageDetailView,
@@ -537,6 +563,7 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
       VillageListViewModel,
       VillagePlantListViewModel,
     } = villagesModules;
+    const { PlantDetailView, PlantDetailViewModel } = plantModules;
 
     const dashboardViewModel = new DashboardViewModel();
     new DashboardView(dashboardSection, dashboardViewModel);
@@ -552,9 +579,11 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
     const listRoot = villagesSection.querySelector('[data-role="village-list-root"]');
     const detailRoot = villagesSection.querySelector('[data-role="village-detail-root"]');
     const plantListRoot = villagesSection.querySelector('[data-role="plant-list-root"]');
+    const plantDetailRoot = plantSection?.querySelector('[data-role="plant-detail-root"]') ?? null;
 
     const villageDetailViewModel = new VillageDetailViewModel();
     let villagePlantListViewModel;
+    const plantDetailViewModel = new PlantDetailViewModel();
     const villageListViewModel = new VillageListViewModel({
       onVillageUpdate: (village) => {
         villageDetailViewModel.applyExternalVillage(village);
@@ -567,6 +596,7 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
         if (villagePlantListViewModel) {
           villagePlantListViewModel.handleVillageDeleted(villageId);
         }
+        plantDetailViewModel.handleVillageDeleted(villageId);
       },
     });
 
@@ -575,9 +605,15 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
         villageListViewModel.applyExternalVillage(village);
         villageDetailViewModel.applyExternalVillage(village);
       },
+      onPlantUpdate: (plant) => {
+        plantDetailViewModel.applyExternalPlant(plant);
+      },
+      onPlantDelete: (plantId) => {
+        plantDetailViewModel.handlePlantDeleted(plantId);
+      },
     });
 
-    if (!listRoot || !detailRoot || !plantListRoot) {
+    if (!listRoot || !detailRoot || !plantListRoot || !plantDetailRoot) {
       console.warn('Boot: villages panel missing expected subtrees');
     }
 
@@ -605,7 +641,20 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
     }
 
     if (plantListRoot) {
-      new PlantListView(plantListRoot, villagePlantListViewModel);
+      new PlantListView(plantListRoot, villagePlantListViewModel, {
+        onSelect: (plantId) => {
+          if (!plantId) {
+            return;
+          }
+          const currentVillageId = villagePlantListViewModel.getCurrentVillageId();
+          const targetHash = currentVillageId
+            ? `#villages/${encodeURIComponent(currentVillageId)}/plants/${encodeURIComponent(plantId)}`
+            : `#plants/${encodeURIComponent(plantId)}`;
+          if (window.location.hash !== targetHash) {
+            window.location.hash = targetHash;
+          }
+        },
+      });
     }
 
     setupVillageCreateForm(villagesSection, {
@@ -624,15 +673,41 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
       plantListViewModel: villagePlantListViewModel,
     });
 
+    if (plantDetailRoot) {
+      new PlantDetailView(plantDetailRoot, plantDetailViewModel, {
+        onBack: ({ villageId } = {}) => {
+          if (villageId) {
+            const target = `#villages/${encodeURIComponent(villageId)}`;
+            if (window.location.hash !== target) {
+              window.location.hash = target;
+            }
+          } else if (window.location.hash !== '#villages') {
+            window.location.hash = '#villages';
+          }
+        },
+        onViewVillage: (villageId) => {
+          if (!villageId) {
+            return;
+          }
+          const target = `#villages/${encodeURIComponent(villageId)}`;
+          if (window.location.hash !== target) {
+            window.location.hash = target;
+          }
+        },
+      });
+    }
+
     const router = new HashRouter((route) => {
       handleRoute({
         route,
         navigation,
         dashboardSection,
         villagesSection,
+        plantSection,
         villageListViewModel,
         villageDetailViewModel,
         villagePlantListViewModel,
+        plantDetailViewModel,
       });
     });
     router.start();
@@ -833,6 +908,63 @@ function buildVillagesSection() {
           </div>
         </div>
       </div>
+    </div>
+  `;
+  return section;
+}
+
+function buildPlantSection() {
+  const section = document.createElement("section");
+  section.id = "plant-panel";
+  section.innerHTML = `
+    <div class="plant-detail-root" data-role="plant-detail-root">
+      <p class="plant-detail-placeholder" data-role="plant-placeholder">Select a plant to view its details.</p>
+      <p class="plant-detail-loading" data-role="plant-loading" role="status" aria-live="polite">Loading plant…</p>
+      <div class="plant-detail-error" data-role="plant-error" role="alert" hidden>
+        <p class="plant-detail-error-message" data-role="plant-error-message">Unable to load plant.</p>
+        <div class="plant-detail-error-actions">
+          <button type="button" data-action="plant-detail-retry">Retry</button>
+          <button type="button" data-action="plant-detail-copy">Copy details</button>
+        </div>
+      </div>
+      <article class="plant-detail" data-role="plant-content" hidden>
+        <header class="plant-detail-header">
+          <button type="button" class="plant-detail-back" data-action="plant-detail-back">Back to village</button>
+          <div class="plant-detail-heading">
+            <h2 data-role="plant-name">Plant</h2>
+            <p class="plant-detail-subtitle" data-role="plant-subtitle"></p>
+          </div>
+        </header>
+        <dl class="plant-detail-meta">
+          <div>
+            <dt>Stage</dt>
+            <dd data-role="plant-stage"></dd>
+          </div>
+          <div>
+            <dt>Health</dt>
+            <dd data-role="plant-health"></dd>
+          </div>
+          <div>
+            <dt>Last watered</dt>
+            <dd data-role="plant-last-watered"></dd>
+          </div>
+          <div>
+            <dt>Village</dt>
+            <dd>
+              <button type="button" class="plant-detail-village" data-action="plant-detail-village" data-role="plant-village">View village</button>
+            </dd>
+          </div>
+        </dl>
+        <section class="plant-detail-notes">
+          <h3>Notes</h3>
+          <p data-role="plant-notes"></p>
+        </section>
+        <section class="plant-detail-timeline">
+          <h3>Timeline</h3>
+          <p class="plant-detail-timeline-empty" data-role="plant-timeline-empty">No events recorded yet.</p>
+          <ul class="plant-detail-timeline-list" data-role="plant-timeline"></ul>
+        </section>
+      </article>
     </div>
   `;
   return section;
@@ -1368,9 +1500,11 @@ function handleRoute({
   navigation,
   dashboardSection,
   villagesSection,
+  plantSection,
   villageListViewModel,
   villageDetailViewModel,
   villagePlantListViewModel,
+  plantDetailViewModel,
 }) {
   const segments = Array.isArray(route.segments) ? route.segments : [];
   const [firstSegment = ""] = segments;
@@ -1380,6 +1514,7 @@ function handleRoute({
     setActiveNavigation(navigation, "dashboard");
     toggleSection(dashboardSection, true);
     toggleSection(villagesSection, false);
+    toggleSection(plantSection, false);
     if (!firstSegment && window.location.hash !== DEFAULT_ROUTE) {
       window.location.hash = DEFAULT_ROUTE;
     }
@@ -1389,7 +1524,10 @@ function handleRoute({
   if (activeSegment === "villages") {
     setActiveNavigation(navigation, "villages");
     toggleSection(dashboardSection, false);
-    toggleSection(villagesSection, true);
+    const isPlantDetailRoute = segments[2] === "plants";
+    const plantId = isPlantDetailRoute ? segments[3] || null : null;
+    toggleSection(villagesSection, !plantId);
+    toggleSection(plantSection, Boolean(plantId));
 
     villageListViewModel.ensureLoaded();
     const selectedId = segments[1] || null;
@@ -1400,6 +1538,29 @@ function handleRoute({
     } else {
       villageDetailViewModel.clear();
       villagePlantListViewModel.clear();
+    }
+    if (plantId) {
+      plantDetailViewModel.setFallbackVillageId(selectedId);
+      plantDetailViewModel.load(plantId);
+    } else {
+      plantDetailViewModel.clear();
+    }
+    return;
+  }
+
+  if (activeSegment === "plants") {
+    setActiveNavigation(navigation, "villages");
+    toggleSection(dashboardSection, false);
+    toggleSection(villagesSection, false);
+    toggleSection(plantSection, true);
+
+    villageListViewModel.ensureLoaded();
+    const plantId = segments[1] || null;
+    if (plantId) {
+      plantDetailViewModel.setFallbackVillageId(null);
+      plantDetailViewModel.load(plantId);
+    } else {
+      plantDetailViewModel.clear();
     }
     return;
   }
