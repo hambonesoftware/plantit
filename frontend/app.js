@@ -985,6 +985,17 @@ function buildPlantSection() {
           <button type="button" data-action="plant-detail-copy">Copy details</button>
         </div>
       </div>
+      <nav class="plant-detail-breadcrumbs" aria-label="Breadcrumb" data-role="plant-breadcrumbs" hidden>
+        <ol>
+          <li><a href="#villages">Villages</a></li>
+          <li>
+            <a href="#" data-role="plant-breadcrumb-village">Village</a>
+          </li>
+          <li aria-current="page">
+            <span data-role="plant-breadcrumb-plant">Plant</span>
+          </li>
+        </ol>
+      </nav>
       <article class="plant-detail" data-role="plant-content" hidden>
         <header class="plant-detail-header">
           <button type="button" class="plant-detail-back" data-action="plant-detail-back">Back to village</button>
