@@ -797,6 +797,7 @@ function buildMainNavigation() {
 function buildVillagesSection() {
   const section = document.createElement("section");
   section.id = "villages-panel";
+  section.dataset.view = "list";
   section.innerHTML = `
     <div class="villages-header">
       <h2>Villages</h2>

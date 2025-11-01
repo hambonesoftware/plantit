@@ -492,18 +492,33 @@ picture[data-loading='lazy'] img {
   align-items: start;
 }
 
-#villages-panel[data-view='detail'] .villages-header,
-#villages-panel[data-view='detail'] .villages-list-root {
-  display: none;
+#villages-panel[data-view='detail'] .villages-body {
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
 }
 
-#villages-panel[data-view='detail'] .villages-body {
-  grid-template-columns: minmax(0, 1fr);
+#villages-panel[data-view='detail'] .villages-list-root {
+  max-width: 320px;
+  justify-self: stretch;
 }
 
 #villages-panel[data-view='detail'] .villages-detail-root,
 #villages-panel[data-view='detail'] .village-plants-panel {
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
+}
+
+@media (max-width: 1100px) {
+  #villages-panel[data-view='detail'] .villages-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #villages-panel[data-view='detail'] .villages-detail-root,
+  #villages-panel[data-view='detail'] .village-plants-panel {
+    grid-column: 1 / -1;
+  }
+
+  #villages-panel[data-view='detail'] .villages-list-root {
+    max-width: none;
+  }
 }
 
 .villages-list-root,
