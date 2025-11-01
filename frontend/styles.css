@@ -734,6 +734,51 @@ picture[data-loading='lazy'] img {
   margin-top: 0.75rem;
 }
 
+.plant-detail-breadcrumbs {
+  font-size: 0.85rem;
+  color: #46627a;
+  margin: 0 0 0.75rem;
+}
+
+.plant-detail-breadcrumbs ol {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+}
+
+.plant-detail-breadcrumbs li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.plant-detail-breadcrumbs li + li::before {
+  content: '›';
+  color: #8ca1b6;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.plant-detail-breadcrumbs a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.plant-detail-breadcrumbs a:hover,
+.plant-detail-breadcrumbs a:focus {
+  text-decoration: underline;
+}
+
+.plant-detail-breadcrumbs a.is-disabled {
+  color: #9aaebe;
+  cursor: default;
+  pointer-events: none;
+  text-decoration: none;
+}
+
 .plant-detail {
   display: flex;
   flex-direction: column;

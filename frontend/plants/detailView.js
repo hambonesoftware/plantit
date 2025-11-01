@@ -39,6 +39,9 @@ export class PlantDetailView {
     this.copyButton = root.querySelector('[data-action="plant-detail-copy"]');
     this.backButton = root.querySelector('[data-action="plant-detail-back"]');
     this.villageButton = root.querySelector('[data-action="plant-detail-village"]');
+    this.breadcrumbs = root.querySelector('[data-role="plant-breadcrumbs"]');
+    this.breadcrumbVillage = root.querySelector('[data-role="plant-breadcrumb-village"]');
+    this.breadcrumbPlant = root.querySelector('[data-role="plant-breadcrumb-plant"]');
     this.content = root.querySelector('[data-role="plant-content"]');
     this.name = root.querySelector('[data-role="plant-name"]');
     this.subtitle = root.querySelector('[data-role="plant-subtitle"]');
@@ -75,6 +78,16 @@ export class PlantDetailView {
 
     if (this.villageButton) {
       this.villageButton.addEventListener('click', () => {
+        this.onViewVillage(this.lastKnownVillageId);
+      });
+    }
+
+    if (this.breadcrumbVillage) {
+      this.breadcrumbVillage.addEventListener('click', (event) => {
+        if (!this.lastKnownVillageId) {
+          event.preventDefault();
+          return;
+        }
         this.onViewVillage(this.lastKnownVillageId);
       });
     }
@@ -118,8 +131,22 @@ export class PlantDetailView {
     if (this.errorPanel) {
       this.errorPanel.hidden = true;
     }
+    if (this.breadcrumbs) {
+      this.breadcrumbs.hidden = true;
+    }
     if (this.content) {
       this.content.hidden = true;
+    }
+    if (this.breadcrumbVillage) {
+      this.breadcrumbVillage.textContent = 'Village';
+      this.breadcrumbVillage.dataset.villageId = '';
+      this.breadcrumbVillage.removeAttribute('href');
+      this.breadcrumbVillage.setAttribute('aria-disabled', 'true');
+      this.breadcrumbVillage.classList.add('is-disabled');
+      this.breadcrumbVillage.tabIndex = -1;
+    }
+    if (this.breadcrumbPlant) {
+      this.breadcrumbPlant.textContent = 'Plant';
     }
     this._updateErrorContext(null, null);
   }
@@ -134,8 +161,22 @@ export class PlantDetailView {
     if (this.errorPanel) {
       this.errorPanel.hidden = true;
     }
+    if (this.breadcrumbs) {
+      this.breadcrumbs.hidden = true;
+    }
     if (this.content) {
       this.content.hidden = true;
+    }
+    if (this.breadcrumbVillage) {
+      this.breadcrumbVillage.textContent = 'Village';
+      this.breadcrumbVillage.dataset.villageId = '';
+      this.breadcrumbVillage.removeAttribute('href');
+      this.breadcrumbVillage.setAttribute('aria-disabled', 'true');
+      this.breadcrumbVillage.classList.add('is-disabled');
+      this.breadcrumbVillage.tabIndex = -1;
+    }
+    if (this.breadcrumbPlant) {
+      this.breadcrumbPlant.textContent = 'Plant';
     }
     this._updateErrorContext(null, null);
   }
@@ -163,6 +204,9 @@ export class PlantDetailView {
     }
     if (this.content) {
       this.content.hidden = false;
+    }
+    if (this.breadcrumbs) {
+      this.breadcrumbs.hidden = false;
     }
     this._updateErrorContext(null, null);
 
@@ -195,6 +239,28 @@ export class PlantDetailView {
       this.villageButton.dataset.villageId = this.lastKnownVillageId ?? '';
     }
 
+    if (this.breadcrumbVillage) {
+      const villageName = detail.villageName || 'Village';
+      this.breadcrumbVillage.textContent = villageName;
+      if (this.lastKnownVillageId) {
+        this.breadcrumbVillage.dataset.villageId = this.lastKnownVillageId;
+        this.breadcrumbVillage.href = `#villages/${encodeURIComponent(this.lastKnownVillageId)}`;
+        this.breadcrumbVillage.removeAttribute('aria-disabled');
+        this.breadcrumbVillage.classList.remove('is-disabled');
+        this.breadcrumbVillage.removeAttribute('tabindex');
+      } else {
+        this.breadcrumbVillage.dataset.villageId = '';
+        this.breadcrumbVillage.removeAttribute('href');
+        this.breadcrumbVillage.setAttribute('aria-disabled', 'true');
+        this.breadcrumbVillage.classList.add('is-disabled');
+        this.breadcrumbVillage.tabIndex = -1;
+      }
+    }
+
+    if (this.breadcrumbPlant) {
+      this.breadcrumbPlant.textContent = detail.displayName || 'Plant';
+    }
+
     if (this.timeline && this.timelineEmpty) {
       const events = Array.isArray(state.timeline) ? state.timeline : [];
       if (events.length === 0) {
@@ -224,8 +290,22 @@ export class PlantDetailView {
     if (this.errorPanel) {
       this.errorPanel.hidden = false;
     }
+    if (this.breadcrumbs) {
+      this.breadcrumbs.hidden = true;
+    }
     if (this.errorMessage) {
       this.errorMessage.textContent = state.error?.message ?? 'Unable to load plant details.';
+    }
+    if (this.breadcrumbVillage) {
+      this.breadcrumbVillage.textContent = 'Village';
+      this.breadcrumbVillage.dataset.villageId = '';
+      this.breadcrumbVillage.removeAttribute('href');
+      this.breadcrumbVillage.setAttribute('aria-disabled', 'true');
+      this.breadcrumbVillage.classList.add('is-disabled');
+      this.breadcrumbVillage.tabIndex = -1;
+    }
+    if (this.breadcrumbPlant) {
+      this.breadcrumbPlant.textContent = 'Plant';
     }
     this._updateErrorContext(state.error?.detail ?? null, state.error?.category ?? null);
   }
