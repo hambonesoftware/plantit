@@ -8,7 +8,31 @@
  */
 
 const DEFAULT_TIMEOUT_MS = 15000;
-const API_BASE_URL = '/api';
+
+const DEFAULT_API_BASE_URL = '/api';
+const DEV_STATIC_PORT = '5580';
+const DEV_API_PORT = '5581';
+
+function resolveApiBaseUrl() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  if (typeof window.PLANTIT_API_BASE_URL === 'string' && window.PLANTIT_API_BASE_URL) {
+    return window.PLANTIT_API_BASE_URL;
+  }
+
+  const { protocol, hostname, port } = window.location;
+  if (port === DEV_STATIC_PORT) {
+    const baseProtocol = protocol || 'http:';
+    const host = hostname || '127.0.0.1';
+    return `${baseProtocol}//${host}:${DEV_API_PORT}/api`;
+  }
+
+  return DEFAULT_API_BASE_URL;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 /**
  * @typedef {Object} RequestOptions
