@@ -106,6 +106,16 @@ PLANTS = [
         "health_score": 0.76,
         "notes": "Humidity spike required nightly — ensure fogger schedule updated.",
     },
+    {
+        "id": "plant-008",
+        "village_id": "village-001",
+        "display_name": "Harbor Pineapple",
+        "species": "Ananas comosus",
+        "stage": "vegetative",
+        "last_watered_at": "2024-04-11T16:20:00Z",
+        "health_score": 0.82,
+        "notes": "Stabilized after transplant — monitor crown for new growth.",
+    },
 ]
 
 # Timeline -------------------------------------------------------------------
@@ -146,6 +156,14 @@ PLANT_TIMELINE = {
             "type": "watering",
             "summary": "Misting schedule increased to 15-minute intervals overnight.",
         },
+    ],
+    "plant-008": [
+        {
+            "id": "event-006",
+            "occurredAt": "2024-04-11T16:30:00Z",
+            "type": "inspection",
+            "summary": "Transplant shock resolved; resumed weekly feeding schedule.",
+        }
     ],
 }
 
