@@ -492,6 +492,20 @@ picture[data-loading='lazy'] img {
   align-items: start;
 }
 
+#villages-panel[data-view='detail'] .villages-header,
+#villages-panel[data-view='detail'] .villages-list-root {
+  display: none;
+}
+
+#villages-panel[data-view='detail'] .villages-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#villages-panel[data-view='detail'] .villages-detail-root,
+#villages-panel[data-view='detail'] .village-plants-panel {
+  grid-column: 1 / -1;
+}
+
 .villages-list-root,
 .villages-detail-root {
   background: rgba(18, 50, 75, 0.05);

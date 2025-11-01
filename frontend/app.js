@@ -1589,6 +1589,13 @@ function handleRoute({
 
     villageListViewModel.ensureLoaded();
     const selectedId = segments[1] || null;
+    if (villagesSection) {
+      if (selectedId) {
+        villagesSection.dataset.view = "detail";
+      } else {
+        villagesSection.dataset.view = "list";
+      }
+    }
     villageListViewModel.setSelectedVillageId(selectedId);
     if (selectedId) {
       villageDetailViewModel.load(selectedId);
