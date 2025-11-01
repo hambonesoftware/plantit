@@ -258,6 +258,7 @@ function createAuthController() {
     navButton = document.createElement('button');
     navButton.type = 'button';
     navButton.id = 'account-button';
+    navButton.className = 'nav-account-button';
     navButton.textContent = 'Sign in';
     navButton.addEventListener('click', () => {
       if (!state.enabled) {
@@ -270,7 +271,12 @@ function createAuthController() {
         showOverlay();
       }
     });
-    nav.append(navButton);
+    const slot = nav.querySelector('[data-role="account-slot"]');
+    if (slot) {
+      slot.append(navButton);
+    } else {
+      nav.append(navButton);
+    }
     updateUi();
   }
 
@@ -722,17 +728,69 @@ function buildMainNavigation() {
   nav.id = "main-nav";
   nav.setAttribute("aria-label", "Primary navigation");
 
+  const startGroup = document.createElement("div");
+  startGroup.className = "nav-start";
+
+  const brandLink = document.createElement("a");
+  brandLink.href = "#dashboard";
+  brandLink.className = "nav-brand";
+  brandLink.textContent = "Plantit";
+  startGroup.append(brandLink);
+
+  const linkGroup = document.createElement("div");
+  linkGroup.className = "nav-links";
+
   const dashboardLink = document.createElement("a");
   dashboardLink.href = "#dashboard";
   dashboardLink.dataset.route = "dashboard";
+  dashboardLink.className = "nav-link";
   dashboardLink.textContent = "Dashboard";
 
   const villagesLink = document.createElement("a");
   villagesLink.href = "#villages";
   villagesLink.dataset.route = "villages";
+  villagesLink.className = "nav-link";
   villagesLink.textContent = "Villages";
 
-  nav.append(dashboardLink, villagesLink);
+  linkGroup.append(dashboardLink, villagesLink);
+  startGroup.append(linkGroup);
+
+  const searchForm = document.createElement("form");
+  searchForm.className = "nav-search";
+  searchForm.setAttribute("role", "search");
+  searchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+  });
+
+  const searchLabel = document.createElement("label");
+  searchLabel.className = "sr-only";
+  searchLabel.setAttribute("for", "nav-search-input");
+  searchLabel.textContent = "Search plants, tags, or logs";
+
+  const searchIcon = document.createElement("span");
+  searchIcon.className = "nav-search-icon";
+  searchIcon.setAttribute("aria-hidden", "true");
+  searchIcon.textContent = "🔍";
+
+  const searchInput = document.createElement("input");
+  searchInput.id = "nav-search-input";
+  searchInput.type = "search";
+  searchInput.name = "q";
+  searchInput.placeholder = "Search plants, tags, logs…";
+  searchInput.autocomplete = "off";
+  searchInput.spellcheck = false;
+
+  searchForm.append(searchLabel, searchIcon, searchInput);
+
+  const endGroup = document.createElement("div");
+  endGroup.className = "nav-end";
+
+  const accountSlot = document.createElement("div");
+  accountSlot.className = "nav-account-slot";
+  accountSlot.dataset.role = "account-slot";
+  endGroup.append(accountSlot);
+
+  nav.append(startGroup, searchForm, endGroup);
   return nav;
 }
 
