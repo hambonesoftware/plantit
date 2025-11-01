@@ -690,6 +690,7 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
 
     setupPlantForm(plantListRoot, {
       plantListViewModel: villagePlantListViewModel,
+      villageListViewModel,
     });
 
     setupPlantImportControls(plantListRoot, {
@@ -973,6 +974,9 @@ function buildVillagesSection() {
                   <option value="flowering">Flowering</option>
                   <option value="mature">Mature</option>
                 </select>
+              </label>
+              <label> Village
+                <select data-role="plant-village" required></select>
               </label>
               <label> Family
                 <input type="text" data-role="plant-family-input" />
@@ -1680,7 +1684,7 @@ function deriveWateringDates(activityLog) {
   return unique;
 }
 
-function setupPlantForm(root, { plantListViewModel }) {
+function setupPlantForm(root, { plantListViewModel, villageListViewModel }) {
   if (!root || !plantListViewModel) {
     return;
   }
@@ -1696,6 +1700,7 @@ function setupPlantForm(root, { plantListViewModel }) {
   const nameInput = form.querySelector('[data-role="plant-name"]');
   const speciesInput = form.querySelector('[data-role="plant-species"]');
   const stageInput = form.querySelector('[data-role="plant-stage"]');
+  const villageSelect = form.querySelector('[data-role="plant-village"]');
   const familyInput = form.querySelector('[data-role="plant-family-input"]');
   const originInput = form.querySelector('[data-role="plant-origin-input"]');
   const habitatInput = form.querySelector('[data-role="plant-habitat-input"]');
@@ -1720,7 +1725,61 @@ function setupPlantForm(root, { plantListViewModel }) {
   const cancelButton = form.querySelector('[data-action="plant-cancel"]');
   const deleteButton = form.querySelector('[data-action="plant-delete"]');
 
+  let availableVillages = [];
+  let lastVillageSelection = '';
   let currentVillage = null;
+
+  const renderVillageOptions = (preferredId) => {
+    if (!villageSelect) {
+      return;
+    }
+    const desiredSelection = typeof preferredId === 'string' ? preferredId : lastVillageSelection;
+    const fragment = document.createDocumentFragment();
+    if (!Array.isArray(availableVillages) || availableVillages.length === 0) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No villages available';
+      fragment.append(option);
+      villageSelect.replaceChildren(fragment);
+      villageSelect.disabled = true;
+      villageSelect.value = '';
+      lastVillageSelection = '';
+      return;
+    }
+
+    villageSelect.disabled = false;
+    for (const village of availableVillages) {
+      if (!village || typeof village !== 'object') {
+        continue;
+      }
+      const option = document.createElement('option');
+      option.value = village.id;
+      option.textContent = village.name;
+      fragment.append(option);
+    }
+    villageSelect.replaceChildren(fragment);
+
+    let resolvedSelection = '';
+    if (availableVillages.some((village) => village.id === desiredSelection)) {
+      resolvedSelection = desiredSelection;
+    } else if (
+      currentVillage &&
+      availableVillages.some((village) => village.id === currentVillage.id)
+    ) {
+      resolvedSelection = currentVillage.id;
+    } else {
+      resolvedSelection = availableVillages[0].id;
+    }
+
+    villageSelect.value = resolvedSelection;
+    lastVillageSelection = villageSelect.value;
+  };
+
+  if (villageSelect) {
+    villageSelect.addEventListener('change', () => {
+      lastVillageSelection = villageSelect.value;
+    });
+  }
 
   const setImageData = (value) => {
     if (imageDataInput) {
@@ -1750,6 +1809,7 @@ function setupPlantForm(root, { plantListViewModel }) {
     if (imageFileInput) {
       imageFileInput.value = '';
     }
+    renderVillageOptions(currentVillage ? currentVillage.id : lastVillageSelection);
   };
 
   const showCreateForm = () => {
@@ -1761,6 +1821,7 @@ function setupPlantForm(root, { plantListViewModel }) {
     if (errorMessage) {
       errorMessage.hidden = true;
     }
+    renderVillageOptions(currentVillage.id);
     if (title) {
       title.textContent = 'Add Plant';
     }
@@ -1858,6 +1919,9 @@ function setupPlantForm(root, { plantListViewModel }) {
     if (notesInput) {
       notesInput.value = item.dataset.notes ?? '';
     }
+    renderVillageOptions(
+      item.dataset.villageId ?? (currentVillage ? currentVillage.id : '') ?? ''
+    );
     setImageData(item.dataset.imageUrl ?? '');
     if (imageFileInput) {
       imageFileInput.value = '';
@@ -1923,11 +1987,21 @@ function setupPlantForm(root, { plantListViewModel }) {
     });
   }
 
+  if (villageListViewModel && typeof villageListViewModel.subscribe === 'function') {
+    villageListViewModel.subscribe((state) => {
+      availableVillages = Array.isArray(state?.villages) ? state.villages : [];
+      const activeSelection = villageSelect ? villageSelect.value : lastVillageSelection;
+      renderVillageOptions(activeSelection || (currentVillage ? currentVillage.id : ''));
+    });
+  }
+
   plantListViewModel.subscribe((state) => {
     currentVillage = state.village;
     if (!state.village) {
       hideForm();
     }
+    const activeSelection = villageSelect ? villageSelect.value : lastVillageSelection;
+    renderVillageOptions(activeSelection || (currentVillage ? currentVillage.id : ''));
   });
 
   root.addEventListener('click', (event) => {
@@ -1972,6 +2046,11 @@ function setupPlantForm(root, { plantListViewModel }) {
       dormancy: dormancyInput ? dormancyInput.value : '',
       waterAverage: waterAverageInput ? waterAverageInput.value : '',
       amount: amountInput ? amountInput.value : '',
+      villageId: villageSelect ? villageSelect.value : '',
+      villageName:
+        villageSelect && villageSelect.selectedIndex >= 0
+          ? villageSelect.options[villageSelect.selectedIndex]?.textContent ?? ''
+          : '',
     };
 
     const plantId = idInput ? idInput.value : '';
