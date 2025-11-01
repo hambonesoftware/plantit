@@ -1,7 +1,7 @@
 """Static fixtures derived from the canonical seed data."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Dict, List, Sequence
 
 from backend.data import seed_content
@@ -41,6 +41,47 @@ def _summary_for_village(village: Dict[str, object], *, plant_count: int) -> Dic
     }
 
 
+def _parse_iso_date(value: object) -> date | None:
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            if "T" in value:
+                return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _days_since(value: object) -> int | None:
+    parsed = _parse_iso_date(value)
+    if not parsed:
+        return None
+    delta = date.today() - parsed
+    return max(0, delta.days)
+
+
+def _normalize_activity_log(entries: object) -> List[Dict[str, object]]:
+    normalized: List[Dict[str, object]] = []
+    if not isinstance(entries, list):
+        return normalized
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        record: Dict[str, object] = {}
+        parsed_date = _parse_iso_date(entry.get("date"))
+        record["date"] = parsed_date.isoformat() if parsed_date else None
+        record["type"] = entry.get("type") or "note"
+        record["note"] = entry.get("note") or ""
+        if entry.get("amount"):
+            record["amount"] = entry["amount"]
+        if entry.get("method"):
+            record["method"] = entry["method"]
+        normalized.append(record)
+    return normalized
+
+
 def _plant_payload(plant: Dict[str, object]) -> Dict[str, object]:
     return {
         "id": plant["id"],
@@ -52,6 +93,20 @@ def _plant_payload(plant: Dict[str, object]) -> Dict[str, object]:
         "notes": plant.get("notes"),
         "updatedAt": plant.get("updated_at", "2024-04-12T08:30:00Z"),
         "imageUrl": plant.get("image_url"),
+        "family": plant.get("family"),
+        "plantOrigin": plant.get("plant_origin"),
+        "naturalHabitat": plant.get("natural_habitat"),
+        "room": plant.get("room"),
+        "sunlight": plant.get("sunlight"),
+        "potSize": plant.get("pot_size"),
+        "purchasedOn": plant.get("purchased_on"),
+        "lastWatered": plant.get("last_watered"),
+        "lastRepotted": plant.get("last_repotted"),
+        "dormancy": plant.get("dormancy"),
+        "waterAverage": plant.get("water_average"),
+        "amount": plant.get("amount"),
+        "activityLog": _normalize_activity_log(plant.get("activity_log")),
+        "daysSinceWatered": _days_since(plant.get("last_watered") or plant.get("last_watered_at")),
     }
 
 
@@ -146,6 +201,20 @@ PLANT_DETAIL_BY_ID: Dict[str, Dict[str, object]] = {
         "updatedAt": plant.get("updated_at", "2024-04-12T08:30:00Z"),
         "imageUrl": plant.get("image_url"),
         "watering": _watering_payload(plant["id"]),
+        "family": plant.get("family"),
+        "plantOrigin": plant.get("plant_origin"),
+        "naturalHabitat": plant.get("natural_habitat"),
+        "room": plant.get("room"),
+        "sunlight": plant.get("sunlight"),
+        "potSize": plant.get("pot_size"),
+        "purchasedOn": plant.get("purchased_on"),
+        "lastWatered": plant.get("last_watered"),
+        "lastRepotted": plant.get("last_repotted"),
+        "dormancy": plant.get("dormancy"),
+        "waterAverage": plant.get("water_average"),
+        "amount": plant.get("amount"),
+        "activityLog": _normalize_activity_log(plant.get("activity_log")),
+        "daysSinceWatered": _days_since(plant.get("last_watered") or plant.get("last_watered_at")),
     }
     for plant in seed_content.PLANTS
 }

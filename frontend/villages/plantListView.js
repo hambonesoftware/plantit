@@ -257,6 +257,45 @@ function formatUpdated(timestamp) {
   }
 }
 
+function formatLastWateredSummary(plant) {
+  if (!plant || typeof plant !== 'object') {
+    return '—';
+  }
+  const days = typeof plant.daysSinceWatered === 'number' && Number.isFinite(plant.daysSinceWatered)
+    ? plant.daysSinceWatered
+    : null;
+  if (days !== null) {
+    if (days === 0) {
+      return 'today';
+    }
+    return `${days}d ago`;
+  }
+  if (typeof plant.lastWatered === 'string' && plant.lastWatered) {
+    return formatDate(plant.lastWatered);
+  }
+  if (typeof plant.lastWateredAt === 'string' && plant.lastWateredAt) {
+    return formatDateTime(plant.lastWateredAt);
+  }
+  return '—';
+}
+
+function formatActivityPreview(log) {
+  const entries = Array.isArray(log) ? log.filter((entry) => entry && typeof entry === 'object') : [];
+  if (entries.length === 0) {
+    return 'No recent activity.';
+  }
+  const recent = entries.slice(-2);
+  return recent
+    .map((entry) => {
+      const dateLabel = typeof entry.date === 'string' && entry.date ? formatDate(entry.date) : '';
+      const typeLabel = typeof entry.type === 'string' && entry.type ? entry.type : 'note';
+      const amount = typeof entry.amount === 'string' && entry.amount ? ` (${entry.amount})` : '';
+      const note = typeof entry.note === 'string' && entry.note ? ` – ${entry.note}` : '';
+      return `${dateLabel ? `${dateLabel} ` : ''}${typeLabel}${amount}${note}`;
+    })
+    .join(' • ');
+}
+
 /**
  * @param {import('../services/api.js').PlantListItem} plant
  */
@@ -277,6 +316,18 @@ function createPlantListItem(plant) {
   }
   item.dataset.displayName = plant.displayName;
   item.dataset.species = plant.species;
+  item.dataset.family = plant.family ?? '';
+  item.dataset.plantOrigin = plant.plantOrigin ?? '';
+  item.dataset.naturalHabitat = plant.naturalHabitat ?? '';
+  item.dataset.room = plant.room ?? '';
+  item.dataset.sunlight = plant.sunlight ?? '';
+  item.dataset.potSize = plant.potSize ?? '';
+  item.dataset.purchasedOn = plant.purchasedOn ?? '';
+  item.dataset.lastWateredDate = plant.lastWatered ?? '';
+  item.dataset.lastRepotted = plant.lastRepotted ?? '';
+  item.dataset.dormancy = plant.dormancy ?? '';
+  item.dataset.waterAverage = plant.waterAverage ?? '';
+  item.dataset.amount = plant.amount ?? '';
 
   const header = document.createElement('div');
   header.className = 'village-plants-item-header';
@@ -295,16 +346,32 @@ function createPlantListItem(plant) {
   species.className = 'village-plants-item-species';
   species.textContent = plant.species;
 
-  const meta = document.createElement('p');
-  meta.className = 'village-plants-item-meta';
-  meta.textContent = `Last watered ${formatDateTime(plant.lastWateredAt)} • Health ${formatHealthScore(plant.healthScore)}`;
+  const family = document.createElement('p');
+  family.className = 'village-plants-item-meta';
+  family.textContent = `Family: ${plant.family || '—'}`;
+
+  const environment = document.createElement('p');
+  environment.className = 'village-plants-item-meta';
+  environment.textContent = `Room: ${plant.room || '—'} • Sunlight: ${plant.sunlight || '—'}`;
+
+  const potInfo = document.createElement('p');
+  potInfo.className = 'village-plants-item-meta';
+  potInfo.textContent = `Pot: ${plant.potSize || '—'} • Last watered: ${formatLastWateredSummary(plant)}`;
+
+  const health = document.createElement('p');
+  health.className = 'village-plants-item-meta';
+  health.textContent = `Health ${formatHealthScore(plant.healthScore)}`;
+
+  const activityPreview = document.createElement('p');
+  activityPreview.className = 'village-plants-item-log';
+  activityPreview.textContent = formatActivityPreview(plant.activityLog);
 
   const openButton = document.createElement('button');
   openButton.type = 'button';
   openButton.className = 'village-plants-item-open';
   openButton.dataset.action = 'plant-open';
   openButton.setAttribute('aria-label', `View ${plant.displayName}`);
-  openButton.append(header, species, meta);
+  openButton.append(header, species, family, environment, potInfo, health, activityPreview);
   setPlantCardBackground(openButton, plant.imageUrl);
 
   const actions = document.createElement('div');

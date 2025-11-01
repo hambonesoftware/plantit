@@ -130,6 +130,20 @@ function normalizePlantDetailPayload(plant) {
   }
   const updatedAt = typeof plant.updatedAt === 'string' ? plant.updatedAt : new Date().toISOString();
   const stage = typeof plant.stage === 'string' ? plant.stage : 'seedling';
+  const activityLog = Array.isArray(plant.activityLog)
+    ? plant.activityLog
+        .filter((entry) => entry && typeof entry === 'object')
+        .map((entry) => ({
+          date: typeof entry.date === 'string' ? entry.date : null,
+          type: typeof entry.type === 'string' ? entry.type : 'note',
+          note: typeof entry.note === 'string' ? entry.note : '',
+          amount: typeof entry.amount === 'string' ? entry.amount : undefined,
+          method: typeof entry.method === 'string' ? entry.method : undefined,
+        }))
+    : [];
+  const daysSinceWatered = typeof plant.daysSinceWatered === 'number' && Number.isFinite(plant.daysSinceWatered)
+    ? plant.daysSinceWatered
+    : null;
   return {
     id: typeof plant.id === 'string' ? plant.id : String(plant.id ?? '').trim(),
     displayName: typeof plant.displayName === 'string' ? plant.displayName : '',
@@ -165,6 +179,20 @@ function normalizePlantDetailPayload(plant) {
             hasWateringToday: Boolean(plant.watering.hasWateringToday),
           }
         : undefined,
+    family: typeof plant.family === 'string' ? plant.family : '',
+    plantOrigin: typeof plant.plantOrigin === 'string' ? plant.plantOrigin : '',
+    naturalHabitat: typeof plant.naturalHabitat === 'string' ? plant.naturalHabitat : '',
+    room: typeof plant.room === 'string' ? plant.room : '',
+    sunlight: typeof plant.sunlight === 'string' ? plant.sunlight : '',
+    potSize: typeof plant.potSize === 'string' ? plant.potSize : '',
+    purchasedOn: typeof plant.purchasedOn === 'string' ? plant.purchasedOn : null,
+    lastWatered: typeof plant.lastWatered === 'string' ? plant.lastWatered : null,
+    lastRepotted: typeof plant.lastRepotted === 'string' ? plant.lastRepotted : null,
+    dormancy: typeof plant.dormancy === 'string' ? plant.dormancy : '',
+    waterAverage: typeof plant.waterAverage === 'string' ? plant.waterAverage : '',
+    amount: typeof plant.amount === 'string' ? plant.amount : '',
+    activityLog,
+    daysSinceWatered,
   };
 }
 
@@ -180,6 +208,20 @@ function summarizePlant(detail) {
     updatedAt: normalized.updatedAt,
     notes: normalized.notes,
     imageUrl: normalized.imageUrl,
+    family: normalized.family,
+    plantOrigin: normalized.plantOrigin,
+    naturalHabitat: normalized.naturalHabitat,
+    room: normalized.room,
+    sunlight: normalized.sunlight,
+    potSize: normalized.potSize,
+    purchasedOn: normalized.purchasedOn,
+    lastWatered: normalized.lastWatered,
+    lastRepotted: normalized.lastRepotted,
+    dormancy: normalized.dormancy,
+    waterAverage: normalized.waterAverage,
+    amount: normalized.amount,
+    activityLog: normalized.activityLog,
+    daysSinceWatered: normalized.daysSinceWatered,
   };
 }
 
@@ -254,6 +296,14 @@ function preparePlantPayload(input = {}, options = {}) {
       : undefined;
   const normalizedImage = normalizeImageUrl(rawImage);
 
+  const cleanText = (value) => {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed || null;
+  };
+
   const payload = {
     displayName,
     species,
@@ -261,6 +311,27 @@ function preparePlantPayload(input = {}, options = {}) {
     lastWateredAt,
     healthScore: clampHealthScore(input.healthScore, 0.5),
     notes: typeof notes === 'string' && notes !== '' ? notes : null,
+    family: cleanText(input.family),
+    plantOrigin: cleanText(input.plantOrigin),
+    naturalHabitat: cleanText(input.naturalHabitat),
+    room: cleanText(input.room),
+    sunlight: cleanText(input.sunlight),
+    potSize: cleanText(input.potSize),
+    purchasedOn:
+      typeof input.purchasedOn === 'string' && input.purchasedOn.trim() !== ''
+        ? input.purchasedOn
+        : null,
+    lastWatered:
+      typeof input.lastWatered === 'string' && input.lastWatered.trim() !== ''
+        ? input.lastWatered
+        : null,
+    lastRepotted:
+      typeof input.lastRepotted === 'string' && input.lastRepotted.trim() !== ''
+        ? input.lastRepotted
+        : null,
+    dormancy: cleanText(input.dormancy),
+    waterAverage: cleanText(input.waterAverage),
+    amount: cleanText(input.amount),
   };
 
   if (normalizedImage) {

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -55,6 +55,19 @@ class Plant(Base):
     health_score: Mapped[float] = mapped_column(Float, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(Text)
+    family: Mapped[str | None] = mapped_column(String)
+    plant_origin: Mapped[str | None] = mapped_column(String)
+    natural_habitat: Mapped[str | None] = mapped_column(String)
+    room: Mapped[str | None] = mapped_column(String)
+    sunlight: Mapped[str | None] = mapped_column(String)
+    pot_size: Mapped[str | None] = mapped_column(String)
+    purchased_on: Mapped[date | None] = mapped_column(Date)
+    last_watered: Mapped[date | None] = mapped_column(Date)
+    last_repotted: Mapped[date | None] = mapped_column(Date)
+    dormancy: Mapped[str | None] = mapped_column(String)
+    water_average: Mapped[str | None] = mapped_column(String)
+    amount: Mapped[str | None] = mapped_column(String)
+    activity_log: Mapped[list[dict[str, object]] | None] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

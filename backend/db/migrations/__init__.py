@@ -11,6 +11,7 @@ from . import (
     v0003_add_harbor_pineapple,
     v0004_add_plant_watering_events,
     v0005_add_plant_images,
+    v0006_add_plant_tracking_fields,
 )
 
 Migration = Tuple[str, Callable[[Connection], None]]
@@ -21,6 +22,7 @@ MIGRATIONS: List[Migration] = [
     (v0003_add_harbor_pineapple.VERSION, v0003_add_harbor_pineapple.apply),
     (v0004_add_plant_watering_events.VERSION, v0004_add_plant_watering_events.apply),
     (v0005_add_plant_images.VERSION, v0005_add_plant_images.apply),
+    (v0006_add_plant_tracking_fields.VERSION, v0006_add_plant_tracking_fields.apply),
 ]
 
 LATEST_VERSION = MIGRATIONS[-1][0]
