@@ -113,7 +113,7 @@ export class DashboardViewModel {
     }
 
     const existing = this._state.alerts.find((alert) => alert.id === alertId);
-    if (!existing || existing.level !== 'warning') {
+    if (!existing) {
       return false;
     }
 
@@ -164,7 +164,7 @@ export class DashboardViewModel {
   _normalizeDismissError(error) {
     return describeApiError(error, {
       operation: 'Dismiss dashboard alert',
-      userMessage: 'Unable to dismiss warning. Try again.',
+      userMessage: 'Unable to dismiss alert. Try again.',
     });
   }
 }

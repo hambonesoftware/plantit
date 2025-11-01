@@ -6,6 +6,8 @@ import {
   fetchVillageDetail,
   fetchVillagePlants,
   fetchVillages,
+  fetchDueWateringPlants,
+  dismissDueWateringPlant,
   describeApiError,
   updatePlant,
   updateVillage,
@@ -38,6 +40,13 @@ import {
  * @property {import('../services/api.js').PlantListItem[]} plants
  * @property {import('../services/api.js').ErrorDescriptor | null} error
  * @property {string | null} lastUpdated
+ */
+
+/**
+ * @typedef {Object} WateringQueueState
+ * @property {LoadStatus} status
+ * @property {import('../services/api.js').WateringQueuePlant[]} plants
+ * @property {import('../services/api.js').ErrorDescriptor | null} error
  */
 
 const DEFAULT_FILTERS = Object.freeze({
@@ -171,6 +180,44 @@ function summarizePlant(detail) {
     updatedAt: normalized.updatedAt,
     notes: normalized.notes,
     imageUrl: normalized.imageUrl,
+  };
+}
+
+function normalizeWateringQueuePlant(plant) {
+  if (!plant || typeof plant !== 'object') {
+    throw new Error('Invalid watering queue plant payload');
+  }
+  const id = typeof plant.id === 'string' ? plant.id : String(plant.id ?? '').trim();
+  if (!id) {
+    throw new Error('Plant id is required');
+  }
+  return {
+    id,
+    displayName: typeof plant.displayName === 'string' ? plant.displayName : id,
+    villageId:
+      typeof plant.villageId === 'string' && plant.villageId
+        ? plant.villageId
+        : typeof plant.village_id === 'string' && plant.village_id
+        ? plant.village_id
+        : null,
+    villageName:
+      typeof plant.villageName === 'string' && plant.villageName
+        ? plant.villageName
+        : typeof plant.village_name === 'string' && plant.village_name
+        ? plant.village_name
+        : null,
+    nextWateringDate:
+      typeof plant.nextWateringDate === 'string'
+        ? plant.nextWateringDate
+        : typeof plant.next_watering_date === 'string'
+        ? plant.next_watering_date
+        : null,
+    lastWateredAt:
+      typeof plant.lastWateredAt === 'string'
+        ? plant.lastWateredAt
+        : typeof plant.last_watered_at === 'string'
+        ? plant.last_watered_at
+        : null,
   };
 }
 
@@ -1235,6 +1282,117 @@ export class VillagePlantListViewModel {
     return describeApiError(error, {
       operation: 'Load village plants',
       userMessage: 'We could not load the plants for this village. Refresh and try again.',
+    });
+  }
+}
+
+export class WateringQueueViewModel {
+  constructor(options = {}) {
+    const { fetcher = fetchDueWateringPlants, dismisser = dismissDueWateringPlant } = options;
+    this._fetcher = fetcher;
+    this._dismisser = dismisser;
+    this._subscribers = new Set();
+    this._pendingDismissals = new Set();
+    /** @type {WateringQueueState} */
+    this._state = {
+      status: 'idle',
+      plants: [],
+      error: null,
+    };
+  }
+
+  /**
+   * @param {(state: WateringQueueState) => void} subscriber
+   * @returns {() => void}
+   */
+  subscribe(subscriber) {
+    this._subscribers.add(subscriber);
+    subscriber(this._state);
+    return () => {
+      this._subscribers.delete(subscriber);
+    };
+  }
+
+  /**
+   * @returns {WateringQueueState}
+   */
+  getState() {
+    return this._state;
+  }
+
+  async load() {
+    if (this._state.status === 'loading') {
+      return;
+    }
+    this._transition({ status: 'loading', error: null });
+    try {
+      const payload = await this._fetcher();
+      const plantPayload = Array.isArray(payload?.plants) ? payload.plants : [];
+      const plants = plantPayload
+        .map((item) => {
+          try {
+            return normalizeWateringQueuePlant(item);
+          } catch (error) {
+            console.warn('WateringQueueViewModel: skipping invalid plant payload', item, error);
+            return null;
+          }
+        })
+        .filter(Boolean);
+      this._transition({ status: 'ready', plants, error: null });
+    } catch (error) {
+      const friendly = this._normalizeError(error);
+      this._transition({ status: 'error', error: friendly, plants: [] });
+      throw friendly;
+    }
+  }
+
+  async refresh() {
+    return this.load();
+  }
+
+  async dismiss(plantId) {
+    if (!plantId || this._pendingDismissals.has(plantId)) {
+      return false;
+    }
+    const exists = this._state.plants.some((plant) => plant.id === plantId);
+    if (!exists) {
+      return false;
+    }
+    this._pendingDismissals.add(plantId);
+    try {
+      await this._dismisser(plantId);
+      const remaining = this._state.plants.filter((plant) => plant.id !== plantId);
+      this._transition({ plants: remaining });
+      return true;
+    } catch (error) {
+      const friendly = this._normalizeDismissError(error);
+      throw friendly;
+    } finally {
+      this._pendingDismissals.delete(plantId);
+    }
+  }
+
+  _transition(patch) {
+    this._state = {
+      ...this._state,
+      ...patch,
+    };
+    for (const subscriber of this._subscribers) {
+      subscriber(this._state);
+    }
+  }
+
+  _normalizeError(error) {
+    return describeApiError(error, {
+      operation: 'Load watering queue',
+      userMessage: 'Unable to load the watering queue. Try again shortly.',
+    });
+  }
+
+  _normalizeDismissError(error) {
+    return describeApiError(error, {
+      operation: 'Dismiss watering queue plant',
+      userMessage: 'Unable to dismiss the plant for today. Try again.',
     });
   }
 }

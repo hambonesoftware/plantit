@@ -28,14 +28,17 @@ function loadVillagesModules() {
       import('./villages/detailView.js'),
       import('./villages/listView.js'),
       import('./villages/plantListView.js'),
+      import('./villages/wateringQueueView.js'),
       import('./villages/viewModels.js'),
-    ]).then(([detailView, listView, plantListView, viewModels]) => ({
+    ]).then(([detailView, listView, plantListView, wateringQueueView, viewModels]) => ({
       VillageDetailView: detailView.VillageDetailView,
       VillageListView: listView.VillageListView,
       PlantListView: plantListView.PlantListView,
+      WateringQueueView: wateringQueueView.WateringQueueView,
       VillageDetailViewModel: viewModels.VillageDetailViewModel,
       VillageListViewModel: viewModels.VillageListViewModel,
       VillagePlantListViewModel: viewModels.VillagePlantListViewModel,
+      WateringQueueViewModel: viewModels.WateringQueueViewModel,
     }));
   }
   return villagesModulesPromise;
@@ -565,9 +568,11 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
       VillageDetailView,
       VillageListView,
       PlantListView,
+      WateringQueueView,
       VillageDetailViewModel,
       VillageListViewModel,
       VillagePlantListViewModel,
+      WateringQueueViewModel,
     } = villagesModules;
     const { PlantDetailView, PlantDetailViewModel } = plantModules;
 
@@ -585,6 +590,7 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
     const listRoot = villagesSection.querySelector('[data-role="village-list-root"]');
     const detailRoot = villagesSection.querySelector('[data-role="village-detail-root"]');
     const plantListRoot = villagesSection.querySelector('[data-role="plant-list-root"]');
+    const wateringQueueRoot = villagesSection.querySelector('[data-role="watering-queue-root"]');
     const plantDetailRoot = plantSection?.querySelector('[data-role="plant-detail-root"]') ?? null;
 
     const villageDetailViewModel = new VillageDetailViewModel();
@@ -618,6 +624,8 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
         plantDetailViewModel.handlePlantDeleted(plantId);
       },
     });
+
+    const wateringQueueViewModel = new WateringQueueViewModel();
 
     if (!listRoot || !detailRoot || !plantListRoot || !plantDetailRoot) {
       console.warn('Boot: villages panel missing expected subtrees');
@@ -663,6 +671,10 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
       });
     }
 
+    if (wateringQueueRoot) {
+      new WateringQueueView(wateringQueueRoot, wateringQueueViewModel);
+    }
+
     setupVillageCreateForm(villagesSection, {
       listViewModel: villageListViewModel,
       detailViewModel: villageDetailViewModel,
@@ -702,6 +714,8 @@ async function hydrateMainPanels({ navigation, dashboardSection, villagesSection
         },
       });
     }
+
+    wateringQueueViewModel.load();
 
     const router = new HashRouter((route) => {
       handleRoute({
@@ -812,46 +826,47 @@ function buildVillagesSection() {
       </div>
     </div>
     <div class="villages-body">
-      <div class="villages-list-root" data-role="village-list-root">
-        <p class="villages-loading" data-role="village-loading" role="status" aria-live="polite">Loading villages…</p>
-        <p class="villages-empty" data-role="village-empty">No villages match the current filters.</p>
-        <form class="village-create-form" data-role="village-create-form" hidden>
-          <fieldset>
-            <legend>Create Village</legend>
-            <label> Name
-              <input type="text" name="village-name" data-role="village-name" required />
-            </label>
-            <label> Climate
-              <input type="text" name="village-climate" data-role="village-climate" required />
-            </label>
-            <label> Health Score
-              <input type="number" name="village-health" data-role="village-health" min="0" max="1" step="0.01" value="0.5" required />
-            </label>
-            <label> Established
-              <input type="date" name="village-established" data-role="village-established" />
-            </label>
-            <label> Irrigation
-              <input type="text" name="village-irrigation" data-role="village-irrigation" />
-            </label>
-            <label> Description
-              <textarea name="village-description" data-role="village-description"></textarea>
-            </label>
-          </fieldset>
-          <p class="form-error" data-role="village-create-error" hidden></p>
-          <div class="form-actions">
-            <button type="submit">Save Village</button>
-            <button type="button" data-action="village-create-cancel">Cancel</button>
+      <div class="villages-main">
+        <div class="villages-list-root" data-role="village-list-root">
+          <p class="villages-loading" data-role="village-loading" role="status" aria-live="polite">Loading villages…</p>
+          <p class="villages-empty" data-role="village-empty">No villages match the current filters.</p>
+          <form class="village-create-form" data-role="village-create-form" hidden>
+            <fieldset>
+              <legend>Create Village</legend>
+              <label> Name
+                <input type="text" name="village-name" data-role="village-name" required />
+              </label>
+              <label> Climate
+                <input type="text" name="village-climate" data-role="village-climate" required />
+              </label>
+              <label> Health Score
+                <input type="number" name="village-health" data-role="village-health" min="0" max="1" step="0.01" value="0.5" required />
+              </label>
+              <label> Established
+                <input type="date" name="village-established" data-role="village-established" />
+              </label>
+              <label> Irrigation
+                <input type="text" name="village-irrigation" data-role="village-irrigation" />
+              </label>
+              <label> Description
+                <textarea name="village-description" data-role="village-description"></textarea>
+              </label>
+            </fieldset>
+            <p class="form-error" data-role="village-create-error" hidden></p>
+            <div class="form-actions">
+              <button type="submit">Save Village</button>
+              <button type="button" data-action="village-create-cancel">Cancel</button>
+            </div>
+          </form>
+          <ul class="villages-list" data-role="village-list" role="listbox" aria-label="Villages"></ul>
+          <div class="villages-error" data-role="village-error" role="alert" hidden>
+            <p class="villages-error-message" data-role="village-error-message">Unable to load villages.</p>
+            <button type="button" class="villages-retry" data-action="retry">Retry</button>
+            <button type="button" class="villages-copy" data-action="villages-copy-error">Copy details</button>
           </div>
-        </form>
-        <ul class="villages-list" data-role="village-list" role="listbox" aria-label="Villages"></ul>
-        <div class="villages-error" data-role="village-error" role="alert" hidden>
-          <p class="villages-error-message" data-role="village-error-message">Unable to load villages.</p>
-          <button type="button" class="villages-retry" data-action="retry">Retry</button>
-          <button type="button" class="villages-copy" data-action="villages-copy-error">Copy details</button>
         </div>
-      </div>
-      <div class="villages-detail-root" data-role="village-detail-root">
-        <div class="village-detail">
+        <div class="villages-detail-root" data-role="village-detail-root">
+          <div class="village-detail">
           <p class="village-detail-placeholder" data-role="detail-placeholder">Select a village from the list to see its details.</p>
           <p class="village-detail-loading" data-role="detail-loading" role="status" aria-live="polite">Loading village details…</p>
           <div class="village-detail-error" data-role="detail-error" role="alert" hidden>
@@ -979,6 +994,22 @@ function buildVillagesSection() {
           </div>
         </div>
       </div>
+      <aside class="village-watering-queue" data-role="watering-queue-root">
+        <div class="village-watering-queue-header">
+          <h3>Watering Queue</h3>
+          <button type="button" class="village-watering-queue-refresh" data-action="watering-refresh">Refresh</button>
+        </div>
+        <p class="village-watering-queue-description">Plants due for watering today or overdue without a recorded watering.</p>
+        <p class="village-watering-queue-loading" data-role="watering-loading" role="status" aria-live="polite">Checking watering schedule…</p>
+        <p class="village-watering-queue-empty" data-role="watering-empty" hidden>No plants need watering attention today.</p>
+        <ul class="village-watering-queue-list" data-role="watering-list"></ul>
+        <div class="village-watering-queue-error" data-role="watering-error" role="alert" hidden>
+          <p class="village-watering-queue-error-message" data-role="watering-error-message">Unable to load watering queue.</p>
+          <div class="village-watering-queue-error-actions">
+            <button type="button" data-action="watering-retry">Retry</button>
+          </div>
+        </div>
+      </aside>
     </div>
   `;
   return section;
@@ -1870,7 +1901,6 @@ function buildTransferPanel() {
 
 const DASHBOARD_CARD_CONFIG = [
   { key: "totalPlants", label: "Total Plants" },
-  { key: "activeVillages", label: "Active Villages" },
   {
     key: "successRate",
     label: "Avg Health Score",
@@ -2248,17 +2278,16 @@ function createAlertListItem(alert) {
 
   item.append(badge, message);
 
-  if (alert.level === "warning") {
-    const dismiss = document.createElement("button");
-    dismiss.type = "button";
-    dismiss.className = "dashboard-alert-dismiss";
-    dismiss.dataset.action = "dashboard-dismiss-alert";
-    dismiss.dataset.alertId = alert.id;
-    dismiss.textContent = "Dismiss";
-    dismiss.setAttribute("aria-label", `Dismiss warning: ${alert.message}`);
-    dismiss.title = "Dismiss warning";
-    item.append(dismiss);
-  }
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "dashboard-alert-dismiss";
+  dismiss.dataset.action = "dashboard-dismiss-alert";
+  dismiss.dataset.alertId = alert.id;
+  dismiss.textContent = "Dismiss";
+  const severity = formatAlertLevel(alert.level);
+  dismiss.setAttribute("aria-label", `Dismiss ${severity} alert: ${alert.message}`);
+  dismiss.title = `Dismiss ${severity} alert`;
+  item.append(dismiss);
 
   return item;
 }

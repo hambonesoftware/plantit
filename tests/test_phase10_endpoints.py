@@ -233,7 +233,7 @@ def test_dismiss_dashboard_warning_removes_alert() -> None:
     assert all(alert.get("id") != alert_id for alert in remaining_alerts)
 
 
-def test_dismiss_dashboard_non_warning_rejected() -> None:
+def test_dismiss_dashboard_critical_alert_allowed() -> None:
     response = client.get("/api/dashboard")
     assert response.status_code == 200, response.text
 
@@ -245,7 +245,17 @@ def test_dismiss_dashboard_non_warning_rejected() -> None:
     alert_id = criticals[0]["id"]
 
     dismissal = client.delete(f"/api/dashboard/alerts/{alert_id}")
-    assert dismissal.status_code == 400, dismissal.text
+    assert dismissal.status_code == 200, dismissal.text
+
+    payload = dismissal.json()
+    assert payload.get("status") == "dismissed"
+    assert payload.get("alertId") == alert_id
+
+    follow_up = client.get("/api/dashboard")
+    assert follow_up.status_code == 200, follow_up.text
+    remaining = follow_up.json().get("alerts")
+    assert isinstance(remaining, list)
+    assert all(alert.get("id") != alert_id for alert in remaining)
 
 
 def test_create_update_delete_plant_flow() -> None:
