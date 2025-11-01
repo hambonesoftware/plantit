@@ -973,6 +973,7 @@ picture[data-loading='lazy'] img {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  max-width: 200px;
 }
 
 .plant-watering-calendar-header {
