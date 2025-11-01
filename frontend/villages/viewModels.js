@@ -129,6 +129,50 @@ function summarizePlant(detail) {
   };
 }
 
+function preparePlantPayload(input = {}, options = {}) {
+  const displayName = typeof input.displayName === 'string' ? input.displayName.trim() : '';
+  const species = typeof input.species === 'string' ? input.species.trim() : '';
+  const stage = typeof input.stage === 'string' ? input.stage.trim().toLowerCase() : '';
+  if (!displayName) {
+    throw new Error('Plant name is required');
+  }
+  if (!species) {
+    throw new Error('Plant species is required');
+  }
+  if (!stage) {
+    throw new Error('Plant stage is required');
+  }
+
+  const lastWateredAt =
+    typeof input.lastWateredAt === 'string' && input.lastWateredAt.trim() !== ''
+      ? input.lastWateredAt
+      : null;
+  const notes =
+    typeof input.notes === 'string'
+      ? input.notes.trim()
+      : typeof input.notes === 'number'
+      ? String(input.notes)
+      : input.notes;
+
+  const payload = {
+    displayName,
+    species,
+    stage,
+    lastWateredAt,
+    healthScore: clampHealthScore(input.healthScore, 0.5),
+    notes: typeof notes === 'string' && notes !== '' ? notes : null,
+  };
+
+  if (options.includeVillageId) {
+    payload.villageId = options.includeVillageId;
+  }
+  if (options.updatedAt) {
+    payload.updatedAt = options.updatedAt;
+  }
+
+  return payload;
+}
+
 function normalizeFilters(filters) {
   const searchTerm = typeof filters.searchTerm === 'string' ? filters.searchTerm.trim() : '';
   const climateZones = Array.isArray(filters.climateZones)
@@ -702,43 +746,7 @@ export class VillageDetailViewModel {
   }
 
   _preparePlantPayload(input = {}, options = {}) {
-    const displayName = typeof input.displayName === 'string' ? input.displayName.trim() : '';
-    const species = typeof input.species === 'string' ? input.species.trim() : '';
-    const stage = typeof input.stage === 'string' ? input.stage.trim().toLowerCase() : '';
-    if (!displayName) {
-      throw new Error('Plant name is required');
-    }
-    if (!species) {
-      throw new Error('Plant species is required');
-    }
-    if (!stage) {
-      throw new Error('Plant stage is required');
-    }
-
-    const lastWateredAt =
-      typeof input.lastWateredAt === 'string' && input.lastWateredAt.trim() !== ''
-        ? input.lastWateredAt
-        : null;
-    const notes =
-      typeof input.notes === 'string' ? input.notes.trim() : typeof input.notes === 'number' ? String(input.notes) : input.notes;
-
-    const payload = {
-      displayName,
-      species,
-      stage,
-      lastWateredAt,
-      healthScore: clampHealthScore(input.healthScore, 0.5),
-      notes: typeof notes === 'string' && notes !== '' ? notes : null,
-    };
-
-    if (options.includeVillageId) {
-      payload.villageId = options.includeVillageId;
-    }
-    if (options.updatedAt) {
-      payload.updatedAt = options.updatedAt;
-    }
-
-    return payload;
+    return preparePlantPayload(input, options);
   }
 
   _normalizeError(error) {
@@ -935,7 +943,7 @@ export class VillagePlantListViewModel {
       throw new Error('No village selected');
     }
 
-    const requestPayload = this._preparePlantPayload(payload, {
+    const requestPayload = preparePlantPayload(payload, {
       includeVillageId: this._currentVillageId,
     });
 
@@ -1013,7 +1021,7 @@ export class VillagePlantListViewModel {
     }
 
     const requestPayload = {
-      ...this._preparePlantPayload(payload),
+      ...preparePlantPayload(payload),
       updatedAt,
     };
 
