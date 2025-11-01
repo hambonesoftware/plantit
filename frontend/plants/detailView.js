@@ -69,6 +69,17 @@ export class PlantDetailView {
     this.stage = root.querySelector('[data-role="plant-stage"]');
     this.health = root.querySelector('[data-role="plant-health"]');
     this.lastWatered = root.querySelector('[data-role="plant-last-watered"]');
+    this.family = root.querySelector('[data-role="plant-family"]');
+    this.origin = root.querySelector('[data-role="plant-origin"]');
+    this.habitat = root.querySelector('[data-role="plant-habitat"]');
+    this.room = root.querySelector('[data-role="plant-room"]');
+    this.sunlight = root.querySelector('[data-role="plant-sunlight"]');
+    this.pot = root.querySelector('[data-role="plant-pot"]');
+    this.purchased = root.querySelector('[data-role="plant-purchased"]');
+    this.lastRepotted = root.querySelector('[data-role="plant-last-repotted"]');
+    this.dormancy = root.querySelector('[data-role="plant-dormancy"]');
+    this.waterAverage = root.querySelector('[data-role="plant-water-average"]');
+    this.amount = root.querySelector('[data-role="plant-amount"]');
     this.notes = root.querySelector('[data-role="plant-notes"]');
     this.timeline = root.querySelector('[data-role="plant-timeline"]');
     this.timelineEmpty = root.querySelector('[data-role="plant-timeline-empty"]');
@@ -307,9 +318,40 @@ export class PlantDetailView {
       this.health.textContent = formatHealthScore(detail.healthScore);
     }
     if (this.lastWatered) {
-      this.lastWatered.textContent = detail.lastWateredAt
-        ? formatDateTime(detail.lastWateredAt)
-        : '—';
+      this.lastWatered.textContent = formatLastWateredDetail(detail);
+    }
+    if (this.family) {
+      this.family.textContent = detail.family || '—';
+    }
+    if (this.origin) {
+      this.origin.textContent = detail.plantOrigin || '—';
+    }
+    if (this.habitat) {
+      this.habitat.textContent = detail.naturalHabitat || '—';
+    }
+    if (this.room) {
+      this.room.textContent = detail.room || '—';
+    }
+    if (this.sunlight) {
+      this.sunlight.textContent = detail.sunlight || '—';
+    }
+    if (this.pot) {
+      this.pot.textContent = detail.potSize || '—';
+    }
+    if (this.purchased) {
+      this.purchased.textContent = detail.purchasedOn ? formatDate(detail.purchasedOn) : '—';
+    }
+    if (this.lastRepotted) {
+      this.lastRepotted.textContent = detail.lastRepotted ? formatDate(detail.lastRepotted) : '—';
+    }
+    if (this.dormancy) {
+      this.dormancy.textContent = detail.dormancy || '—';
+    }
+    if (this.waterAverage) {
+      this.waterAverage.textContent = detail.waterAverage || '—';
+    }
+    if (this.amount) {
+      this.amount.textContent = detail.amount || '—';
     }
     if (this.notes) {
       this.notes.textContent = detail.notes ? detail.notes : 'No notes recorded yet.';
@@ -476,6 +518,41 @@ export class PlantDetailView {
 
 function emptyWateringState() {
   return { history: [], nextWateringDate: null, hasWateringToday: false };
+}
+
+function formatLastWateredDetail(detail) {
+  if (!detail || typeof detail !== 'object') {
+    return '—';
+  }
+  const days = typeof detail.daysSinceWatered === 'number' && Number.isFinite(detail.daysSinceWatered)
+    ? detail.daysSinceWatered
+    : null;
+  const displayDate = detail.lastWatered ? formatDate(detail.lastWatered) : null;
+  if (displayDate && days !== null) {
+    if (days === 0) {
+      return `${displayDate} (today)`;
+    }
+    return `${displayDate} (${days}d ago)`;
+  }
+  if (displayDate) {
+    return displayDate;
+  }
+  if (typeof detail.lastWateredAt === 'string' && detail.lastWateredAt) {
+    if (days !== null) {
+      if (days === 0) {
+        return `${formatDateTime(detail.lastWateredAt)} (today)`;
+      }
+      return `${formatDateTime(detail.lastWateredAt)} (${days}d ago)`;
+    }
+    return formatDateTime(detail.lastWateredAt);
+  }
+  if (days !== null) {
+    if (days === 0) {
+      return 'today';
+    }
+    return `${days}d ago`;
+  }
+  return '—';
 }
 
 function formatStage(stage) {

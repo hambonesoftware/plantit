@@ -1,4 +1,6 @@
 import { request } from './api.js';
+import { parsePlantMarkdown } from '../parsers/plantMarkdown.js';
+import { Store, computeDaysSinceWatered, ensurePlantTrackingDefaults } from '../store.js';
 
 const SUPPORTED_SCHEMA_VERSION = 1;
 const PROGRESS_STAGES = ['validating', 'parsing', 'complete'];
@@ -137,6 +139,20 @@ function updateStatus(statusEl, text) {
   statusEl.textContent = text;
 }
 
+function generateId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `plant-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeSourceTitle(name) {
+  if (!name || typeof name !== 'string') {
+    return null;
+  }
+  return name.replace(/\.[^./]+$/, '');
+}
+
 /**
  * Request an export bundle from the backend and trigger a download.
  *
@@ -183,6 +199,83 @@ export async function downloadExportBundle(statusEl) {
   updateStatus(statusEl, `Download started: ${fileName}`);
 
   return { fileName, bytes: blob.size };
+}
+
+export async function importPlantMarkdownFiles(files, statusEl) {
+  Store.init();
+  const list = Array.from(files || []);
+  const mdFiles = list.filter((file) => file && typeof file.name === 'string' && file.name.toLowerCase().endsWith('.md'));
+  if (mdFiles.length === 0) {
+    updateStatus(statusEl, 'No Markdown files selected.');
+    return { created: 0, updated: 0 };
+  }
+
+  updateStatus(statusEl, `Importing ${mdFiles.length} Markdown file${mdFiles.length === 1 ? '' : 's'}…`);
+
+  const plants = Array.isArray(Store.state.plants) ? [...Store.state.plants] : [];
+  let created = 0;
+  let updated = 0;
+
+  for (const file of mdFiles) {
+    const text = await file.text();
+    const parsed = parsePlantMarkdown(text, file.name);
+    const sourceTitle = normalizeSourceTitle(parsed._sourceTitle);
+    const displayName = sourceTitle || normalizeSourceTitle(file.name) || 'Plant';
+
+    let index = plants.findIndex((plant) => {
+      if (!plant) {
+        return false;
+      }
+      if (sourceTitle) {
+        if (plant.sourceTitle && plant.sourceTitle === sourceTitle) {
+          return true;
+        }
+        if (plant.displayName && plant.displayName === sourceTitle) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    const nowIso = new Date().toISOString();
+    const payload = ensurePlantTrackingDefaults({
+      id: generateId(),
+      displayName,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      ...parsed,
+    });
+    delete payload._sourceTitle;
+    payload.activityLog = Array.isArray(parsed.activityLog) ? parsed.activityLog : [];
+    payload.daysSinceWatered = computeDaysSinceWatered(payload.lastWatered);
+    payload.sourceTitle = sourceTitle;
+
+    if (index >= 0) {
+      const existing = { ...plants[index] };
+      const existingLog = Array.isArray(existing.activityLog) ? existing.activityLog : [];
+      const mergedLog = [...existingLog, ...payload.activityLog];
+      plants[index] = {
+        ...existing,
+        ...payload,
+        activityLog: mergedLog,
+        updatedAt: nowIso,
+      };
+      updated += 1;
+    } else {
+      plants.push(payload);
+      created += 1;
+    }
+  }
+
+  Store.state.plants = plants.map((plant) => {
+    const normalized = ensurePlantTrackingDefaults({ ...plant });
+    normalized.daysSinceWatered = computeDaysSinceWatered(normalized.lastWatered);
+    return normalized;
+  });
+  Store.save();
+
+  updateStatus(statusEl, `Import complete: ${created} created, ${updated} updated.`);
+  return { created, updated };
 }
 
 export { SUPPORTED_SCHEMA_VERSION, PROGRESS_STAGES };

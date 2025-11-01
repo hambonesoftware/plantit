@@ -467,6 +467,20 @@ function _stringifyForDiagnostics(value) {
  *  @property {string} updatedAt
  *  @property {string} [notes]
  *  @property {string | null} [imageUrl]
+ *  @property {string} [family]
+ *  @property {string} [plantOrigin]
+ *  @property {string} [naturalHabitat]
+ *  @property {string} [room]
+ *  @property {string} [sunlight]
+ *  @property {string} [potSize]
+ *  @property {string | null} [purchasedOn]
+ *  @property {string | null} [lastWatered]
+ *  @property {string | null} [lastRepotted]
+ *  @property {string} [dormancy]
+ *  @property {string} [waterAverage]
+ *  @property {string} [amount]
+ *  @property {PlantActivityEntry[]} [activityLog]
+ *  @property {number | null} [daysSinceWatered]
  */
 
 /** @typedef {Object} PlantWateringInfo
@@ -496,6 +510,28 @@ function _stringifyForDiagnostics(value) {
  *  @property {string} villageId
  *  @property {string | null} [imageUrl]
  *  @property {PlantWateringInfo | undefined} [watering]
+ *  @property {string} [family]
+ *  @property {string} [plantOrigin]
+ *  @property {string} [naturalHabitat]
+ *  @property {string} [room]
+ *  @property {string} [sunlight]
+ *  @property {string} [potSize]
+ *  @property {string | null} [purchasedOn]
+ *  @property {string | null} [lastWatered]
+ *  @property {string | null} [lastRepotted]
+ *  @property {string} [dormancy]
+ *  @property {string} [waterAverage]
+ *  @property {string} [amount]
+ *  @property {PlantActivityEntry[]} [activityLog]
+ *  @property {number | null} [daysSinceWatered]
+ */
+
+/** @typedef {Object} PlantActivityEntry
+ *  @property {string | null | undefined} [date]
+ *  @property {string} type
+ *  @property {string} note
+ *  @property {string | undefined} [amount]
+ *  @property {string | undefined} [method]
  */
 
 /** @typedef {Object} PlantEvent
@@ -708,9 +744,21 @@ export function deleteVillage(villageId, payload, correlationId) {
  * @property {string} species
  * @property {'seedling'|'vegetative'|'flowering'|'mature'} stage
  * @property {string | null} [lastWateredAt]
+ * @property {string | null} [lastWatered]
  * @property {number} healthScore
  * @property {string | null} [notes]
  * @property {string | null} [imageUrl]
+ * @property {string | null} [family]
+ * @property {string | null} [plantOrigin]
+ * @property {string | null} [naturalHabitat]
+ * @property {string | null} [room]
+ * @property {string | null} [sunlight]
+ * @property {string | null} [potSize]
+ * @property {string | null} [purchasedOn]
+ * @property {string | null} [lastRepotted]
+ * @property {string | null} [dormancy]
+ * @property {string | null} [waterAverage]
+ * @property {string | null} [amount]
  */
 
 /**

@@ -6,7 +6,7 @@ import os
 from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 from threading import Lock
-from typing import Any, Dict, Sequence
+from typing import Any, Dict, List, Sequence
 from uuid import uuid4
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
@@ -347,6 +347,66 @@ def _serialize_timestamp(value: datetime | None) -> str | None:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _serialize_date(value: date | datetime | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    return value.isoformat()
+
+
+def _compute_days_since_watered(plant: models.Plant) -> int | None:
+    target: date | None
+    if plant.last_watered is not None:
+        target = plant.last_watered
+    elif plant.last_watered_at is not None:
+        target = plant.last_watered_at.date()
+    else:
+        target = None
+    if target is None:
+        return None
+    delta = _today_utc_date() - target
+    if delta.days < 0:
+        return 0
+    return delta.days
+
+
+def _serialize_activity_log(plant: models.Plant) -> list[Dict[str, Any]]:
+    entries = plant.activity_log or []
+    if not isinstance(entries, Sequence):
+        return []
+    serialized: list[Dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        date_value = entry.get("date")
+        date_iso: str | None
+        if isinstance(date_value, date):
+            date_iso = date_value.isoformat()
+        elif isinstance(date_value, datetime):
+            date_iso = date_value.date().isoformat()
+        elif isinstance(date_value, str):
+            try:
+                parsed = date.fromisoformat(date_value)
+            except ValueError:
+                date_iso = None
+            else:
+                date_iso = parsed.isoformat()
+        else:
+            date_iso = None
+        serialized_entry: Dict[str, Any] = {
+            "date": date_iso,
+            "type": str(entry.get("type") or "note"),
+            "note": str(entry.get("note") or ""),
+        }
+        if entry.get("amount"):
+            serialized_entry["amount"] = str(entry["amount"])
+        if entry.get("method"):
+            serialized_entry["method"] = str(entry["method"])
+        serialized.append(serialized_entry)
+    return serialized
+
+
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -408,6 +468,20 @@ def _serialize_plant_summary(plant: models.Plant) -> Dict[str, Any]:
         "updatedAt": _serialize_timestamp(plant.updated_at),
         "notes": plant.notes,
         "imageUrl": plant.image_url,
+        "family": plant.family,
+        "plantOrigin": plant.plant_origin,
+        "naturalHabitat": plant.natural_habitat,
+        "room": plant.room,
+        "sunlight": plant.sunlight,
+        "potSize": plant.pot_size,
+        "purchasedOn": _serialize_date(plant.purchased_on),
+        "lastWatered": _serialize_date(plant.last_watered),
+        "lastRepotted": _serialize_date(plant.last_repotted),
+        "dormancy": plant.dormancy,
+        "waterAverage": plant.water_average,
+        "amount": plant.amount,
+        "activityLog": _serialize_activity_log(plant),
+        "daysSinceWatered": _compute_days_since_watered(plant),
     }
 
 
@@ -588,6 +662,19 @@ class PlantBaseModel(BaseModel):
     health_score: float = Field(..., ge=0.0, le=1.0, alias="healthScore")
     notes: str | None = Field(default=None)
     image_url: str | None = Field(default=None, alias="imageUrl")
+    family: str | None = Field(default=None)
+    plant_origin: str | None = Field(default=None, alias="plantOrigin")
+    natural_habitat: str | None = Field(default=None, alias="naturalHabitat")
+    room: str | None = Field(default=None)
+    sunlight: str | None = Field(default=None)
+    pot_size: str | None = Field(default=None, alias="potSize")
+    purchased_on: date | None = Field(default=None, alias="purchasedOn")
+    last_watered: date | None = Field(default=None, alias="lastWatered")
+    last_repotted: date | None = Field(default=None, alias="lastRepotted")
+    dormancy: str | None = Field(default=None)
+    water_average: str | None = Field(default=None, alias="waterAverage")
+    amount: str | None = Field(default=None)
+    activity_log: List[Dict[str, Any]] | None = Field(default=None, alias="activityLog")
 
     class Config:
         allow_population_by_field_name = True
@@ -618,6 +705,58 @@ class PlantBaseModel(BaseModel):
     @validator("image_url", pre=True)
     def _validate_image(cls, value: Any) -> Any:  # noqa: N805 - pydantic signature
         return _normalize_image_url(value)
+
+    @validator(
+        "family",
+        "plant_origin",
+        "natural_habitat",
+        "room",
+        "sunlight",
+        "pot_size",
+        "dormancy",
+        "water_average",
+        "amount",
+        pre=True,
+    )
+    def _trim_optional_text(cls, value: Any) -> Any:  # noqa: N805 - pydantic signature
+        if value is None:
+            return None
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        return value
+
+    @validator("activity_log", pre=True)
+    def _normalize_activity_log_validator(  # noqa: N805 - pydantic signature
+        cls, value: Any
+    ) -> List[Dict[str, Any]] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            raise ValueError("activityLog must be a list")
+        normalized: List[Dict[str, Any]] = []
+        for entry in value:
+            if not isinstance(entry, dict):
+                continue
+            record: Dict[str, Any] = {}
+            date_value = entry.get("date")
+            parsed: date | None = None
+            if isinstance(date_value, date):
+                parsed = date_value
+            elif isinstance(date_value, str):
+                try:
+                    parsed = date.fromisoformat(date_value)
+                except ValueError:
+                    parsed = None
+            record["date"] = parsed.isoformat() if parsed else None
+            record["type"] = str(entry.get("type") or "note")
+            record["note"] = str(entry.get("note") or "")
+            if entry.get("amount"):
+                record["amount"] = str(entry["amount"])
+            if entry.get("method"):
+                record["method"] = str(entry["method"])
+            normalized.append(record)
+        return normalized
 
 
 class PlantCreateRequest(PlantBaseModel):
@@ -1125,6 +1264,19 @@ def create_plant(
         health_score=payload.health_score,
         notes=payload.notes,
         image_url=payload.image_url,
+        family=payload.family,
+        plant_origin=payload.plant_origin,
+        natural_habitat=payload.natural_habitat,
+        room=payload.room,
+        sunlight=payload.sunlight,
+        pot_size=payload.pot_size,
+        purchased_on=payload.purchased_on,
+        last_watered=payload.last_watered,
+        last_repotted=payload.last_repotted,
+        dormancy=payload.dormancy,
+        water_average=payload.water_average,
+        amount=payload.amount,
+        activity_log=payload.activity_log or [],
     )
     session.add(plant)
     _touch_village(village)
@@ -1171,6 +1323,20 @@ def update_plant(
     plant.health_score = payload.health_score
     plant.notes = payload.notes
     plant.image_url = payload.image_url
+    plant.family = payload.family
+    plant.plant_origin = payload.plant_origin
+    plant.natural_habitat = payload.natural_habitat
+    plant.room = payload.room
+    plant.sunlight = payload.sunlight
+    plant.pot_size = payload.pot_size
+    plant.purchased_on = payload.purchased_on
+    plant.last_watered = payload.last_watered
+    plant.last_repotted = payload.last_repotted
+    plant.dormancy = payload.dormancy
+    plant.water_average = payload.water_average
+    plant.amount = payload.amount
+    if payload.activity_log is not None:
+        plant.activity_log = payload.activity_log or []
     _touch_plant(plant)
     _touch_village(plant.village)
     session.commit()

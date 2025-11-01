@@ -966,8 +966,44 @@ function buildVillagesSection() {
                   <option value="mature">Mature</option>
                 </select>
               </label>
+              <label> Family
+                <input type="text" data-role="plant-family-input" />
+              </label>
+              <label> Origin
+                <input type="text" data-role="plant-origin-input" />
+              </label>
+              <label> Natural Habitat
+                <input type="text" data-role="plant-habitat-input" />
+              </label>
+              <label> Room
+                <input type="text" data-role="plant-room-input" />
+              </label>
+              <label> Sunlight
+                <input type="text" data-role="plant-sunlight-input" />
+              </label>
+              <label> Pot Size
+                <input type="text" data-role="plant-pot-input" />
+              </label>
+              <label> Purchased On
+                <input type="date" data-role="plant-purchased-input" />
+              </label>
+              <label> Last Watered (Journal)
+                <input type="date" data-role="plant-last-watered-date" />
+              </label>
               <label> Last Watered
                 <input type="datetime-local" data-role="plant-last-watered" />
+              </label>
+              <label> Last Repotted
+                <input type="date" data-role="plant-last-repotted-input" />
+              </label>
+              <label> Dormancy
+                <input type="text" data-role="plant-dormancy-input" />
+              </label>
+              <label> Water Average
+                <input type="text" data-role="plant-water-average-input" />
+              </label>
+              <label> Amount
+                <input type="text" data-role="plant-amount-input" />
               </label>
               <label> Health Score
                 <input type="number" min="0" max="1" step="0.01" data-role="plant-health" required />
@@ -1062,6 +1098,50 @@ function buildPlantSection() {
           <div>
             <dt>Last watered</dt>
             <dd data-role="plant-last-watered"></dd>
+          </div>
+          <div>
+            <dt>Family</dt>
+            <dd data-role="plant-family"></dd>
+          </div>
+          <div>
+            <dt>Origin</dt>
+            <dd data-role="plant-origin"></dd>
+          </div>
+          <div>
+            <dt>Habitat</dt>
+            <dd data-role="plant-habitat"></dd>
+          </div>
+          <div>
+            <dt>Room</dt>
+            <dd data-role="plant-room"></dd>
+          </div>
+          <div>
+            <dt>Sunlight</dt>
+            <dd data-role="plant-sunlight"></dd>
+          </div>
+          <div>
+            <dt>Pot size</dt>
+            <dd data-role="plant-pot"></dd>
+          </div>
+          <div>
+            <dt>Purchased</dt>
+            <dd data-role="plant-purchased"></dd>
+          </div>
+          <div>
+            <dt>Last repotted</dt>
+            <dd data-role="plant-last-repotted"></dd>
+          </div>
+          <div>
+            <dt>Dormancy</dt>
+            <dd data-role="plant-dormancy"></dd>
+          </div>
+          <div>
+            <dt>Water average</dt>
+            <dd data-role="plant-water-average"></dd>
+          </div>
+          <div>
+            <dt>Amount</dt>
+            <dd data-role="plant-amount"></dd>
           </div>
           <div>
             <dt>Village</dt>
@@ -1359,7 +1439,19 @@ function setupPlantForm(root, { plantListViewModel }) {
   const nameInput = form.querySelector('[data-role="plant-name"]');
   const speciesInput = form.querySelector('[data-role="plant-species"]');
   const stageInput = form.querySelector('[data-role="plant-stage"]');
+  const familyInput = form.querySelector('[data-role="plant-family-input"]');
+  const originInput = form.querySelector('[data-role="plant-origin-input"]');
+  const habitatInput = form.querySelector('[data-role="plant-habitat-input"]');
+  const roomInput = form.querySelector('[data-role="plant-room-input"]');
+  const sunlightInput = form.querySelector('[data-role="plant-sunlight-input"]');
+  const potInput = form.querySelector('[data-role="plant-pot-input"]');
+  const purchasedInput = form.querySelector('[data-role="plant-purchased-input"]');
+  const lastWateredDateInput = form.querySelector('[data-role="plant-last-watered-date"]');
   const lastWateredInput = form.querySelector('[data-role="plant-last-watered"]');
+  const lastRepottedInput = form.querySelector('[data-role="plant-last-repotted-input"]');
+  const dormancyInput = form.querySelector('[data-role="plant-dormancy-input"]');
+  const waterAverageInput = form.querySelector('[data-role="plant-water-average-input"]');
+  const amountInput = form.querySelector('[data-role="plant-amount-input"]');
   const healthInput = form.querySelector('[data-role="plant-health"]');
   const imageDataInput = form.querySelector('[data-role="plant-image-data"]');
   const imageFileInput = form.querySelector('[data-role="plant-image"]');
@@ -1467,6 +1559,42 @@ function setupPlantForm(root, { plantListViewModel }) {
     if (lastWateredInput) {
       lastWateredInput.value = toDateTimeLocal(item.dataset.lastWateredAt);
     }
+    if (lastWateredDateInput) {
+      lastWateredDateInput.value = item.dataset.lastWateredDate ?? '';
+    }
+    if (familyInput) {
+      familyInput.value = item.dataset.family ?? '';
+    }
+    if (originInput) {
+      originInput.value = item.dataset.plantOrigin ?? '';
+    }
+    if (habitatInput) {
+      habitatInput.value = item.dataset.naturalHabitat ?? '';
+    }
+    if (roomInput) {
+      roomInput.value = item.dataset.room ?? '';
+    }
+    if (sunlightInput) {
+      sunlightInput.value = item.dataset.sunlight ?? '';
+    }
+    if (potInput) {
+      potInput.value = item.dataset.potSize ?? '';
+    }
+    if (purchasedInput) {
+      purchasedInput.value = item.dataset.purchasedOn ?? '';
+    }
+    if (lastRepottedInput) {
+      lastRepottedInput.value = item.dataset.lastRepotted ?? '';
+    }
+    if (dormancyInput) {
+      dormancyInput.value = item.dataset.dormancy ?? '';
+    }
+    if (waterAverageInput) {
+      waterAverageInput.value = item.dataset.waterAverage ?? '';
+    }
+    if (amountInput) {
+      amountInput.value = item.dataset.amount ?? '';
+    }
     if (healthInput) {
       healthInput.value = item.dataset.healthScore ?? '0.5';
     }
@@ -1572,9 +1700,21 @@ function setupPlantForm(root, { plantListViewModel }) {
       species: speciesInput ? speciesInput.value : '',
       stage: stageInput ? stageInput.value : 'seedling',
       lastWateredAt: lastWateredInput ? fromDateTimeLocal(lastWateredInput.value) : null,
+      lastWatered: lastWateredDateInput ? (lastWateredDateInput.value || null) : null,
       healthScore: healthInput ? healthInput.value : '0.5',
       notes: notesInput ? notesInput.value : null,
       imageUrl: imageDataInput ? imageDataInput.value : '',
+      family: familyInput ? familyInput.value : '',
+      plantOrigin: originInput ? originInput.value : '',
+      naturalHabitat: habitatInput ? habitatInput.value : '',
+      room: roomInput ? roomInput.value : '',
+      sunlight: sunlightInput ? sunlightInput.value : '',
+      potSize: potInput ? potInput.value : '',
+      purchasedOn: purchasedInput ? purchasedInput.value || null : null,
+      lastRepotted: lastRepottedInput ? lastRepottedInput.value || null : null,
+      dormancy: dormancyInput ? dormancyInput.value : '',
+      waterAverage: waterAverageInput ? waterAverageInput.value : '',
+      amount: amountInput ? amountInput.value : '',
     };
 
     const plantId = idInput ? idInput.value : '';
@@ -1825,8 +1965,20 @@ function initializeImportExportControls(root) {
   const importStatus = root.querySelector("#import-status");
   const exportButton = root.querySelector("#export-button");
   const exportStatus = root.querySelector("#export-status");
+  const markdownButton = root.querySelector("#markdown-import-button");
+  const markdownInput = root.querySelector("#markdown-file-input");
+  const markdownStatus = root.querySelector("#markdown-status");
 
-  if (!importButton || !importInput || !importStatus || !exportButton || !exportStatus) {
+  if (
+    !importButton ||
+    !importInput ||
+    !importStatus ||
+    !exportButton ||
+    !exportStatus ||
+    !markdownButton ||
+    !markdownInput ||
+    !markdownStatus
+  ) {
     console.warn("Boot: missing import/export controls");
     return;
   }
@@ -1871,6 +2023,28 @@ function initializeImportExportControls(root) {
       exportStatus.textContent = error?.message || "Export failed.";
     }
   });
+
+  markdownButton.addEventListener("click", () => {
+    markdownStatus.textContent = "Choose Markdown plant files (.md).";
+    markdownInput.click();
+  });
+
+  markdownInput.addEventListener("change", async () => {
+    if (!markdownInput.files || markdownInput.files.length === 0) {
+      markdownStatus.textContent = "No Markdown files selected.";
+      return;
+    }
+
+    try {
+      const { importPlantMarkdownFiles } = await loadImportExportModule();
+      await importPlantMarkdownFiles(markdownInput.files, markdownStatus);
+    } catch (error) {
+      console.error("Markdown import failed", error);
+      markdownStatus.textContent = error?.message || "Markdown import failed.";
+    } finally {
+      markdownInput.value = "";
+    }
+  });
 }
 
 function buildTransferPanel() {
@@ -1890,6 +2064,19 @@ function buildTransferPanel() {
         aria-hidden="true"
       />
       <p id="import-status" class="status-text" role="status" aria-live="polite"></p>
+    </div>
+    <div class="transfer-group">
+      <button id="markdown-import-button" type="button">Import Markdown Plant Files</button>
+      <input
+        id="markdown-file-input"
+        type="file"
+        accept=".md,.markdown,text/markdown"
+        class="sr-only"
+        tabindex="-1"
+        aria-hidden="true"
+        multiple
+      />
+      <p id="markdown-status" class="status-text" role="status" aria-live="polite"></p>
     </div>
     <div class="transfer-group">
       <button id="export-button" type="button">Download Export</button>

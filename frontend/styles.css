@@ -842,6 +842,14 @@ picture[data-loading='lazy'] img {
   color: #46627a;
 }
 
+.village-plants-item-log {
+  margin: 0.2rem 0 0;
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  color: #5b7287;
+  font-style: italic;
+}
+
 .village-plants-item-actions {
   display: flex;
   align-items: center;

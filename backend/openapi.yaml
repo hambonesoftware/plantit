@@ -717,6 +717,53 @@ components:
         imageUrl:
           type: string
           nullable: true
+        daysSinceWatered:
+          type: integer
+          nullable: true
+        family:
+          type: string
+          nullable: true
+        plantOrigin:
+          type: string
+          nullable: true
+        naturalHabitat:
+          type: string
+          nullable: true
+        room:
+          type: string
+          nullable: true
+        sunlight:
+          type: string
+          nullable: true
+        potSize:
+          type: string
+          nullable: true
+        purchasedOn:
+          type: string
+          format: date
+          nullable: true
+        lastWatered:
+          type: string
+          format: date
+          nullable: true
+        lastRepotted:
+          type: string
+          format: date
+          nullable: true
+        dormancy:
+          type: string
+          nullable: true
+        waterAverage:
+          type: string
+          nullable: true
+        amount:
+          type: string
+          nullable: true
+        activityLog:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/PlantActivityEntry'
     PlantDetailResponse:
       type: object
       required: [plant, timeline]
@@ -890,6 +937,53 @@ components:
         watering:
           $ref: '#/components/schemas/PlantWateringSummary'
           nullable: true
+        family:
+          type: string
+          nullable: true
+        plantOrigin:
+          type: string
+          nullable: true
+        naturalHabitat:
+          type: string
+          nullable: true
+        room:
+          type: string
+          nullable: true
+        sunlight:
+          type: string
+          nullable: true
+        potSize:
+          type: string
+          nullable: true
+        purchasedOn:
+          type: string
+          format: date
+          nullable: true
+        lastWatered:
+          type: string
+          format: date
+          nullable: true
+        lastRepotted:
+          type: string
+          format: date
+          nullable: true
+        dormancy:
+          type: string
+          nullable: true
+        waterAverage:
+          type: string
+          nullable: true
+        amount:
+          type: string
+          nullable: true
+        activityLog:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/PlantActivityEntry'
+        daysSinceWatered:
+          type: integer
+          nullable: true
     PlantEvent:
       type: object
       required: [id, occurredAt, type, summary]
@@ -904,6 +998,24 @@ components:
           enum: [watering, fertilizer, inspection, transfer, note]
         summary:
           type: string
+    PlantActivityEntry:
+      type: object
+      required: [type, note]
+      properties:
+        date:
+          type: string
+          format: date
+          nullable: true
+        type:
+          type: string
+        note:
+          type: string
+        amount:
+          type: string
+          nullable: true
+        method:
+          type: string
+          nullable: true
     PlantWateringSummary:
       type: object
       required: [history, hasWateringToday]
