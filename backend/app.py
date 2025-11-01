@@ -5,6 +5,7 @@ import logging
 import os
 from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
+from threading import Lock
 from typing import Any, Dict, Sequence
 from uuid import uuid4
 
@@ -99,6 +100,20 @@ DEFAULT_ALLOWED_ORIGINS = [
     "http://localhost:5580",
 ]
 ALLOWED_ORIGINS = _env_list("PLANTIT_CORS_ALLOW_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
+
+_DASHBOARD_ALERTS_LOCK = Lock()
+_DASHBOARD_ALERTS: list[Dict[str, Any]] = []
+
+
+def _reset_dashboard_alerts() -> None:
+    """Restore dashboard alerts to their seeded defaults."""
+
+    with _DASHBOARD_ALERTS_LOCK:
+        _DASHBOARD_ALERTS.clear()
+        _DASHBOARD_ALERTS.extend(dict(alert) for alert in seed_content.DASHBOARD_ALERTS)
+
+
+_reset_dashboard_alerts()
 
 _SECURITY_HEADERS = {
     "Content-Security-Policy": "".join(
@@ -706,6 +721,9 @@ def get_dashboard(session: Session = Depends(get_session)) -> Dict[str, Any]:
     success_rate = session.execute(select(func.avg(models.Plant.health_score))).scalar_one()
     upcoming_tasks = session.execute(select(func.count(models.Task.id))).scalar_one()
 
+    with _DASHBOARD_ALERTS_LOCK:
+        alerts = [dict(alert) for alert in _DASHBOARD_ALERTS]
+
     summary = {
         "totalPlants": total_plants,
         "activeVillages": active_villages,
@@ -714,9 +732,32 @@ def get_dashboard(session: Session = Depends(get_session)) -> Dict[str, Any]:
     }
     return {
         "summary": summary,
-        "alerts": seed_content.DASHBOARD_ALERTS,
+        "alerts": alerts,
         "lastUpdated": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.delete("/api/dashboard/alerts/{alert_id}", tags=["Dashboard"])
+def dismiss_dashboard_alert(alert_id: str) -> Dict[str, Any]:
+    """Dismiss a dashboard alert when it meets dismissal criteria."""
+
+    with _DASHBOARD_ALERTS_LOCK:
+        for index, alert in enumerate(_DASHBOARD_ALERTS):
+            if alert.get("id") != alert_id:
+                continue
+            if alert.get("level") != "warning":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Only warning alerts can be dismissed",
+                )
+            _DASHBOARD_ALERTS.pop(index)
+            return {
+                "status": "dismissed",
+                "alertId": alert_id,
+                "dismissedAt": datetime.now(timezone.utc).isoformat(),
+            }
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
 
 
 @app.get("/api/villages", tags=["Villages"])

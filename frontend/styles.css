@@ -393,6 +393,7 @@ picture[data-loading='lazy'] img {
   margin: 0;
   color: #12324b;
   font-size: 0.95rem;
+  flex: 1;
 }
 
 .dashboard-alert-message[data-related-plant-id]::after {
@@ -408,6 +409,35 @@ picture[data-loading='lazy'] img {
   margin: 0.35rem 0 0;
   color: #2f4858;
   font-size: 0.95rem;
+}
+
+.dashboard-alert-dismiss {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #1a365d;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.dashboard-alert-dismiss:hover,
+.dashboard-alert-dismiss:focus-visible {
+  background: rgba(18, 50, 75, 0.12);
+  color: #0b2540;
+}
+
+.dashboard-alert-dismiss:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(18, 50, 75, 0.35);
+}
+
+.dashboard-alert-dismiss:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .sr-only {

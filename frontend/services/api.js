@@ -510,6 +510,21 @@ export function fetchDashboard(correlationId) {
 }
 
 /**
+ * @param {string} alertId
+ * @param {string} [correlationId]
+ * @returns {Promise<{ status: string, alertId: string, dismissedAt: string }>}
+ */
+export function deleteDashboardAlert(alertId, correlationId) {
+  if (!alertId) {
+    return Promise.reject(new Error('alertId is required'));
+  }
+  return request(`/dashboard/alerts/${encodeURIComponent(alertId)}`, {
+    method: 'DELETE',
+    correlationId,
+  });
+}
+
+/**
  * @param {Partial<VillageFilterState>} filters
  * @param {string} [correlationId]
  * @returns {Promise<{ villages: VillageSummary[] }>}
