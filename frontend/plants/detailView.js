@@ -17,6 +17,27 @@ const EVENT_LABELS = {
   note: 'Note',
 };
 
+const CALENDAR_MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+const CALENDAR_WEEKDAY_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  timeZone: 'UTC',
+});
+
+const CALENDAR_LONG_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'long',
+  timeZone: 'UTC',
+});
+
+const CALENDAR_MEDIUM_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeZone: 'UTC',
+});
+
 export class PlantDetailView {
   /**
    * @param {HTMLElement} root
@@ -526,7 +547,7 @@ function renderWateringCalendar(container, history) {
 
   const title = document.createElement('div');
   title.className = 'plant-watering-calendar-title';
-  title.textContent = monthStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  title.textContent = CALENDAR_MONTH_FORMATTER.format(monthStart);
 
   const trailingNav = document.createElement('div');
   trailingNav.className = 'plant-watering-calendar-nav';
@@ -539,11 +560,10 @@ function renderWateringCalendar(container, history) {
 
   const weekdayRow = document.createElement('div');
   weekdayRow.className = 'plant-watering-calendar-weekdays';
-  const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
   for (let day = 0; day < 7; day += 1) {
     const refDate = new Date(Date.UTC(2023, 0, 1 + day));
     const weekday = document.createElement('span');
-    weekday.textContent = weekdayFormatter.format(refDate);
+    weekday.textContent = CALENDAR_WEEKDAY_FORMATTER.format(refDate);
     weekdayRow.append(weekday);
   }
 
@@ -568,16 +588,14 @@ function renderWateringCalendar(container, history) {
       dateLabel.classList.add('is-watered');
       const srLabel = document.createElement('span');
       srLabel.className = 'sr-only';
-      srLabel.textContent = `Watered on ${cursor.toLocaleDateString(undefined, { dateStyle: 'long' })}`;
+      srLabel.textContent = `Watered on ${CALENDAR_LONG_DATE_FORMATTER.format(cursor)}`;
       cell.append(srLabel);
     }
     if (iso === today) {
       cell.classList.add('is-today');
       dateLabel.classList.add('is-today');
     }
-    const label = cursor.toLocaleDateString(undefined, {
-      dateStyle: 'medium',
-    });
+    const label = CALENDAR_MEDIUM_DATE_FORMATTER.format(cursor);
     const annotatedLabel = historySet.has(iso) ? `${label} — watered` : label;
     cell.title = annotatedLabel;
     grid.append(cell);
