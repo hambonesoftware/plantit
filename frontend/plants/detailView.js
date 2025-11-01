@@ -485,17 +485,57 @@ function createTimelineItem(event) {
 }
 
 function renderWateringCalendar(container, history) {
+  container.plantitWateringHistory = Array.isArray(history) ? [...history] : [];
+
+  if (!container.dataset.calendarBound) {
+    container.addEventListener('click', handleCalendarNavigation);
+    container.dataset.calendarBound = 'true';
+  }
+
   const today = todayIsoDate();
-  const historySet = new Set(history);
+  const historySet = new Set(container.plantitWateringHistory);
+
   const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+  let viewYear = Number.parseInt(container.dataset.viewYear, 10);
+  let viewMonth = Number.parseInt(container.dataset.viewMonth, 10);
+
+  if (!Number.isInteger(viewYear) || viewYear < 1) {
+    viewYear = now.getUTCFullYear();
+  }
+  if (!Number.isInteger(viewMonth) || viewMonth < 1 || viewMonth > 12) {
+    viewMonth = now.getUTCMonth() + 1;
+  }
+
+  container.dataset.viewYear = String(viewYear);
+  container.dataset.viewMonth = String(viewMonth);
+
+  const monthStart = new Date(Date.UTC(viewYear, viewMonth - 1, 1));
+  const monthEnd = new Date(Date.UTC(viewYear, viewMonth, 0));
   const rangeStart = startOfCalendarMonth(monthStart);
   const rangeEnd = endOfCalendarMonth(monthEnd);
 
   const header = document.createElement('div');
   header.className = 'plant-watering-calendar-header';
-  header.textContent = monthStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const leadingNav = document.createElement('div');
+  leadingNav.className = 'plant-watering-calendar-nav';
+  leadingNav.append(
+    createCalendarNavButton('prev-year', 'Previous year', '«'),
+    createCalendarNavButton('prev-month', 'Previous month', '‹'),
+  );
+
+  const title = document.createElement('div');
+  title.className = 'plant-watering-calendar-title';
+  title.textContent = monthStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const trailingNav = document.createElement('div');
+  trailingNav.className = 'plant-watering-calendar-nav';
+  trailingNav.append(
+    createCalendarNavButton('next-month', 'Next month', '›'),
+    createCalendarNavButton('next-year', 'Next year', '»'),
+  );
+
+  header.append(leadingNav, title, trailingNav);
 
   const weekdayRow = document.createElement('div');
   weekdayRow.className = 'plant-watering-calendar-weekdays';
@@ -545,6 +585,76 @@ function renderWateringCalendar(container, history) {
   }
 
   container.replaceChildren(header, weekdayRow, grid);
+}
+
+function handleCalendarNavigation(event) {
+  const button = event.target.closest('button[data-calendar-action]');
+  if (!button) {
+    return;
+  }
+
+  event.preventDefault();
+
+  const container = event.currentTarget;
+  const action = button.dataset.calendarAction;
+  const now = new Date();
+
+  let year = Number.parseInt(container.dataset.viewYear, 10);
+  let month = Number.parseInt(container.dataset.viewMonth, 10);
+
+  if (!Number.isInteger(year) || year < 1) {
+    year = now.getUTCFullYear();
+  }
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    month = now.getUTCMonth() + 1;
+  }
+
+  switch (action) {
+    case 'prev-year':
+      year -= 1;
+      break;
+    case 'next-year':
+      year += 1;
+      break;
+    case 'prev-month':
+      month -= 1;
+      if (month < 1) {
+        month = 12;
+        year -= 1;
+      }
+      break;
+    case 'next-month':
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+      break;
+    default:
+      break;
+  }
+
+  if (year < 1) {
+    year = 1;
+  }
+
+  container.dataset.viewYear = String(year);
+  container.dataset.viewMonth = String(month);
+
+  const history = Array.isArray(container.plantitWateringHistory)
+    ? container.plantitWateringHistory
+    : [];
+  renderWateringCalendar(container, history);
+}
+
+function createCalendarNavButton(action, label, symbol) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'plant-watering-calendar-nav-button';
+  button.dataset.calendarAction = action;
+  button.setAttribute('aria-label', label);
+  button.textContent = symbol;
+  return button;
 }
 
 function startOfCalendarMonth(firstOfMonth) {
