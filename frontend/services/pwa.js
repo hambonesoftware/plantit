@@ -54,7 +54,7 @@ export function mountLocalControls(root) {
     } catch { storage.textContent = 'Local storage could not be read. Try reloading; do not clear website data.'; }
   }
   let offlineReady = false;
-  function connectionStatus() { offline.textContent = offlineReady ? (navigator.onLine ? 'Ready offline. Your changes save on this device.' : 'Offline. Your changes save on this device.') : 'Preparing offline files. Stay online until this says “Ready offline”.'; }
+  function connectionStatus() { offline.textContent = offlineReady ? (navigator.onLine ? 'Ready offline. Your changes save on this device.' : 'Offline. Your changes save on this device.') : 'Preparing offline files. Keep this page open and stay online.'; }
   window.addEventListener('online', connectionStatus);
   window.addEventListener('offline', connectionStatus);
   window.addEventListener('plantit:data-changed', refresh);

@@ -23,6 +23,7 @@ test('real UI creates a village and plant, then preserves them after reload', as
   await page.locator('[data-role="plant-form"] [data-role="plant-health"]').fill('0.7');
   await page.locator('[data-role="plant-form"] button[type="submit"]').click();
   await expect(page.locator('[data-role="plant-list"]')).toContainText('Local fern');
+  await expect(page.locator('[data-role="plant-form"]')).toBeHidden();
   await page.reload();
   await expect(page.locator('[data-role="plant-list"]')).toContainText('Local fern');
   await page.screenshot({ path: 'test-results/local-desktop.png', fullPage: true });
@@ -33,7 +34,7 @@ test('real UI creates a village and plant, then preserves them after reload', as
 test('offline reload, deep navigation, writes, and backup work without backend', async ({ page, context }) => {
   await page.goto('/');
   const { village } = await seed(page);
-  await expect(page.locator('#offline-status')).toContainText('Ready offline');
+  await expect(page.locator('#offline-status')).toHaveText(/^Ready offline\./);
   await context.setOffline(true);
   await page.reload();
   await page.locator('a.nav-link[href="#villages"]').click();
