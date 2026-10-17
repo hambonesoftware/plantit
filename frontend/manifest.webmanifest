@@ -1,0 +1,15 @@
+{
+  "id": "./",
+  "name": "PlantIt — Personal Plant Tracker",
+  "short_name": "PlantIt",
+  "description": "Your plants, photos, and watering history stored on your device, with offline access.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f7ef",
+  "theme_color": "#183f31",
+  "icons": [
+    { "src": "./icons/plantit-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/plantit-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

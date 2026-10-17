@@ -211,7 +211,14 @@ __marimo__/
 
 # Node
 node_modules/
+/node_modules
 
 # Keep offline wheel directory placeholder
 !vendor/wheels/.gitkeep
 !vendor/wheels/
+
+# Local PWA test output and private backup files
+/test-results/
+/playwright-report/
+plantit-backup-*.json
+plantit-export-*.json
