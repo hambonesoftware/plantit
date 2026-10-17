@@ -1,38 +1,13 @@
 /**
- * API helper utilities shared across view models.
+ * Local data helpers shared across view models.
  *
- * The helper exports typed fetch wrappers that automatically attach correlation
- * identifiers so backend logs can be stitched together when diagnosing issues.
+ * The existing request contracts now use IndexedDB exclusively. No plant data is
+ * sent to a backend. Error classes remain compatible with existing view models.
  *
  * @module services/api
  */
 
-const DEFAULT_TIMEOUT_MS = 15000;
-
-const DEFAULT_API_BASE_URL = '/api';
-const DEV_STATIC_PORT = '5580';
-const DEV_API_PORT = '5581';
-
-function resolveApiBaseUrl() {
-  if (typeof window === 'undefined') {
-    return DEFAULT_API_BASE_URL;
-  }
-
-  if (typeof window.PLANTIT_API_BASE_URL === 'string' && window.PLANTIT_API_BASE_URL) {
-    return window.PLANTIT_API_BASE_URL;
-  }
-
-  const { protocol, hostname, port } = window.location;
-  if (port === DEV_STATIC_PORT) {
-    const baseProtocol = protocol || 'http:';
-    const host = hostname || '127.0.0.1';
-    return `${baseProtocol}//${host}:${DEV_API_PORT}/api`;
-  }
-
-  return DEFAULT_API_BASE_URL;
-}
-
-const API_BASE_URL = resolveApiBaseUrl();
+import { localRequest, LocalDataError } from './localData.js';
 
 /**
  * @typedef {Object} RequestOptions
@@ -106,7 +81,7 @@ export function generateCorrelationId() {
 }
 
 /**
- * Perform a fetch with Plantit defaults applied.
+ * Perform a local IndexedDB operation with the existing view-model contract.
  *
  * @template T
  * @param {string} path
@@ -114,98 +89,16 @@ export function generateCorrelationId() {
  * @returns {Promise<T>}
  */
 export async function request(path, options = {}) {
-  const {
-    method = 'GET',
-    headers = {},
-    body,
-    signal,
-    correlationId = generateCorrelationId(),
-    timeout = DEFAULT_TIMEOUT_MS,
-  } = options;
-
-  const controller = new AbortController();
-  if (signal) {
-    signal.addEventListener('abort', () => controller.abort(), { once: true });
-  }
-
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  const requestInit = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Correlation-ID': correlationId,
-      ...headers,
-    },
-    signal: controller.signal,
-  };
-
-  if (body !== undefined) {
-    requestInit.body = typeof body === 'string' ? body : JSON.stringify(body);
-  }
-
-  let response;
   try {
-    response = await fetch(resolveUrl(path), requestInit);
+    return await localRequest(path, options);
   } catch (error) {
-    clearTimeout(timeoutId);
-    throw new NetworkError('Failed to reach Plantit backend', {
-      correlationId,
-      cause: error,
-    });
-  }
-
-  clearTimeout(timeoutId);
-
-  if (!response.ok) {
-    const errorBody = await readErrorBody(response);
-    if (typeof window !== 'undefined' && response.status === 401) {
-      window.dispatchEvent(
-        new CustomEvent('plantit:auth-required', { detail: { correlationId } })
-      );
+    if (error instanceof LocalDataError) {
+      throw new HttpError(error.status, null, {
+        correlationId: options.correlationId,
+        body: { detail: error.message },
+      });
     }
-    throw new HttpError(response.status, response, { correlationId, body: errorBody });
-  }
-
-  try {
-    const data = await response.json();
-    return /** @type {T} */ (data);
-  } catch (error) {
-    throw new DecodeError('Unable to parse response JSON', {
-      correlationId,
-      cause: error,
-    });
-  }
-}
-
-/**
- * Resolve the API URL, prepending the configured base when the path is
- * relative.
- *
- * @param {string} path
- * @returns {string}
- */
-function resolveUrl(path) {
-  if (/^https?:/.test(path)) {
-    return path;
-  }
-  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-async function readErrorBody(response) {
-  try {
-    const clone = response.clone();
-    const text = await clone.text();
-    if (!text) {
-      return null;
-    }
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      return text;
-    }
-  } catch (error) {
-    return null;
+    throw error;
   }
 }
 
