@@ -48,6 +48,7 @@ export function mountLocalControls(root) {
     try {
       const state = await storageStatus();
       storage.textContent = state.persistent ? 'Persistent storage granted. Backups are still recommended.' : 'Browser-managed storage. Keep backups in case website data is cleared or removed.';
+      protect.hidden = Boolean(state.persistent);
       const stale = !state.lastBackupAt || Date.now() - Date.parse(state.lastBackupAt) > 7 * 86400000;
       backup.textContent = state.lastBackupAt ? `Last backup download: ${new Date(state.lastBackupAt).toLocaleString()}.${stale ? ' Download a fresh backup below.' : ''}` : 'No backup downloaded yet. Download your first backup below after adding plants.';
       backup.classList.toggle('backup-needed', Boolean(stale && (state.plants || state.villages)));

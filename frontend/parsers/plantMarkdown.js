@@ -4,7 +4,11 @@
 
 function toISODate(maybeDate) {
   if (!maybeDate) return null;
-  const d = new Date(maybeDate);
+  const input = String(maybeDate).trim();
+  const parts = input.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const normalized = parts ? `${parts[1]}-${parts[2].padStart(2, '0')}-${parts[3].padStart(2, '0')}` : input;
+  const d = new Date(normalized);
+  if (parts && !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) !== normalized) return null;
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
@@ -59,7 +63,11 @@ function parseTopKeys(md) {
     [/^last repotted$/i, 'lastRepotted'],
     [/^dormancy$/i, 'dormancy'],
     [/^water average$/i, 'waterAverage'],
+    [/^water average days$/i, 'waterAverage'],
     [/^amount$/i, 'amount'],
+    [/^notes$/i, 'notes'],
+    [/^notion page id$/i, 'notionPageId'],
+    [/^name$/i, 'name'],
     [/^days since watered$/i, '_daysSinceWatered_ignored'],
   ]);
 
@@ -87,20 +95,57 @@ function parseTopKeys(md) {
 function parseTimeline(md) {
   const lines = md.split(/\r?\n/);
   const entries = [];
-  const dateRe = /^([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4})\s*(.*)$/;
+  const dateRe = /^(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2}\/\d{4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})(?=$|[\s:;,.!?\-–—])\s*[-–—:]?\s*(.*)$/i;
+  const seen = new Set();
+  let section = 'unknown';
 
   for (const raw of lines) {
     const s = raw.trim();
     if (!s) continue;
-    const m = s.match(dateRe);
+    const heading = s.replace(/^#{1,6}\s*/, '').replace(/:$/, '').trim().toLowerCase();
+    if (/^(last watered(?: on)?|lst watered|watered(?: on)?|watering history)$/.test(heading)) { section = 'water'; continue; }
+    if (/^(last repotted|last repotting|repotted|repot history|repotting history)$/.test(heading)) { section = 'repot'; continue; }
+    if (/^(care history|care log|activity log|activities|journal)$/.test(heading)) { section = 'care'; continue; }
+    const m = s.replace(/^(?:[-*•]\s+)/, '').match(dateRe);
     if (!m) continue;
     const dateISO = toISODate(m[1]);
-    const note = (m[2] || '').trim();
-    const type = inferActivityType(note);
+    if (!dateISO) continue;
+    let note = (m[2] || '').trim();
+    const explicit = note.match(/^(Watered|Watering|Repotted|Repotting|Fertilized|Fertilizing|Pruned|Pruning|Note|Showered|Moved)\b\s*:?[\s-]*(.*)$/i);
+    let type;
+    if (explicit) {
+      const label = explicit[1].toLowerCase();
+      type = label.startsWith('water') ? 'water' : label.startsWith('repot') ? 'repot' :
+        label.startsWith('fertil') ? 'fertilize' : label.startsWith('prun') ? 'trim' :
+        label.startsWith('shower') ? 'shower' : label.startsWith('mov') ? 'move' : 'note';
+      note = explicit[2].trim();
+    } else {
+      const inferred = inferActivityType(note);
+      type = section === 'repot' ? 'repot' :
+        section === 'water' && !['repot', 'trim'].includes(inferred) ? 'water' :
+        section === 'unknown' && !note ? 'water' : inferred;
+    }
+    const key = `${dateISO}\u0000${type}\u0000${note}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     const { amount, method } = extractAmountAndMethod(note);
     entries.push({ date: dateISO, type, note, ...(amount ? { amount } : {}), ...(method ? { method } : {}) });
   }
   return entries;
+}
+
+function collectNotes(md) {
+  const prose = [];
+  let pastMetadata = false;
+  for (const raw of md.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) { pastMetadata = true; continue; }
+    if (!pastMetadata || /^#{1,6}\s/.test(line) || /^[A-Za-z][A-Za-z0-9 _-]{0,40}:\s*\S/.test(line)) continue;
+    if (/^(?:last watered|last repotted|watered|repotted|care history)\s*:?$/i.test(line)) continue;
+    if (/^(?:[-*•]\s*)?(?:\d{4}-\d{1,2}-\d{1,2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})/i.test(line)) continue;
+    prose.push(line);
+  }
+  return prose.join('\n');
 }
 
 export function parsePlantMarkdown(md, fallbackName = null) {
@@ -126,6 +171,9 @@ export function parsePlantMarkdown(md, fallbackName = null) {
     dormancy: clean(top.dormancy),
     waterAverage: clean(top.waterAverage),
     amount: clean(top.amount),
+    notes: clean(top.notes || collectNotes(md)),
+    name: clean(top.name),
+    notionPageId: clean(top.notionPageId),
     daysSinceWatered,
     activityLog,
     _sourceTitle: fallbackName || null,

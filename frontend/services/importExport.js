@@ -1,5 +1,6 @@
 import { request } from './api.js';
 import { parsePlantMarkdown } from '../parsers/plantMarkdown.js';
+import { collectPlantFiles } from './plantImportFiles.js';
 import { BACKUP_VERSION, MAX_BACKUP_BYTES, validateBackup, markBackupDownloaded } from './localData.js';
 
 export const SUPPORTED_SCHEMA_VERSION = BACKUP_VERSION;
@@ -43,36 +44,81 @@ export async function downloadExportBundle(statusElement) {
   return { fileName, bytes: blob.size };
 }
 
-export async function importPlantMarkdownFiles(files, statusElement) {
-  const markdown = Array.from(files || []).filter(file => /\.(md|markdown)$/i.test(file.name));
-  if (!markdown.length) throw new Error('Choose Markdown plant files.');
-  // Parse and validate every file before writing anything.
-  const parsed = [];
-  for (const file of markdown) {
-    if (file.size > 2 * 1024 * 1024) throw new Error('Each Markdown file must be smaller than 2 MB.');
-    const contents = await file.text();
-    if (!contents.trim()) throw new Error(`${file.name} is empty.`);
-    const fields = parsePlantMarkdown(contents, file.name);
+function stableSourceKey(fields, fileName) {
+  const pageId = fields.notionPageId || fileName.match(/([0-9a-f]{32})(?=\.(?:md|markdown|txt)$)/i)?.[1];
+  if (pageId) return `notion:${pageId.toLowerCase()}`;
+  const basename = fileName.split('/').at(-1).replace(/\.(md|markdown|txt)$/i, '').toLowerCase();
+  return `file:${basename}`;
+}
+
+function mergeCare(existing = [], incoming = []) {
+  const combined = new Map();
+  for (const entry of [...existing, ...incoming]) {
+    const key = `${entry.date}\u0000${entry.type}\u0000${entry.note || ''}`;
+    combined.set(key, entry);
+  }
+  return [...combined.values()].sort((left, right) => String(left.date).localeCompare(String(right.date)));
+}
+
+/** Preview and atomically import plant text/ZIP files into the chosen local village. */
+export async function importPlantMarkdownFiles(files, statusElement, { villageId = null } = {}) {
+  status(statusElement, 'Reading plant files on this device…');
+  const { plants, skippedImages } = await collectPlantFiles(files);
+  // Validate every record before changing the collection.
+  const parsed = new Map();
+  for (const { name, contents } of plants) {
+    const fields = parsePlantMarkdown(contents, name);
     const heading = contents.match(/^#{1,6}\s+(.+)$/m)?.[1]?.trim();
-    const displayName = heading || file.name.replace(/\.[^.]+$/, '');
-    parsed.push({ ...fields, displayName, species: displayName, stage: 'mature', healthScore: 0.5, sourceTitle: file.name });
+    const displayName = heading || fields.name || name.split('/').at(-1).replace(/\.[^.]+$/, '');
+    if (!displayName || displayName.length > 200) throw new Error(`Invalid plant name in ${name}.`);
+    const sourceTitle = stableSourceKey(fields, name);
+    if (parsed.has(sourceTitle)) throw new Error(`The selected files contain duplicate plant records: ${displayName}.`);
+    const wateringHistory = [...new Set([
+      ...(fields.lastWatered ? [fields.lastWatered] : []),
+      ...fields.activityLog.filter(entry => entry.type === 'water').map(entry => entry.date),
+    ])].sort();
+    parsed.set(sourceTitle, {
+      ...fields, displayName, species: displayName, stage: 'mature', healthScore: 0.5,
+      sourceTitle, sourceFileName: name, wateringHistory,
+    });
   }
   const bundle = await request('/export');
-  let village = bundle.payload.villages.find(value => value.name === 'Imported plants');
+  let village = villageId ? bundle.payload.villages.find(value => value.id === villageId) :
+    bundle.payload.villages.find(value => value.name === 'Imported plants');
+  if (villageId && !village) throw new Error('The destination village no longer exists.');
   if (!village) {
     village = { id: crypto.randomUUID(), name: 'Imported plants', climate: 'Indoor', healthScore: 0.5, updatedAt: new Date().toISOString() };
     bundle.payload.villages.push(village);
   }
   let created = 0, updated = 0;
-  for (const fields of parsed) {
-    const index = bundle.payload.plants.findIndex(plant => plant.sourceTitle === fields.sourceTitle && plant.villageId === village.id);
+  let careEvents = 0;
+  for (const fields of parsed.values()) {
+    careEvents += fields.activityLog.length;
+    const index = bundle.payload.plants.findIndex(plant => plant.villageId === village.id && (
+      plant.sourceTitle === fields.sourceTitle || plant.sourceTitle === fields.sourceFileName ||
+      (plant.displayName === fields.displayName && !plant.sourceTitle?.startsWith('notion:'))
+    ));
     const existing = index >= 0 ? bundle.payload.plants[index] : null;
-    const entry = { ...existing, ...fields, id: existing?.id || crypto.randomUUID(), villageId: village.id, updatedAt: new Date().toISOString(), wateringHistory: existing?.wateringHistory || [] };
+    const history = [...new Set([...(existing?.wateringHistory || []), ...fields.wateringHistory])].sort();
+    const { notionPageId: _notionPageId, name: _name, sourceFileName: _sourceFileName, daysSinceWatered: _daysSinceWatered, _sourceTitle, ...supported } = fields;
+    const entry = {
+      ...existing, ...supported, id: existing?.id || crypto.randomUUID(), villageId: village.id,
+      updatedAt: new Date().toISOString(), wateringHistory: history,
+      lastWatered: history.at(-1) || supported.lastWatered,
+      activityLog: mergeCare(existing?.activityLog, supported.activityLog),
+      notes: existing?.notes || supported.notes,
+    };
     if (existing) { bundle.payload.plants[index] = entry; updated++; } else { bundle.payload.plants.push(entry); created++; }
   }
   validateBackup(bundle);
+  const description = `${created} new plant${created === 1 ? '' : 's'}, ${updated} update${updated === 1 ? '' : 's'}, ${careEvents} care events`;
+  const photoReminder = skippedImages ? ` ${skippedImages} photo file${skippedImages === 1 ? '' : 's'} will need manual attachment.` : '';
+  if (!window.confirm(`Import ${description} into “${village.name}” on this device?${photoReminder}`)) {
+    status(statusElement, 'Import cancelled. Your collection is unchanged.');
+    return { cancelled: true, created: 0, updated: 0 };
+  }
   // Commit the batch only if no other tab changed the source snapshot.
   await request('/import-markdown', { method: 'POST', body: bundle });
-  status(statusElement, `Import complete: ${created} created, ${updated} updated.`);
-  return { created, updated };
+  status(statusElement, `Import complete: ${created} created, ${updated} updated, ${careEvents} care events.${photoReminder}`);
+  return { cancelled: false, created, updated, careEvents, skippedImages };
 }

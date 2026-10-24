@@ -1,7 +1,6 @@
 import { initializeLocalWorkspace, mountLocalControls } from './services/pwa.js';
 import { createToastHost, registerToastHost, showToast } from './services/toast.js';
-import { HttpError, NetworkError, recordPlantWatering } from './services/api.js';
-import { parsePlantMarkdown } from './parsers/plantMarkdown.js';
+import { HttpError, NetworkError } from './services/api.js';
 
 let dashboardModulesPromise;
 let villagesModulesPromise;
@@ -664,7 +663,7 @@ function buildVillagesSection() {
               <button type="button" class="village-plants-add" data-action="plant-create-toggle">Add Plant</button>
               <button type="button" class="village-plants-import" data-action="plant-import">Import Plant</button>
               <button type="button" class="village-plants-refresh" data-action="plant-refresh">Refresh</button>
-              <input type="file" accept=".md,text/markdown" data-role="plant-import-input" hidden multiple />
+              <input type="file" data-role="plant-import-input" hidden multiple />
             </div>
             <p class="village-plants-import-status" data-role="plant-import-status" role="status" aria-live="polite" hidden></p>
           </div>
@@ -1220,57 +1219,22 @@ function setupPlantImportControls(root, { plantListViewModel }) {
       return;
     }
 
-    const markdownFiles = files.filter((file) => isMarkdownFile(file));
-    if (markdownFiles.length === 0) {
-      showToast({ message: 'Select at least one Markdown (.md) plant file.', tone: 'warning' });
-      return;
-    }
-
     busy = true;
     importButton.disabled = true;
-    updateStatus(`Importing ${markdownFiles.length} file${markdownFiles.length === 1 ? '' : 's'}…`);
+    updateStatus(`Reading ${files.length} selected file${files.length === 1 ? '' : 's'}…`);
 
     try {
-      const { successes, failures } = await importPlantsFromMarkdown(markdownFiles, { plantListViewModel });
-      const importCount = successes.length;
-      if (importCount > 0) {
-        const names = successes
-          .map((item) => (typeof item.displayName === 'string' ? item.displayName : ''))
-          .filter((name) => name.trim() !== '');
-        const previewNames = names.slice(0, 3).join(', ');
-        const ellipsis = names.length > 3 ? '…' : '';
-        const fallbackLabel = importCount === 1 ? 'Imported plant.' : `Imported ${importCount} plants.`;
-        showToast({
-          message:
-            importCount === 1
-              ? names.length === 1
-                ? `Imported plant “${names[0]}”.`
-                : 'Imported plant.'
-              : names.length > 0
-              ? `Imported ${importCount} plants${previewNames ? ` (${previewNames}${ellipsis})` : ''}.`
-              : fallbackLabel,
-          tone: 'success',
-        });
-        updateStatus(
-          `Import complete: ${importCount} imported${failures.length ? `, ${failures.length} failed` : ''}.`,
-        );
+      const { importPlantMarkdownFiles } = await loadImportExportModule();
+      const result = await importPlantMarkdownFiles(files, statusEl, { villageId: ensureVillageSelected().id });
+      if (!result.cancelled) {
+        showToast({ message: `Imported ${result.created} plants and updated ${result.updated}.`, tone: 'success' });
         await plantListViewModel.refresh();
-      } else if (failures.length > 0) {
-        updateStatus('Import failed.');
-      } else {
-        updateStatus('Import complete.');
-      }
-
-      if (failures.length > 0) {
-        const firstError = failures[0].error;
-        const message = mutationErrorMessage(firstError, 'Some plant files could not be imported.');
-        showToast({ message, tone: 'error', correlationId: firstError?.correlationId });
       }
     } catch (error) {
       console.error('Plant import failed', error);
       const message = mutationErrorMessage(error, 'Import failed. Try again.');
       showToast({ message, tone: 'error', correlationId: error?.correlationId });
-      updateStatus('');
+      updateStatus(message);
     } finally {
       busy = false;
       importButton.disabled = false;
@@ -1279,131 +1243,6 @@ function setupPlantImportControls(root, { plantListViewModel }) {
       }
     }
   });
-}
-
-async function importPlantsFromMarkdown(files, { plantListViewModel }) {
-  const successes = [];
-  const failures = [];
-  for (const file of files) {
-    try {
-      const result = await importPlantFromMarkdownFile(file, { plantListViewModel });
-      successes.push(result);
-    } catch (error) {
-      console.error('Failed to import plant file', file?.name, error);
-      failures.push({ file, error });
-    }
-  }
-  return { successes, failures };
-}
-
-async function importPlantFromMarkdownFile(file, { plantListViewModel }) {
-  if (!file) {
-    throw new Error('No file selected.');
-  }
-  const text = await file.text();
-  if (typeof text !== 'string' || text.trim() === '') {
-    throw new Error('Selected file is empty.');
-  }
-
-  const parsed = parsePlantMarkdown(text, file.name);
-  const headingName = extractPrimaryHeading(text);
-  const fallbackName = normalizeSourceName(parsed?._sourceTitle || file.name);
-  const displayName = headingName || fallbackName || 'Imported Plant';
-  const species = headingName || fallbackName || displayName;
-  const activityLog = Array.isArray(parsed.activityLog) ? parsed.activityLog : [];
-  const wateringDates = deriveWateringDates(activityLog);
-  const lastWatered =
-    parsed.lastWatered || (wateringDates.length > 0 ? wateringDates[wateringDates.length - 1] : null);
-
-  const payload = {
-    displayName,
-    species,
-    stage: 'mature',
-    healthScore: 0.5,
-    family: parsed.family || '',
-    plantOrigin: parsed.plantOrigin || '',
-    naturalHabitat: parsed.naturalHabitat || '',
-    room: parsed.room || '',
-    sunlight: parsed.sunlight || '',
-    potSize: parsed.potSize || '',
-    purchasedOn: parsed.purchasedOn || null,
-    lastWatered,
-    lastRepotted: parsed.lastRepotted || null,
-    dormancy: parsed.dormancy || '',
-    waterAverage: parsed.waterAverage || '',
-    amount: parsed.amount || '',
-    activityLog,
-  };
-
-  const detail = await plantListViewModel.createPlant(payload);
-  if (detail && detail.id && wateringDates.length > 0) {
-    for (const date of wateringDates) {
-      await recordPlantWatering(detail.id, { wateredAt: date });
-    }
-  }
-
-  return { displayName, wateringDates };
-}
-
-function isMarkdownFile(file) {
-  if (!file) {
-    return false;
-  }
-  const name = typeof file.name === 'string' ? file.name.toLowerCase() : '';
-  const type = typeof file.type === 'string' ? file.type.toLowerCase() : '';
-  return name.endsWith('.md') || type === 'text/markdown';
-}
-
-function extractPrimaryHeading(markdown) {
-  if (typeof markdown !== 'string') {
-    return '';
-  }
-  const lines = markdown.split(/\r?\n/);
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) {
-      continue;
-    }
-    const match = line.match(/^#{1,6}\s+(.*)$/);
-    if (match) {
-      return match[1].trim();
-    }
-  }
-  return '';
-}
-
-function normalizeSourceName(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '';
-  }
-  const withoutExtension = trimmed.replace(/\.[^./\\]+$/, '');
-  return withoutExtension.replace(/[_-]+/g, ' ').trim();
-}
-
-function deriveWateringDates(activityLog) {
-  if (!Array.isArray(activityLog)) {
-    return [];
-  }
-  const dates = activityLog
-    .map((entry) => {
-      if (!entry || typeof entry !== 'object') {
-        return null;
-      }
-      const type = typeof entry.type === 'string' ? entry.type.toLowerCase() : '';
-      if (type !== 'water') {
-        return null;
-      }
-      const date = typeof entry.date === 'string' ? entry.date.trim() : '';
-      return date || null;
-    })
-    .filter(Boolean);
-  const unique = Array.from(new Set(dates));
-  unique.sort();
-  return unique;
 }
 
 function setupPlantForm(root, { plantListViewModel, villageListViewModel }) {
@@ -2084,20 +1923,20 @@ function initializeImportExportControls(root) {
   });
 
   markdownButton.addEventListener("click", () => {
-    markdownStatus.textContent = "Choose Markdown plant files (.md).";
+    markdownStatus.textContent = "Choose ZIP, Markdown, or text plant files.";
     markdownInput.click();
   });
 
   markdownInput.addEventListener("change", async () => {
     if (!markdownInput.files || markdownInput.files.length === 0) {
-      markdownStatus.textContent = "No Markdown files selected.";
+      markdownStatus.textContent = "No files selected.";
       return;
     }
 
     try {
       const { importPlantMarkdownFiles } = await loadImportExportModule();
-      await importPlantMarkdownFiles(markdownInput.files, markdownStatus);
-      window.location.reload();
+      const result = await importPlantMarkdownFiles(markdownInput.files, markdownStatus);
+      if (!result.cancelled) window.location.reload();
     } catch (error) {
       console.error("Markdown import failed", error);
       markdownStatus.textContent = error?.message || "Markdown import failed.";
@@ -2126,11 +1965,10 @@ function buildTransferPanel() {
       <p id="import-status" class="status-text" role="status" aria-live="polite"></p>
     </div>
     <div class="transfer-group">
-      <button id="markdown-import-button" type="button">Import Markdown Plant Files</button>
+      <button id="markdown-import-button" type="button">Import Plants (ZIP, Markdown, Text)</button>
       <input
         id="markdown-file-input"
         type="file"
-        accept=".md,.markdown,text/markdown"
         class="sr-only"
         tabindex="-1"
         aria-hidden="true"

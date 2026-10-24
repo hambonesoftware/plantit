@@ -84,6 +84,7 @@ test('cancelled and corrupt restores leave records untouched', async ({ page }) 
 
 test('Markdown import joins the real collection and survives reload', async ({ page }) => {
   await page.goto('/');
+  page.once('dialog', dialog => dialog.accept());
   await page.locator('#markdown-file-input').setInputFiles({ name: 'Fern.md', mimeType: 'text/markdown', buffer: Buffer.from('# Fern\n\nFamily: Ferns\nJanuary 1, 2026 watered\nJanuary 8, 2026 watered\n') });
   await expect.poll(async () => (await call(page, '/export')).payload.plants.length).toBe(1);
   await page.reload();
@@ -92,6 +93,52 @@ test('Markdown import joins the real collection and survives reload', async ({ p
   expect(bundle.payload.villages[0].name).toBe('Imported plants');
   const plant = (await call(page, `/plants/${bundle.payload.plants[0].id}`)).plant;
   expect(plant.watering.history).toEqual(['2026-01-01', '2026-01-08']);
+});
+
+test('ZIP import previews and preserves history without duplicating repeat imports', async ({ page }) => {
+  const { makeZip } = await import('./zipFixture.mjs');
+  const zip = makeZip([
+    ['PlantIt-Import/Hoya-aabbccddeeff00112233445566778899.md', '# Hoya\n\nNotion Page ID: aabbccddeeff00112233445566778899\nNotes: Healthy plant\n\n## Care History\n- 2026-10-12 - Watered: hose\n- 2026-10-20 - Watered\n- 2026-10-20 - Repotted: new pot\n'],
+    ['README-IMPORT.txt', 'Import instructions only'],
+  ]);
+  await page.goto('/');
+  expect(await page.locator('#markdown-file-input').getAttribute('accept')).toBeNull();
+  page.once('dialog', dialog => {
+    expect(dialog.message()).toContain('1 new plant');
+    expect(dialog.message()).toContain('3 care events');
+    dialog.accept();
+  });
+  await page.locator('#markdown-file-input').setInputFiles({ name: 'plants.zip', mimeType: 'application/zip', buffer: zip });
+  await expect.poll(async () => (await call(page, '/export')).payload.plants.length).toBe(1);
+  let bundle = await call(page, '/export');
+  let plant = bundle.payload.plants[0];
+  expect(plant.notes).toBe('Healthy plant');
+  expect(plant.activityLog).toHaveLength(3);
+  expect(plant.wateringHistory).toEqual(['2026-10-12', '2026-10-20']);
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#markdown-file-input').setInputFiles({ name: 'plants.zip', mimeType: 'application/zip', buffer: zip });
+  await expect.poll(async () => (await call(page, '/export')).payload.plants.length).toBe(1);
+  bundle = await call(page, '/export');
+  plant = bundle.payload.plants[0];
+  expect(plant.activityLog).toHaveLength(3);
+  expect(plant.wateringHistory).toHaveLength(2);
+});
+
+test('declining an import preview leaves the collection unchanged', async ({ page }) => {
+  await page.goto('/');
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.locator('#markdown-file-input').setInputFiles({ name: 'Plant.txt', mimeType: 'text/plain', buffer: Buffer.from('# Plant\n\nFamily: Araceae\n') });
+  await expect(page.locator('#markdown-status')).toContainText('cancelled');
+  expect((await call(page, '/export')).payload.plants).toHaveLength(0);
+});
+
+test('persistent storage request hides when permission is already granted', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.storage, 'persisted', { configurable: true, value: async () => true });
+  });
+  await page.goto('/');
+  await expect(page.locator('#local-storage-status')).toContainText('granted');
+  await expect(page.getByRole('button', { name: 'Request persistent storage' })).toBeHidden();
 });
 
 test('missing IndexedDB shows an actionable error and does not silently save in memory', async ({ page }) => {
