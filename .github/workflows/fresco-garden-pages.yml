@@ -1,0 +1,41 @@
+name: Publish Fresco Garden to GitHub Pages
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'fresco-garden/**'
+      - '.github/workflows/fresco-garden-pages.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plantit-pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check application scripts
+        run: |
+          for file in fresco-garden/*.js; do node --check "$file"; done
+          test -f fresco-garden/index.html
+          test -f fresco-garden/assets/fresco-sunroom.jpg
+          test -f fresco-garden/assets/fresco-vine-house.jpg
+          test -f fresco-garden/assets/fresco-fern-alcove.jpg
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: fresco-garden
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - id: deployment
+        uses: actions/deploy-pages@v4

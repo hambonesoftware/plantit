@@ -1,4 +1,4 @@
-PLANTIT GAUSSIAN GARDEN — ASSET CREDITS
+PLANTIT FRESCO GARDEN — ASSET CREDITS
 
 Plant photographs retain their reference content; display uses CSS crops.
 
@@ -25,20 +25,15 @@ https://en.wikipedia.org/wiki/Monstera_deliciosa
 https://en.wikipedia.org/wiki/Epipremnum_aureum
 https://en.wikipedia.org/wiki/Nephrolepis_exaltata
 
-Decorative environment images: generated with the built-in image-generation
-service for this PlantIt design. Not documentary photographs of user rooms.
-Files: assets/sanctuary.jpg, assets/vine-house.jpg, assets/fern-alcove.jpg.
-Prompts: sun-washed ivory plaster with dense realistic foliage at page edges,
-hanging vines, fern fronds, soft golden light and Gaussian bokeh; distinct
-Sunroom, Vine House and Fern Alcove environments; no text or interface.
+Decorative background artwork generated for this PlantIt edition using the
+built-in image-generation service:
+assets/fresco-sunroom.jpg — painted olive and lemon foliage on ivory plaster.
+assets/fresco-vine-house.jpg — grape vines, ivy and acanthus on pale plaster.
+assets/fresco-fern-alcove.jpg — delicate ferns, maidenhair and olive sprigs.
+Shared prompt: elegant Italian botanical fresco painted in matte mineral
+pigments into aged lime plaster; refined leaf details around the edges with
+a quiet luminous center; warm ivory, sage and faded ochre; no text or UI.
+The runtime sparkle is a brief CSS effect triggered only on a room change.
 
-Font: DM Sans, Google Fonts. See assets/FONT-LICENSE.txt (SIL OFL 1.1).
+Font: DM Sans, Google Fonts. SIL OFL 1.1; see assets/FONT-LICENSE.txt.
 Headings use the device's Georgia or serif fallback.
-
-Gaussian scene geometry, renderer, camera paths, UI, and scene generator:
-created for this PlantIt edition. Decorative plant meshes are represented
-by Gaussian primitives; species identification uses the credited photos.
-
-Algorithm reference: Kerbl et al., 3D Gaussian Splatting for Real-Time
-Radiance Field Rendering (2023). https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/
-No reference implementation code or model weights are bundled.

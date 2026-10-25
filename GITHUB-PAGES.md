@@ -1,22 +1,16 @@
-# PlantIt Gaussian Garden on GitHub Pages
+# PlantIt Fresco Garden
 
-The standalone Gaussian Garden lives in `gaussian-garden/`. The existing
-backend, frontend and application directories are preserved.
+The standalone site is in `fresco-garden/`. It uses three leafy Italian
+botanical fresco backgrounds and a short gold sparkle only when changing
+rooms. Plant views and the photo album open immediately.
 
-The `Publish Gaussian Garden to GitHub Pages` workflow regenerates all three
-standard `.splat` room models from the checked-in artwork and scene generator,
-validates the Gaussian geometry and camera routes, then publishes this static
-edition to the repository's GitHub Pages address. Scene binaries are build
-artifacts rather than committed files. No runtime CDN or AI service is needed.
+The `Publish Fresco Garden to GitHub Pages` workflow checks the JavaScript
+and publishes the static folder. There are no scene-generation dependencies
+or model downloads. To enable publishing, set repository Settings → Pages →
+Source to GitHub Actions, then run that workflow. Subsequent changes publish
+automatically from main.
 
-## One-time Pages setting
-
-Open repository **Settings → Pages** and set **Build and deployment → Source**
-to **GitHub Actions**. Then open **Actions → Publish Gaussian Garden to GitHub
-Pages → Run workflow** if an initial deployment has not already succeeded.
-Subsequent changes under `gaussian-garden/` publish automatically from `main`.
-
-This edition uses authored 3D Gaussian rooms, local browser care/journal data,
-and browser-local photo albums. It does not connect to the production Flask
-backend or migrate existing records. The existing Hostinger installation is
-unaffected. Uploaded user photographs never enter this public repository.
+The previous Gaussian Garden source and workflow have been removed. Existing
+backend/frontend folders are preserved. Browser-local records and photographs
+use the same storage identities; cache migration does not clear those records.
+This standalone edition remains separate from the production Flask backend.
