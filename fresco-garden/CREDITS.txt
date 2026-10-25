@@ -37,3 +37,7 @@ The runtime sparkle is a brief CSS effect triggered only on a room change.
 
 Font: DM Sans, Google Fonts. SIL OFL 1.1; see assets/FONT-LICENSE.txt.
 Headings use the device's Georgia or serif fallback.
+
+fflate 0.8.2 — Arjun Barrett, MIT. See vendor/fflate-LICENSE.txt.
+Live Wikipedia species text: Wikipedia contributors, CC BY-SA.
+Live Wikimedia photo source, artist and license appear in each plant detail.

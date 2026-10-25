@@ -32,3 +32,28 @@ This is the standalone design edition with three sample plant records. It
 does not migrate your existing PlantIt backend, accounts or Notion imports.
 The included species references and starting care dates/counts are examples.
 All required assets are bundled. See CREDITS.txt for photograph attribution.
+
+VERSION 3.1.0 — FUNCTIONAL COLLECTION
+Upload the contents of this ZIP to public_html, with index.html directly inside it.
+Open Import plants (also available in Garden settings). Import Notion ZIP exports,
+Markdown/TXT, CSV, or PlantIt JSON. Review dates before confirming. On iPhone,
+choose files from Browse; the file picker does not restrict Markdown/TXT types.
+ZIP imports read text records; embedded Notion photos are not imported. Add your
+own plant photos using Edit care & photo. Exported JSON contains plant records,
+watering history and notes, but uploaded images remain in browser storage.
+
+Next water date = latest recorded watering + interval in calendar days.
+A manual next-date override is supported; logging watering clears the override.
+Missing intervals are estimated from median gaps in dated history and labeled.
+Dates are reminders: check the soil before watering. Edit care to correct the
+most recent watering date, choose an interval or set a manual next date.
+
+Wikipedia lookup requires internet. Only the species/article query is sent to
+Wikipedia, without cookies. Your personal notes and dates stay in your browser.
+Your own photo takes priority; otherwise the Wikipedia reference image is used.
+If no suitable article/photo is available, a neutral plant illustration remains.
+Use Find on Wikipedia / Change Wikipedia article to select a better match.
+All notes/dates/photos are local to the current browser and domain; they do not
+sync across devices. Export before moving hosts. No Flask server is required.
+
+Verification: node tests/care-import.cjs

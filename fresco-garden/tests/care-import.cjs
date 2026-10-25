@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict');
+const C=require('../garden-core.js');
+assert.equal(C.addDays('2026-12-30',7),'2027-01-06');
+assert.equal(C.addDays('2026-03-07',7),'2026-03-14');
+assert.equal(C.date('February 30, 2026'),null);
+const text='# Epipremnum aureum: Test\nRoom: Office\nPurchased On: September 13, 2024\nWater Average: 9\nLast watered:\nOctober 19, 2026\nLast Repotted:\nOctober 23, 2026';
+const docs=[{name:'Test 0123456789abcdef0123456789abcdef.md',text},{name:'summary.csv',text:'Name,Last Watered,Water Average\nEpipremnum aureum: Test,"October 19, 2026",9'}];
+const parsed=C.bundle(docs).plants;
+assert.equal(parsed.length,1);assert.equal(parsed[0].waterings.length,1);
+assert.equal(parsed[0].purchasedOn,'2024-09-13');assert.equal(C.nextWater(parsed[0]),'2026-10-28');
+const merged=C.mergeImport([],parsed);assert.equal(C.mergeImport(merged.plants,parsed).plants.length,1);
+parsed[0].waterings.push({date:'2026-10-25',note:'Watered today',source:'app'});
+assert.equal(C.nextWater(parsed[0]),'2026-11-03');
+parsed[0].nextWaterOverride='2026-11-05';assert.equal(C.nextWater(parsed[0]),'2026-11-05');
+assert.equal(C.care(parsed[0],'2026-11-06').overdue,true);
+assert.equal(C.nextWater({waterings:[]}),null);
+console.log('Care and import checks passed.');
