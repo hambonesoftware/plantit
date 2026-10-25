@@ -1,59 +1,54 @@
-PLANTIT — FRESCO GARDEN 3.0.0
+PLANTIT — FRESCO GARDEN 3.2.0
 
-Leafy Italian botanical fresco backgrounds with a brief gold sparkle when
-changing rooms. There is no 3D renderer, scene model, camera movement, GPU
-setup, canvas animation or persistent particle animation in this edition.
+INSTALL / UPDATE
+Upload and extract the full ZIP contents to your existing PlantIt folder in
+public_html. index.html must be directly in that folder. Include the hidden
+.htaccess file. No build step, database, API key or account is required.
+Enable a valid SSL certificate and open the site using HTTPS. The encrypted
+backup feature deliberately refuses to run on an insecure HTTP page.
+Keep the same address to retain the working browser data. Refresh the browser
+or close and reopen your Home Screen app after replacing the application files.
+Do not clear website data until you have saved and checked your local backup.
 
-INSTALL OR UPDATE
-Upload and extract these files into the SAME Hostinger folder that currently
-serves your PlantIt design. index.html, app.js, style.css, local-media.js,
-service-worker.js and assets/ must be directly in that folder. No build step,
-API key, database, CDN, WebGL or Python installation is needed.
+LOCAL BACKUP & RESTORE
+Choose Save local backup in the footer, or Settings → Local backup & restore.
+Enter and confirm a strong passphrase, create the backup, then use Share / Save
+to Files or Download backup. Choose On My iPhone / On My iPad for device-only
+storage. The .plantit file contains records, journal and all uploaded plant and
+room photos. Save a fresh copy after important changes; this is not automatic.
+To restore, choose that file, enter its passphrase, review the verified summary,
+then confirm replacement. Keep your passphrase safely; it cannot be recovered.
+See PRIVACY-AND-BACKUPS.txt for the complete privacy/security details and limits.
 
-Refresh Safari after uploading. For a Home Screen app, close and reopen it.
-Keep the same URL to retain your browser-local notes and room photographs.
-Do not clear website data. The new service worker removes this app's old
-model cache automatically without deleting notes or photographs.
+IMPORT
+Choose Import plants. Notion ZIP exports, Markdown, TXT, CSV and older PlantIt
+record-only JSON are supported. Review the plant names, rooms, history and next
+watering dates before importing. The file picker leaves Markdown/TXT selectable
+on iPhone. Notion ZIP imports read the text records; embedded Notion photos are
+not imported. New encrypted backups use the separate restore screen above.
 
-The earlier gaussian-world.js, splat-math.js, splat-sort-worker.js,
-splat-decode-worker.js and assets/scenes/ can be deleted from the hosting
-folder after uploading if they are still present. Nothing in this edition
-loads them. They are omitted from this ZIP.
+CARE
+Next watering = latest recorded watering + your chosen interval in calendar days.
+Edit care & photo lets you change the interval, correct the latest date, set a
+next-date override and add your own photo. Logging watering clears the override.
+Missing intervals may be estimated from dated history; those are labeled.
+Dates are reminders: check the soil before watering.
 
-BEHAVIOR
-Choose Sunroom, Vine House or Fern Alcove to change the painted background.
-A brief sparkle accompanies the background fade, then all motion stops.
-Reduced-motion preferences or the sun-icon motion setting disable it.
-Plant records open immediately. Room photographs use ordinary previous/next
-controls with no special effect. Notes, care records, and photographs remain
-local to your browser. Uploaded photos never become decorative backgrounds.
+WIKIPEDIA
+Automatic lookups are off by default. Use Find on Wikipedia in a plant’s details,
+or enable automatic lookup in settings. Only the species/article query is sent.
+Reference images load from Wikimedia; uploaded photos take priority. Your own
+notes, dates and photos are never uploaded by the application.
 
-This is the standalone design edition with three sample plant records. It
-does not migrate your existing PlantIt backend, accounts or Notion imports.
-The included species references and starting care dates/counts are examples.
-All required assets are bundled. See CREDITS.txt for photograph attribution.
+DESIGN
+Leafy Italian fresco backgrounds with a brief sparkle when changing rooms.
+No Gaussian splats, 3D renderer or continuous background animation is used.
+Existing old Gaussian files can be removed after updating; none are required.
 
-VERSION 3.1.0 — FUNCTIONAL COLLECTION
-Upload the contents of this ZIP to public_html, with index.html directly inside it.
-Open Import plants (also available in Garden settings). Import Notion ZIP exports,
-Markdown/TXT, CSV, or PlantIt JSON. Review dates before confirming. On iPhone,
-choose files from Browse; the file picker does not restrict Markdown/TXT types.
-ZIP imports read text records; embedded Notion photos are not imported. Add your
-own plant photos using Edit care & photo. Exported JSON contains plant records,
-watering history and notes, but uploaded images remain in browser storage.
+CHECKS
+node tests/care-import.cjs
+node tests/backup.cjs
 
-Next water date = latest recorded watering + interval in calendar days.
-A manual next-date override is supported; logging watering clears the override.
-Missing intervals are estimated from median gaps in dated history and labeled.
-Dates are reminders: check the soil before watering. Edit care to correct the
-most recent watering date, choose an interval or set a manual next date.
-
-Wikipedia lookup requires internet. Only the species/article query is sent to
-Wikipedia, without cookies. Your personal notes and dates stay in your browser.
-Your own photo takes priority; otherwise the Wikipedia reference image is used.
-If no suitable article/photo is available, a neutral plant illustration remains.
-Use Find on Wikipedia / Change Wikipedia article to select a better match.
-All notes/dates/photos are local to the current browser and domain; they do not
-sync across devices. Export before moving hosts. No Flask server is required.
-
-Verification: node tests/care-import.cjs
+Records and photos are local to this browser and address. There is no automatic
+cross-device synchronization. A separately saved backup survives clearing Safari
+website data; the working browser garden does not.

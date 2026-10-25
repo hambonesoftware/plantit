@@ -1,0 +1,12 @@
+# Security headers for Apache/LiteSpeed (Hostinger). No account or data server.
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "no-referrer"
+  Header always set X-Frame-Options "DENY"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+  Header always set Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: https://upload.wikimedia.org https://thumb.wikimedia.org; font-src 'self'; connect-src 'self' https://en.wikipedia.org https://commons.wikimedia.org; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'; frame-ancestors 'none'"
+  <FilesMatch "^(index\.html|service-worker\.js)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+Options -Indexes

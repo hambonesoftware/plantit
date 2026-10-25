@@ -19,6 +19,8 @@ jobs:
       - name: Check application scripts
         run: |
           for file in fresco-garden/*.js; do node --check "$file"; done
+          node fresco-garden/tests/care-import.cjs
+          node fresco-garden/tests/backup.cjs
           test -f fresco-garden/index.html
           test -f fresco-garden/assets/fresco-sunroom.jpg
           test -f fresco-garden/assets/fresco-vine-house.jpg

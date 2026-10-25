@@ -1,0 +1,60 @@
+PLANTIT 3.2 — LOCAL PRIVACY AND ENCRYPTED BACKUPS
+
+Your plants, watering history, notes and uploaded photos stay in this browser.
+There is no account, cloud garden database, analytics or upload endpoint.
+Wikipedia automatic lookup is off by default. Manual lookup or enabling it sends
+species/article queries to Wikipedia. Wikimedia reference images load remotely;
+your personal photos and notes are not sent. The website host still receives the
+normal requests needed to deliver the application files.
+
+SAVE A COMPLETE BACKUP
+1. Open the sun/settings button, then Local backup & restore.
+2. Enter and confirm a long, unique passphrase (minimum 12 characters).
+3. Create encrypted backup. Check the displayed photo and plant counts.
+4. Choose Share / Save to Files, or Download backup.
+5. On iPhone/iPad, choose On My iPhone / On My iPad for device-only storage.
+   Choosing iCloud Drive syncs the file using your Apple account instead.
+6. Keep your passphrase safely. PlantIt cannot reset or recover it.
+Backups are manual snapshots. Save a new backup after important changes, and keep
+an additional copy on another device if you want protection from device loss.
+
+RESTORE
+Choose the .plantit file in Local backup & restore, enter its passphrase, then
+Unlock & review backup. PlantIt checks the encrypted file, records, image types,
+photo hashes, sizes and links between photos and plants/rooms before showing a
+summary. Confirm replacement, then Restore this garden. The replacement of garden
+records and photos uses one browser database transaction. A wrong passphrase or
+failed validation does not alter the current garden.
+
+The file includes rooms (including empty rooms), plants, schedules, dated care,
+purchase dates, personal notes, journal entries, reference metadata, uploaded plant
+photos, uploaded room photos and appearance/privacy settings. Bundled frescoes
+and externally hosted Wikipedia pictures are application/reference assets; the
+backup keeps their references, not downloaded copies of those third-party images.
+Maximum: 128 MB total backup content, 20 MB per image, 2,000 uploaded photos.
+JPEG, PNG, GIF, WebP, AVIF and HEIC are supported. SVG photos are excluded.
+Old record-only JSON imports still work through Import plants; use this restore
+screen for the new complete encrypted backup files.
+
+SECURITY DESIGN
+Backup encryption: Web Crypto AES-256-GCM, 128-bit authentication tag, fresh random
+16-byte salt and 12-byte IV for every file; PBKDF2-HMAC-SHA-256 with 600,000 rounds.
+Only encrypted bytes are offered for download/share. No passphrase or key is saved
+by PlantIt. HTTPS is required; Hostinger must have a valid SSL certificate enabled.
+Use at least 4-5 randomly chosen words rather than a predictable phrase.
+The working browser database is NOT encrypted with your backup passphrase.
+Use a strong device passcode, device encryption, updates and a trusted browser.
+No web app can protect its unlocked data from a compromised device or malicious
+code served from a compromised host. This is not an independent security audit.
+
+The application restricts executable scripts to its own files, blocks embedded
+frames/objects/forms to external sites, limits external API/image destinations,
+escapes displayed text and validates backup records/archives before restoring.
+The included .htaccess adds no-sniff, no-referrer, anti-framing and permission
+headers on Apache/LiteSpeed hosting. Ensure hidden files are uploaded to Hostinger.
+The HTML also includes a Content Security Policy for static hosts. GitHub Pages
+cannot apply the Hostinger-specific HTTP header rules.
+
+Clearing website data can still erase the working garden. A backup already saved
+in Files is separate and survives that clearing. Deleting your backup file, losing
+the device or forgetting the passphrase can prevent recovery.
