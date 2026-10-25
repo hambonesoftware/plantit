@@ -5,12 +5,13 @@ const plants=[
 {id:0,name:'Monstera',species:'Monstera deliciosa',file:'Monstera_deliciosa2.jpg',native:'Southern Mexico to Central America',light:'Bright, indirect',water:'Check soil first',last:'Oct 18',bought:'May 12, 2026',count:18,due:true,note:'A new leaf is slowly unfurling. Turned the pot toward the morning light.',habitat:'A climbing evergreen of humid tropical forests.',source:'https://en.wikipedia.org/wiki/Monstera_deliciosa'},
 {id:1,name:'Golden pothos',species:'Epipremnum aureum',file:'Money_Plant_(Epipremnum_aureum)_4.jpg',native:'Moorea, Society Islands',light:'Gentle, indirect',water:'Check soil first',last:'Oct 22',bought:'June 3, 2026',count:14,due:false,note:'The longest vine has reached the shelf below. Looking beautifully green.',habitat:'A tropical evergreen vine that climbs with aerial roots.',source:'https://en.wikipedia.org/wiki/Epipremnum_aureum'},
 {id:2,name:'Boston fern',species:'Nephrolepis exaltata',file:'Boston_Fern_(2873392811).png',native:'Tropical regions',light:'Filtered light',water:'Check moisture',last:'Oct 23',bought:'July 17, 2026',count:22,due:true,note:'Fresh little fronds in the center. Checked the soil before watering.',habitat:'A fern associated with moist, shaded tropical and subtropical habitats.',source:'https://en.wikipedia.org/wiki/Nephrolepis_exaltata'}];
-let saved={};try{saved=JSON.parse(localStorage.getItem('plantit-design-v1')||'{}')}catch{}
-let state={page:'garden',scene:0,filter:'',done:saved.done||[],notes:saved.notes||[],motion:saved.motion!==false};
+let saved={};try{const candidate=JSON.parse(localStorage.getItem('plantit-design-v1')||'{}');if(candidate&&typeof candidate==='object'&&!Array.isArray(candidate))saved=candidate;}catch{}
+let state={page:'garden',scene:0,filter:'',done:Array.isArray(saved.done)?saved.done.filter(id=>Number.isInteger(id)&&id>=0&&id<plants.length):[],notes:Array.isArray(saved.notes)?saved.notes.filter(note=>note&&typeof note.text==='string'&&typeof note.plant==='string'&&typeof note.date==='string'):[],motion:saved.motion!==false};
 let roomPhotos=[],photoIndex=0,roomToken=0;const rooms=[[],[],[]];let previousFocus;
 const scenes=['Sunroom','Vine House','Fern Alcove'];
-const world=new GaussianWorld(document.querySelector('#splat-world'));
+const world=createWorldBridge();
 let plantRequest=0,suppressClose=0;
+render(); // First paint is independent of optional canvas/3D setup.
 function persist(){try{localStorage.setItem('plantit-design-v1',JSON.stringify({done:state.done,notes:state.notes,motion:state.motion}))}catch{toast('Browser storage is unavailable; changes last for this visit.')}}
 function toast(t){$('#toast').textContent=t;$('#toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('show'),3000)}
 function openDialog(id){previousFocus=document.activeElement;$(id).showModal()}$$('dialog .close').forEach(b=>b.onclick=()=>b.closest('dialog').close());$$('dialog').forEach(d=>{d.addEventListener('close',()=>previousFocus?.focus());d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close()}})});
@@ -55,7 +56,7 @@ $('#settings').onclick=()=>{$('#small-content').innerHTML=`<div class="eyebrow">
 $('#about').onclick=()=>{$('#small-content').innerHTML='<div class="eyebrow">PlantIt · Design review</div><h2 style="margin-top:10px">A garden you can settle into.</h2><p>The complete B + C direction brings together sun-washed plaster, realistic foliage, botanical photo frames, soft golden light, and clear care actions.</p><p>Explore all three environments, open a plant, log watering, write a journal note, or upload at least two room photos and use the arrows.</p><p>This is an interactive visual prototype with sample records. It is separate from your live PlantIt installation. The photo effect is a 2D Gaussian-style dissolve; it does not reconstruct a 3D room.</p><button class="secondary" id="reset-review">Reset sample care and notes</button>';$('#reset-review').onclick=()=>{state.done=[];state.notes=[];persist();render();$('#small').close();toast('Sample garden reset.')};openDialog('#small')};
 $('#credits').onclick=async()=>{let credits=[];try{credits=await fetch('assets/credits.json').then(r=>r.json())}catch{}$('#small-content').innerHTML=`<div class="eyebrow">Photographs & provenance</div><h2 style="margin-top:10px">The plants behind the pictures</h2>${plants.map((p,i)=>`<p><b>${p.species}</b><br>${escapeHTML(credits[i]?.artist||'See Wikimedia file page for author and terms')}<br>${escapeHTML(credits[i]?.license||'Wikimedia Commons')} · <a href="https://commons.wikimedia.org/wiki/File:${encodeURIComponent(p.file)}" target="_blank" rel="noopener">Original & license ↗</a></p>`).join('')}<p>The conservatory uses authored 3D Gaussian geometry with generated artwork for wall colors. The plant photographs are Wikimedia reference images; room photographs are supplied by you. Species summaries link to Wikipedia. Care dates and event counts are sample personal records.</p>`;openDialog('#small')};
 $$('nav button').forEach(b=>b.onclick=()=>navigate(b.dataset.page));window.addEventListener('hashchange',()=>{let p=location.hash.slice(1);if(['garden','care','journal'].includes(p)&&p!==state.page){state.page=p;render()}});if(['garden','care','journal'].includes(location.hash.slice(1)))state.page=location.hash.slice(1);if(matchMedia('(prefers-reduced-motion: reduce)').matches)state.motion=false;
-const dust=$('#dust'),dc=dust.getContext('2d');let dots=Array.from({length:28},()=>({x:Math.random(),y:Math.random(),r:Math.random()*2+.5,s:Math.random()*.000025+.00001}));function sizeDust(){dust.width=innerWidth;dust.height=innerHeight}sizeDust();window.addEventListener('resize',()=>{sizeDust();if(state.page==='garden')updateRoom(false)});let last=0;function drift(t){if(t-last>40){last=t;dc.clearRect(0,0,dust.width,dust.height);if(state.motion&&!document.hidden){for(const p of dots){p.y-=p.s*40;if(p.y<0)p.y=1;const x=p.x*dust.width+Math.sin(t*.0002+p.x*9)*12,y=p.y*dust.height;const g=dc.createRadialGradient(x,y,0,x,y,p.r*4);g.addColorStop(0,'#ffe8a7a0');g.addColorStop(1,'#ffe8a700');dc.fillStyle=g;dc.beginPath();dc.arc(x,y,p.r*4,0,Math.PI*2);dc.fill()}}}requestAnimationFrame(drift)}requestAnimationFrame(drift);render();
+const dust=$('#dust');let dc=null;try{dc=dust?.getContext('2d');}catch{};let dots=Array.from({length:28},()=>({x:Math.random(),y:Math.random(),r:Math.random()*2+.5,s:Math.random()*.000025+.00001}));function sizeDust(){dust.width=innerWidth;dust.height=innerHeight}sizeDust();window.addEventListener('resize',()=>{sizeDust();if(state.page==='garden')updateRoom(false)});let last=0;function drift(t){if(t-last>40){last=t;if(dc)dc.clearRect(0,0,dust.width,dust.height);if(dc&&state.motion&&!document.hidden){for(const p of dots){p.y-=p.s*40;if(p.y<0)p.y=1;const x=p.x*dust.width+Math.sin(t*.0002+p.x*9)*12,y=p.y*dust.height;const g=dc.createRadialGradient(x,y,0,x,y,p.r*4);g.addColorStop(0,'#ffe8a7a0');g.addColorStop(1,'#ffe8a700');dc.fillStyle=g;dc.beginPath();dc.arc(x,y,p.r*4,0,Math.PI*2);dc.fill()}}}requestAnimationFrame(drift)}requestAnimationFrame(drift);render();
 
 // Gaussian Garden controls. The image gallery remains a separately labeled photo album.
 world.setMotion(state.motion);
@@ -89,3 +90,53 @@ document.addEventListener('world-ready',()=>{world.setMotion(state.motion);if(st
   if(state.page==='garden')render();
  }catch{ /* A private-mode storage restriction does not prevent using the garden. */ }
 })();
+
+// The application is interactive before optional GPU initialization begins.
+window.PlantItAppReady=true;
+document.body.classList.add('app-ready');
+window.startPlantItWorld=()=>world.start();
+const retry3d=document.querySelector('#retry-world');if(retry3d)retry3d.onclick=()=>world.start();
+setTimeout(()=>world.start(),60);
+function createWorldBridge(){
+ let renderer=null,starting=false,desiredRoom=0,desiredPlant=null,requestedMotion=true,quality='balanced',loadTimer;
+ const status=()=>document.querySelector('#world-status');
+ function note(text){if(status())status().textContent=text;}
+ function fallback(error){
+  starting=false;clearTimeout(loadTimer);document.body.classList.remove('walking','world-ready','exploring');
+  document.body.classList.add('world-fallback');
+  window.PlantItWorldDiagnostic=error instanceof Error?error.message:String(error);
+  note('Garden ready · 3D could not start');
+ }
+ const bridge={
+  get ready(){return Boolean(renderer?.ready);},get room(){return renderer?.room??desiredRoom;},get plant(){return renderer?.plant??desiredPlant;},get quality(){return renderer?.quality??quality;},
+  home(room=desiredRoom){desiredRoom=room;desiredPlant=null;return renderer?.ready?renderer.home(room):Promise.resolve(true);},
+  approach(id,room=desiredRoom){desiredRoom=room;desiredPlant=id;return renderer?.ready?renderer.approach(id,room):Promise.resolve(true);},
+  setMotion(value){requestedMotion=Boolean(value);renderer?.setMotion(value);},
+  setQuality(value){quality=value;renderer?.setQuality(value);},
+  importSplat(file,room=desiredRoom){return renderer?.ready?renderer.importSplat(file,room):Promise.reject(Error('3D is not running. Tap Retry 3D first.'));},
+  restoreRoom(room=desiredRoom){return renderer?.ready?renderer.restoreRoom(room):Promise.reject(Error('3D is not running. Tap Retry 3D first.'));},
+  async start(){
+   if(starting||renderer?.ready)return;
+   starting=true;document.body.classList.remove('world-fallback');note('Garden ready · opening 3D rooms…');
+   try{
+    // Retry missing optional renderer scripts without putting the application at risk.
+    for(const [name,url] of [['SplatMath','splat-math.js'],['GaussianWorld','gaussian-world.js']]){
+     if(window[name])continue;
+     await new Promise((resolve,reject)=>{const script=document.createElement('script');const timer=setTimeout(()=>{script.remove();reject(Error(name+' download timed out'));},15000);script.src=url+'?v=2.0.1';script.onload=()=>{clearTimeout(timer);window[name]?resolve():reject(Error(name+' did not initialize'));};script.onerror=()=>{clearTimeout(timer);reject(Error(name+' could not load'));};document.head.append(script);});
+    }
+    renderer?.dispose?.();renderer=new window.GaussianWorld(document.querySelector('#splat-world'));
+    renderer.setMotion(requestedMotion);renderer.setQuality(quality);
+    if(!renderer.gl){fallback(Error('WebGL2 is unavailable'));return;}
+    if(renderer.failed){fallback(Error(renderer.failed));return;}
+    loadTimer=setTimeout(()=>{if(!renderer?.ready){renderer?.fail?.('Scene loading timed out');fallback(Error('Scene loading timed out'));}},45000);
+   }catch(error){fallback(error);}
+  }
+ };
+ document.addEventListener('world-ready',()=>{
+  starting=false;clearTimeout(loadTimer);document.body.classList.remove('world-fallback');
+  renderer?.setMotion(requestedMotion);renderer?.setQuality(quality);
+  if(desiredPlant!==null)renderer?.approach(desiredPlant,desiredRoom);else if(desiredRoom!==renderer?.room)renderer?.home(desiredRoom);
+ });
+ document.addEventListener('world-fallback',event=>fallback(Error(String(event.detail||'3D renderer unavailable'))));
+ return bridge;
+}

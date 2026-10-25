@@ -17,3 +17,6 @@ const invalid=new ArrayBuffer(32);assert.throws(()=>M.decode(invalid),/scales/);
 // Model import normalization retains all points and their covariance.
 const source=fs.readFileSync(root+manifest.rooms[0].file);const imported=M.decode(source.buffer.slice(source.byteOffset,source.byteOffset+source.byteLength),[10,0,0],{normalize:true});assert.equal(imported.count,manifest.rooms[0].gaussians);
 console.log('PASS: '+count.toLocaleString()+' finite positive-definite 3D Gaussians; 9 room routes; 9 plant anchors; depth order; model import; invalid-model handling.');
+
+// Model decoder worker must return transferable model arrays or an explicit error.
+let decodedReply;const decoderContext={self:{postMessage:message=>decodedReply=message},importScripts:()=>{},SplatMath:M};vm.createContext(decoderContext);vm.runInContext(fs.readFileSync(root+'splat-decode-worker.js','utf8'),decoderContext);const input=fs.readFileSync(root+manifest.rooms[0].file);decoderContext.self.onmessage({data:{buffer:input.buffer.slice(input.byteOffset,input.byteOffset+input.byteLength),offset:[0,0,0]}});assert.equal(decodedReply.model.count,manifest.rooms[0].gaussians);decoderContext.self.onmessage({data:{buffer:new ArrayBuffer(7),offset:[0,0,0]}});assert.ok(decodedReply.error);console.log('PASS: off-thread room decoding and invalid-model errors.');

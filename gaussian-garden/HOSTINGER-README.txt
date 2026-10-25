@@ -1,5 +1,5 @@
 PLANTIT — GAUSSIAN GARDEN, HOSTINGER EDITION
-Version 2.0.0 | October 25, 2026
+Version 2.0.1 | October 25, 2026
 
 INSTALLATION
 1. In Hostinger hPanel, open File Manager for your domain.
@@ -118,3 +118,18 @@ intend to remove its locally saved plant notes, care state and photos.
 
 Hostinger reference:
 https://www.hostinger.com/support/4548688-basic-actions-in-the-file-manager-in-hostinger/
+
+STARTUP FIX IN 2.0.1
+The garden interface renders before graphics initialization. Renderer errors
+fall back to still artwork with a Retry 3D button. Room decoding runs in a
+separate worker, and downloads, decoding and sorting have timeouts. Invalid
+old preference data no longer prevents startup. Asset URLs and the offline
+cache are versioned to replace old script copies without clearing plant data.
+
+UPDATING AN EXISTING HOSTINGER INSTALLATION
+Extract these files over the files in the same plantit-gaussian folder. Keep
+the same folder/URL so local notes and photos remain associated with the site.
+Refresh Safari after uploading. If it was installed on the Home Screen, fully
+close that app and reopen it. Do not clear website data: that removes locally
+saved notes and photographs. If the page reports 3D unavailable, the rest of
+the app remains usable; tap Retry 3D once to retry graphics startup.
