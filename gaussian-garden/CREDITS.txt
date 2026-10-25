@@ -1,0 +1,44 @@
+PLANTIT GAUSSIAN GARDEN — ASSET CREDITS
+
+Plant photographs retain their reference content; display uses CSS crops.
+
+1. Monstera deliciosa2.jpg
+   Photographer: Raul654. Longwood Gardens, May 1, 2005.
+   https://commons.wikimedia.org/wiki/File:Monstera_deliciosa2.jpg
+   Creative Commons Attribution-ShareAlike 3.0
+   https://creativecommons.org/licenses/by-sa/3.0/
+
+2. Money Plant (Epipremnum aureum) 4.jpg
+   Photographer: Mokkie
+   https://commons.wikimedia.org/wiki/File:Money_Plant_(Epipremnum_aureum)_4.jpg
+   Creative Commons Attribution-ShareAlike 3.0
+   https://creativecommons.org/licenses/by-sa/3.0/
+
+3. Boston Fern (2873392811).png
+   Photographer: Homer Edward Price
+   https://commons.wikimedia.org/wiki/File:Boston_Fern_(2873392811).png
+   Creative Commons Attribution 2.0
+   https://creativecommons.org/licenses/by/2.0/
+
+Species reference links:
+https://en.wikipedia.org/wiki/Monstera_deliciosa
+https://en.wikipedia.org/wiki/Epipremnum_aureum
+https://en.wikipedia.org/wiki/Nephrolepis_exaltata
+
+Decorative environment images: generated with the built-in image-generation
+service for this PlantIt design. Not documentary photographs of user rooms.
+Files: assets/sanctuary.jpg, assets/vine-house.jpg, assets/fern-alcove.jpg.
+Prompts: sun-washed ivory plaster with dense realistic foliage at page edges,
+hanging vines, fern fronds, soft golden light and Gaussian bokeh; distinct
+Sunroom, Vine House and Fern Alcove environments; no text or interface.
+
+Font: DM Sans, Google Fonts. See assets/FONT-LICENSE.txt (SIL OFL 1.1).
+Headings use the device's Georgia or serif fallback.
+
+Gaussian scene geometry, renderer, camera paths, UI, and scene generator:
+created for this PlantIt edition. Decorative plant meshes are represented
+by Gaussian primitives; species identification uses the credited photos.
+
+Algorithm reference: Kerbl et al., 3D Gaussian Splatting for Real-Time
+Radiance Field Rendering (2023). https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/
+No reference implementation code or model weights are bundled.

@@ -1,0 +1,55 @@
+name: Publish Gaussian Garden to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gaussian-garden/**'
+      - '.github/workflows/gaussian-garden-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gaussian-garden-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PlantIt
+        uses: actions/checkout@v4
+      - name: Set up scene-generation Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scene-generation dependencies
+        run: python -m pip install 'numpy==2.2.6' 'Pillow==11.3.0'
+      - name: Build the three bundled Gaussian rooms
+        run: python gaussian-garden/source/build-scenes.py
+      - name: Validate Gaussian models and camera routes
+        run: node gaussian-garden/source/test-scene.cjs
+      - name: Check application JavaScript
+        run: |
+          for file in gaussian-garden/*.js; do node --check "$file"; done
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: gaussian-garden
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Deploy Gaussian Garden
+        id: deployment
+        uses: actions/deploy-pages@v4
