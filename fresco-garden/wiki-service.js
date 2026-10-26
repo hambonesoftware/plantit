@@ -13,5 +13,15 @@ async function page(title){const data=await request({titles:title,redirects:1,pr
  return {title:p.title,url:p.fullurl||'https://en.wikipedia.org/wiki/'+encodeURIComponent(p.title),extract:intro,habitat:section(p.extract,/habitat|distribution|ecology|range|origin/i),description:section(p.extract,/description/i),family:intro.match(/family\s+([A-Z][a-z]+aceae)/)?.[1]||'',image,fetchedAt:new Date().toISOString()};
 }
 async function search(query){const data=await request({list:'search',srsearch:String(query).slice(0,160)+' plant',srnamespace:0,srlimit:6,srprop:'snippet'});return (data.query?.search||[]).map(p=>({title:p.title,description:plain(p.snippet)}));}
-root.PlantItWiki={page,search};
+async function resolve(scientific,common){
+ const sci=String(scientific||'').trim(),colloquial=String(common||'').trim();
+ let scientificPage=null,commonPage=null;
+ if(sci)scientificPage=await page(sci);
+ if(colloquial&&colloquial.toLowerCase()!==sci.toLowerCase())commonPage=await page(colloquial);
+ else commonPage=scientificPage;
+ const chosen=commonPage||scientificPage;if(!chosen)return null;
+ const disagree=!!(commonPage&&scientificPage&&commonPage.url!==scientificPage.url);
+ return {...chosen,namesChecked:true,scientificTitle:scientificPage?.title||'',commonTitle:commonPage?.title||'',matchNotice:disagree?'Names resolve to different Wikipedia articles. The common-name article is shown; review the scientific name.':!commonPage&&colloquial?'The common name could not be verified. Showing the scientific-name article; review the match.':!scientificPage&&sci?'The scientific name could not be verified. Showing the common-name article.':''};
+}
+root.PlantItWiki={page,search,resolve};if(typeof module!=='undefined')module.exports=root.PlantItWiki;
 })(typeof globalThis!=='undefined'?globalThis:this);
